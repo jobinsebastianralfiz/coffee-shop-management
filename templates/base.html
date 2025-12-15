@@ -462,7 +462,7 @@
                 {% endif %}
                 {% endif %}
 
-                {% if user.role == 'staff_kitchen' %}
+                {% if user.role == 'staff_kitchen' or user.role == 'outlet_manager' or user.role == 'super_admin' %}
                 <!-- Kitchen Display -->
                 <a href="{% url 'dashboard:kitchen' %}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-xl {% if 'kitchen' in request.path %}active{% endif %}">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -679,7 +679,7 @@
                 {% endif %}
                 {% endif %}
 
-                {% if user.role == 'staff_kitchen' %}
+                {% if user.role == 'staff_kitchen' or user.role == 'outlet_manager' or user.role == 'super_admin' %}
                 <!-- Kitchen Display -->
                 <a href="{% url 'dashboard:kitchen' %}" @click="mobileMenuOpen = false" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-xl {% if 'kitchen' in request.path %}active{% endif %}">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
