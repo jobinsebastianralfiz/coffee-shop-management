@@ -1,9 +1,26 @@
 {% extends "waiter/base.html" %}
+{% load static %}
 
 {% block title %}Seat {{ seat }} - Table {{ table.number }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Offline mode styling */
+    .offline-badge {
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    .pending-sync {
+        border-left: 3px solid #f59e0b;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div x-data="takeOrderApp()" class="min-h-screen pb-32">
+<div x-data="takeOrderApp()" x-init="init()" class="min-h-screen pb-32">
     <!-- Header -->
     <header class="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
         <div class="px-4 py-3">
@@ -16,12 +33,26 @@
                 <div class="flex-1">
                     <h1 class="text-lg font-bold text-slate-800">Table {{ table.number }} - Seat {{ seat }}</h1>
                     <p class="text-sm text-slate-500">
-                        {% if current_order %}
-                        Order: {{ current_order.order_number }}
-                        {% else %}
-                        New Order
-                        {% endif %}
+                        <span x-show="!isOffline">
+                            {% if current_order %}
+                            Order: {{ current_order.order_number }}
+                            {% else %}
+                            New Order
+                            {% endif %}
+                        </span>
+                        <span x-show="isOffline" x-cloak class="text-amber-600 font-medium">
+                            Offline Mode
+                        </span>
                     </p>
+                </div>
+                <!-- Pending orders indicator -->
+                <div x-show="pendingOrdersCount > 0" x-cloak class="relative">
+                    <button @click="showPendingModal = true" class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </button>
+                    <span class="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold" x-text="pendingOrdersCount"></span>
                 </div>
             </div>
         </div>
@@ -36,105 +67,541 @@
                 >
                     All
                 </button>
-                {% for category in categories %}
-                <button
-                    @click="selectedCategory = {{ category.pk }}"
-                    :class="selectedCategory === {{ category.pk }} ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700'"
-                    class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
-                >
-                    {{ category.name }}
-                </button>
-                {% endfor %}
+                <template x-for="category in menuCategories" :key="category.id">
+                    <button
+                        @click="selectedCategory = category.id"
+                        :class="selectedCategory === category.id ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700'"
+                        class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                        x-text="category.name"
+                    ></button>
+                </template>
             </div>
         </div>
     </header>
 
+    <!-- Loading State -->
+    <div x-show="loading" class="p-8 text-center">
+        <svg class="animate-spin h-8 w-8 mx-auto text-indigo-600" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="mt-2 text-slate-500">Loading menu...</p>
+    </div>
+
     <!-- Menu Items -->
-    <main class="p-4 space-y-6">
-        {% for category in categories %}
-        <div x-show="selectedCategory === null || selectedCategory === {{ category.pk }}">
-            <h2 class="text-lg font-bold text-slate-800 mb-3">{{ category.name }}</h2>
-            <div class="grid grid-cols-1 gap-3">
-                {% for item in category.items.all %}
-                {% if item.is_available %}
-                <div class="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4">
-                    <!-- Item Image/Icon -->
-                    {% if item.image %}
-                    <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
-                        <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-full h-full object-cover">
-                    </div>
-                    {% else %}
-                    <div class="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 flex items-center justify-center">
-                        <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                        </svg>
-                    </div>
-                    {% endif %}
+    <main x-show="!loading" class="p-4 space-y-6">
+        <template x-for="category in filteredCategories" :key="category.id">
+            <div>
+                <h2 class="text-lg font-bold text-slate-800 mb-3" x-text="category.name"></h2>
+                <div class="grid grid-cols-1 gap-3">
+                    <template x-for="item in category.items" :key="item.id">
+                        <div class="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4">
+                            <!-- Item Image/Icon -->
+                            <div class="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                <template x-if="item.image_url">
+                                    <img :src="item.image_url" :alt="item.name" class="w-full h-full object-cover">
+                                </template>
+                                <template x-if="!item.image_url">
+                                    <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                                    </svg>
+                                </template>
+                            </div>
 
-                    <!-- Item Info -->
-                    <div class="flex-1 min-w-0">
-                        <h3 class="font-semibold text-slate-800">{{ item.name }}</h3>
-                        <p class="text-lg font-bold text-indigo-600">{{ item.base_price }}</p>
-                    </div>
+                            <!-- Item Info -->
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-semibold text-slate-800" x-text="item.name"></h3>
+                                <p class="text-lg font-bold text-indigo-600" x-text="'₹' + item.base_price"></p>
+                            </div>
 
-                    <!-- Add Button -->
-                    <form method="POST" action="{% url 'waiter:add_item' pk=table.pk seat=seat %}" class="flex-shrink-0">
-                        {% csrf_token %}
-                        <input type="hidden" name="menu_item" value="{{ item.pk }}">
-                        <input type="hidden" name="quantity" value="1">
-                        <button type="submit" class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center touch-active">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                            </svg>
-                        </button>
-                    </form>
+                            <!-- Quantity controls or Add button -->
+                            <div class="flex-shrink-0">
+                                <template x-if="getCartItemQuantity(item.id) > 0">
+                                    <div class="flex items-center gap-2 bg-indigo-50 rounded-xl p-1">
+                                        <button @click="removeFromCart(item.id)" class="w-8 h-8 rounded-lg bg-white text-indigo-600 flex items-center justify-center shadow-sm touch-active">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                            </svg>
+                                        </button>
+                                        <span class="w-8 text-center font-bold text-indigo-600" x-text="getCartItemQuantity(item.id)"></span>
+                                        <button @click="addToCart(item)" class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm touch-active">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </template>
+                                <template x-if="getCartItemQuantity(item.id) === 0">
+                                    <button @click="addToCart(item)" class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center touch-active">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                        </svg>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
                 </div>
-                {% endif %}
-                {% endfor %}
             </div>
+        </template>
+
+        <!-- Empty State -->
+        <div x-show="menuCategories.length === 0 && !loading" class="text-center py-12">
+            <svg class="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+            <p class="text-slate-500">No menu items available</p>
+            <p class="text-slate-400 text-sm mt-1" x-show="isOffline">Menu will load when you're back online</p>
         </div>
-        {% endfor %}
     </main>
 
     <!-- Bottom Cart Bar -->
-    {% if current_order and current_order.items.exists %}
-    <div class="fixed bottom-20 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40 shadow-lg">
+    <div class="fixed bottom-20 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40 shadow-lg" x-show="cart.length > 0" x-cloak>
         <div class="flex items-center justify-between mb-3">
             <div>
-                <p class="text-sm text-slate-500">{{ current_order.items.count }} items</p>
-                <p class="text-xl font-bold text-slate-800">{{ current_order.subtotal }}</p>
+                <p class="text-sm text-slate-500"><span x-text="cartItemCount"></span> items</p>
+                <p class="text-xl font-bold text-slate-800">₹<span x-text="cartTotal.toFixed(2)"></span></p>
             </div>
-            <form method="POST" action="{% url 'waiter:submit_order' pk=table.pk seat=seat %}">
-                {% csrf_token %}
-                <button type="submit" class="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-lg touch-active">
-                    Send to Kitchen
-                </button>
-            </form>
+            <button
+                @click="submitOrder()"
+                :disabled="submitting"
+                class="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-lg touch-active disabled:opacity-50"
+            >
+                <span x-show="!submitting">
+                    <span x-show="isOffline">Save Order</span>
+                    <span x-show="!isOffline">Send to Kitchen</span>
+                </span>
+                <span x-show="submitting" class="flex items-center gap-2">
+                    <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    Sending...
+                </span>
+            </button>
         </div>
 
         <!-- Cart Items Preview -->
         <div class="space-y-2 max-h-32 overflow-y-auto">
-            {% for item in current_order.items.all %}
-            <div class="flex items-center justify-between text-sm">
-                <span class="text-slate-600">{{ item.quantity }}x {{ item.item_name }}</span>
-                <span class="font-medium text-slate-800">{{ item.total_price }}</span>
-            </div>
-            {% endfor %}
+            <template x-for="item in cart" :key="item.menu_item_id">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-slate-600"><span x-text="item.quantity"></span>x <span x-text="item.name"></span></span>
+                    <span class="font-medium text-slate-800">₹<span x-text="(item.price * item.quantity).toFixed(2)"></span></span>
+                </div>
+            </template>
         </div>
     </div>
-    {% else %}
-    <div class="fixed bottom-20 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40">
+
+    <!-- Empty Cart Message -->
+    <div class="fixed bottom-20 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40" x-show="cart.length === 0">
         <p class="text-center text-slate-500 text-sm">Tap + to add items to this order</p>
     </div>
-    {% endif %}
+
+    <!-- Pending Orders Modal -->
+    <div x-show="showPendingModal" x-cloak class="fixed inset-0 bg-black/50 z-50 flex items-end">
+        <div class="bg-white w-full rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto" @click.outside="showPendingModal = false">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold">Pending Orders</h3>
+                <button @click="showPendingModal = false" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <p class="text-sm text-amber-600 mb-4 bg-amber-50 p-3 rounded-xl">
+                These orders were created offline and will sync automatically when you're back online.
+            </p>
+
+            <div class="space-y-3">
+                <template x-for="order in pendingOrders" :key="order.offline_id">
+                    <div class="p-4 border rounded-xl pending-sync">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <p class="font-semibold">Table <span x-text="order.table_id"></span> - Seat <span x-text="order.seat"></span></p>
+                                <p class="text-xs text-slate-500" x-text="new Date(order.created_at).toLocaleString()"></p>
+                            </div>
+                            <span class="px-2 py-1 text-xs rounded-full"
+                                  :class="order.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'"
+                                  x-text="order.status"></span>
+                        </div>
+                        <div class="text-sm text-slate-600">
+                            <span x-text="order.items.length"></span> items
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <button
+                @click="manualSync()"
+                :disabled="syncing || !navigator.onLine"
+                class="w-full mt-4 py-3 rounded-xl bg-indigo-600 text-white font-semibold disabled:opacity-50"
+            >
+                <span x-show="!syncing">Sync Now</span>
+                <span x-show="syncing">Syncing...</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div x-show="toast.show" x-cloak
+         x-transition:enter="transform ease-out duration-300 transition"
+         x-transition:enter-start="translate-y-2 opacity-0"
+         x-transition:enter-end="translate-y-0 opacity-100"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed top-4 left-4 right-4 z-50">
+        <div :class="toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : toast.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'"
+             class="px-4 py-3 rounded-xl shadow-lg border flex items-center gap-3">
+            <span class="text-sm font-medium" x-text="toast.message"></span>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/offline-db.js' %}"></script>
 <script>
 function takeOrderApp() {
     return {
+        // Config
+        tableId: {{ table.pk }},
+        seat: {{ seat }},
+
+        // State
+        loading: true,
+        submitting: false,
+        syncing: false,
+        isOffline: !navigator.onLine,
         selectedCategory: null,
+        showPendingModal: false,
+
+        // Data
+        menuCategories: [],
+        cart: [],
+        pendingOrders: [],
+        pendingOrdersCount: 0,
+
+        // Toast
+        toast: { show: false, message: '', type: 'success' },
+
+        // Initialize
+        async init() {
+            // Set up online/offline listeners
+            window.addEventListener('online', () => {
+                this.isOffline = false;
+                this.showToast('Back online! Syncing orders...', 'success');
+                this.syncOrders();
+            });
+
+            window.addEventListener('offline', () => {
+                this.isOffline = true;
+                this.showToast('You are offline. Orders will be saved locally.', 'warning');
+            });
+
+            // Listen for sync complete from service worker
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data && event.data.type === 'SYNC_COMPLETE') {
+                        this.showToast(`Synced ${event.data.data.synced} orders!`, 'success');
+                        this.loadPendingOrders();
+                    }
+                });
+            }
+
+            // Load data
+            await this.loadMenu();
+            await this.loadCart();
+            await this.loadPendingOrders();
+
+            this.loading = false;
+
+            // Pre-cache data for offline
+            if (navigator.onLine) {
+                this.cacheDataForOffline();
+            }
+        },
+
+        // Load menu from API or cache
+        async loadMenu() {
+            try {
+                if (window.offlineDB) {
+                    await window.offlineDB.init();
+
+                    // Try to get fresh data if online
+                    if (navigator.onLine) {
+                        try {
+                            const data = await window.offlineDB.refreshMenu();
+                            this.menuCategories = data.categories;
+                            return;
+                        } catch (e) {
+                            console.log('Failed to refresh menu, using cache');
+                        }
+                    }
+
+                    // Use cached data
+                    const cached = await window.offlineDB.getMenu();
+                    if (cached.length > 0) {
+                        this.menuCategories = cached;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load menu:', error);
+            }
+        },
+
+        // Cache data for offline use
+        async cacheDataForOffline() {
+            try {
+                if (window.offlineDB) {
+                    await window.offlineDB.refreshMenu();
+                    await window.offlineDB.refreshTables();
+                }
+            } catch (e) {
+                console.error('Failed to cache data:', e);
+            }
+        },
+
+        // Load cart from IndexedDB
+        async loadCart() {
+            try {
+                if (window.offlineDB) {
+                    this.cart = await window.offlineDB.getCart(this.tableId, this.seat);
+                }
+            } catch (error) {
+                console.error('Failed to load cart:', error);
+                this.cart = [];
+            }
+        },
+
+        // Load pending orders
+        async loadPendingOrders() {
+            try {
+                if (window.offlineDB) {
+                    this.pendingOrders = await window.offlineDB.getPendingOrders();
+                    this.pendingOrdersCount = this.pendingOrders.length;
+                }
+            } catch (error) {
+                console.error('Failed to load pending orders:', error);
+            }
+        },
+
+        // Filtered categories based on selection
+        get filteredCategories() {
+            if (this.selectedCategory === null) {
+                return this.menuCategories;
+            }
+            return this.menuCategories.filter(c => c.id === this.selectedCategory);
+        },
+
+        // Cart calculations
+        get cartItemCount() {
+            return this.cart.reduce((sum, item) => sum + item.quantity, 0);
+        },
+
+        get cartTotal() {
+            return this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        },
+
+        // Get cart item quantity
+        getCartItemQuantity(menuItemId) {
+            const item = this.cart.find(i => i.menu_item_id === menuItemId);
+            return item ? item.quantity : 0;
+        },
+
+        // Add to cart
+        async addToCart(menuItem) {
+            const existingIndex = this.cart.findIndex(i => i.menu_item_id === menuItem.id);
+
+            if (existingIndex >= 0) {
+                this.cart[existingIndex].quantity += 1;
+            } else {
+                this.cart.push({
+                    menu_item_id: menuItem.id,
+                    name: menuItem.name,
+                    price: parseFloat(menuItem.base_price),
+                    quantity: 1,
+                    special_instructions: ''
+                });
+            }
+
+            // Persist to IndexedDB
+            if (window.offlineDB) {
+                await window.offlineDB.addToCart(this.tableId, this.seat, {
+                    menu_item_id: menuItem.id,
+                    name: menuItem.name,
+                    price: parseFloat(menuItem.base_price),
+                    quantity: 1
+                });
+            }
+        },
+
+        // Remove from cart
+        async removeFromCart(menuItemId) {
+            const existingIndex = this.cart.findIndex(i => i.menu_item_id === menuItemId);
+
+            if (existingIndex >= 0) {
+                if (this.cart[existingIndex].quantity > 1) {
+                    this.cart[existingIndex].quantity -= 1;
+                } else {
+                    this.cart.splice(existingIndex, 1);
+                }
+
+                // Persist to IndexedDB
+                if (window.offlineDB) {
+                    if (this.cart[existingIndex]?.quantity > 0) {
+                        // Update quantity in DB (simplified - just re-save)
+                        await window.offlineDB.clearCart(this.tableId, this.seat);
+                        for (const item of this.cart) {
+                            await window.offlineDB.addToCart(this.tableId, this.seat, item);
+                        }
+                    } else {
+                        await window.offlineDB.removeFromCart(this.tableId, this.seat, menuItemId);
+                    }
+                }
+            }
+        },
+
+        // Submit order
+        async submitOrder() {
+            if (this.cart.length === 0) return;
+
+            this.submitting = true;
+
+            try {
+                if (this.isOffline) {
+                    // Save to IndexedDB for later sync
+                    await this.saveOrderOffline();
+                    this.showToast('Order saved! Will sync when online.', 'success');
+                } else {
+                    // Try to submit online
+                    await this.submitOrderOnline();
+                }
+
+                // Clear cart
+                this.cart = [];
+                if (window.offlineDB) {
+                    await window.offlineDB.clearCart(this.tableId, this.seat);
+                }
+
+                // Redirect after a moment
+                setTimeout(() => {
+                    window.location.href = "{% url 'waiter:table_detail' table.pk %}";
+                }, 1500);
+
+            } catch (error) {
+                console.error('Submit failed:', error);
+
+                // If online submission failed, save offline
+                if (!this.isOffline) {
+                    await this.saveOrderOffline();
+                    this.showToast('Saved offline. Will sync when connection improves.', 'warning');
+                } else {
+                    this.showToast('Failed to save order. Please try again.', 'error');
+                }
+            }
+
+            this.submitting = false;
+        },
+
+        // Submit order online
+        async submitOrderOnline() {
+            const response = await fetch('/waiter/api/orders/create/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCSRFToken()
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    table_id: this.tableId,
+                    seat: this.seat,
+                    items: this.cart.map(item => ({
+                        menu_item_id: item.menu_item_id,
+                        quantity: item.quantity,
+                        special_instructions: item.special_instructions || ''
+                    })),
+                    auto_confirm: true
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            this.showToast(`Order ${result.order_number} sent to kitchen!`, 'success');
+            return result;
+        },
+
+        // Save order offline
+        async saveOrderOffline() {
+            if (window.offlineDB) {
+                const order = await window.offlineDB.savePendingOrder(
+                    this.tableId,
+                    this.seat,
+                    this.cart,
+                    true // auto_confirm
+                );
+
+                // Register for background sync
+                if ('serviceWorker' in navigator && 'SyncManager' in window) {
+                    const registration = await navigator.serviceWorker.ready;
+                    await registration.sync.register('sync-orders');
+                }
+
+                await this.loadPendingOrders();
+                return order;
+            }
+        },
+
+        // Sync orders
+        async syncOrders() {
+            if (!navigator.onLine) return;
+
+            try {
+                if (window.offlineDB) {
+                    await window.offlineDB.syncPendingOrders();
+                    await this.loadPendingOrders();
+                }
+            } catch (error) {
+                console.error('Sync failed:', error);
+            }
+        },
+
+        // Manual sync
+        async manualSync() {
+            this.syncing = true;
+            await this.syncOrders();
+            this.syncing = false;
+            this.showPendingModal = false;
+        },
+
+        // Get CSRF token
+        getCSRFToken() {
+            const name = 'csrftoken';
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        },
+
+        // Show toast
+        showToast(message, type = 'success') {
+            this.toast = { show: true, message, type };
+            setTimeout(() => {
+                this.toast.show = false;
+            }, 3000);
+        }
     }
 }
 </script>

@@ -68,18 +68,56 @@
 <body class="bg-slate-100 min-h-screen pb-20">
     {% load static %}
 
-    <!-- Offline indicator -->
+    <!-- Offline indicator and sync status -->
     <div
-        x-data="{ offline: !navigator.onLine }"
-        x-init="
-            window.addEventListener('online', () => offline = false);
-            window.addEventListener('offline', () => offline = true);
-        "
-        x-show="offline"
-        x-cloak
-        class="fixed top-0 left-0 right-0 bg-amber-500 text-white text-center py-2 text-sm font-medium z-50"
+        x-data="offlineStatus()"
+        x-init="init()"
     >
-        You are offline
+        <!-- Offline banner -->
+        <div
+            x-show="offline"
+            x-cloak
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="transform -translate-y-full"
+            x-transition:enter-end="transform translate-y-0"
+            class="fixed top-0 left-0 right-0 bg-amber-500 text-white text-center py-2 text-sm font-medium z-50 flex items-center justify-center gap-2"
+        >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"></path>
+            </svg>
+            <span>Offline Mode - Orders will sync when back online</span>
+            <span x-show="pendingCount > 0" class="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-xs">
+                <span x-text="pendingCount"></span> pending
+            </span>
+        </div>
+
+        <!-- Syncing indicator -->
+        <div
+            x-show="syncing"
+            x-cloak
+            class="fixed top-0 left-0 right-0 bg-indigo-500 text-white text-center py-2 text-sm font-medium z-50 flex items-center justify-center gap-2"
+        >
+            <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span>Syncing orders...</span>
+        </div>
+
+        <!-- Sync success notification -->
+        <div
+            x-show="syncSuccess"
+            x-cloak
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="fixed top-0 left-0 right-0 bg-emerald-500 text-white text-center py-2 text-sm font-medium z-50 flex items-center justify-center gap-2"
+        >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            <span x-text="syncMessage"></span>
+        </div>
     </div>
 
     <!-- Main content -->
@@ -145,6 +183,102 @@
         </div>
     </nav>
 
+    <!-- Offline Database -->
+    <script src="{% static 'js/offline-db.js' %}"></script>
+
+    <!-- Offline Status Component -->
+    <script>
+        function offlineStatus() {
+            return {
+                offline: !navigator.onLine,
+                syncing: false,
+                syncSuccess: false,
+                syncMessage: '',
+                pendingCount: 0,
+
+                async init() {
+                    // Monitor online/offline status
+                    window.addEventListener('online', () => {
+                        this.offline = false;
+                        this.syncPendingOrders();
+                    });
+
+                    window.addEventListener('offline', () => {
+                        this.offline = true;
+                    });
+
+                    // Listen for sync messages from service worker
+                    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.addEventListener('message', (event) => {
+                            if (event.data && event.data.type === 'SYNC_COMPLETE') {
+                                this.syncing = false;
+                                this.syncSuccess = true;
+                                this.syncMessage = `Synced ${event.data.data.synced} orders!`;
+                                setTimeout(() => this.syncSuccess = false, 3000);
+                                this.updatePendingCount();
+                            }
+                        });
+                    }
+
+                    // Initial pending count
+                    await this.updatePendingCount();
+
+                    // Pre-cache data when online
+                    if (navigator.onLine) {
+                        this.cacheData();
+                    }
+                },
+
+                async updatePendingCount() {
+                    try {
+                        if (window.offlineDB) {
+                            await window.offlineDB.init();
+                            this.pendingCount = await window.offlineDB.getPendingOrdersCount();
+                        }
+                    } catch (e) {
+                        console.error('Failed to get pending count:', e);
+                    }
+                },
+
+                async syncPendingOrders() {
+                    if (!navigator.onLine) return;
+
+                    try {
+                        await this.updatePendingCount();
+                        if (this.pendingCount === 0) return;
+
+                        this.syncing = true;
+
+                        if (window.offlineDB) {
+                            const result = await window.offlineDB.syncPendingOrders();
+                            this.syncing = false;
+                            this.syncSuccess = true;
+                            this.syncMessage = `Synced ${result.synced} orders!`;
+                            setTimeout(() => this.syncSuccess = false, 3000);
+                        }
+
+                        await this.updatePendingCount();
+                    } catch (error) {
+                        console.error('Sync failed:', error);
+                        this.syncing = false;
+                    }
+                },
+
+                async cacheData() {
+                    try {
+                        if (window.offlineDB) {
+                            await window.offlineDB.init();
+                            await window.offlineDB.refreshMenu();
+                            await window.offlineDB.refreshTables();
+                        }
+                    } catch (e) {
+                        console.error('Failed to cache data:', e);
+                    }
+                }
+            }
+        }
+    </script>
+
     <!-- Service Worker Registration -->
     <script>
         if ('serviceWorker' in navigator) {
@@ -152,6 +286,17 @@
                 navigator.serviceWorker.register('{% static "js/sw.js" %}')
                     .then((registration) => {
                         console.log('SW registered:', registration);
+
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New version available
+                                    console.log('New version available');
+                                }
+                            });
+                        });
                     })
                     .catch((error) => {
                         console.log('SW registration failed:', error);

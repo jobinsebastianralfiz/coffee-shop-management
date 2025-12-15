@@ -1,8 +1,9 @@
 {
-  "name": "Coffee Shop Waiter",
-  "short_name": "Waiter",
-  "description": "Waiter app for Coffee Shop Management System",
+  "name": "Kaffero Waiter",
+  "short_name": "Kaffero",
+  "description": "Waiter app for Kaffero Coffee Shop Management",
   "start_url": "/waiter/",
+  "scope": "/waiter/",
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#4f46e5",
@@ -12,13 +13,25 @@
       "src": "/static/images/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/static/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/static/images/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/static/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": ["food", "business"],

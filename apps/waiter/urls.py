@@ -26,4 +26,10 @@ urlpatterns = [
 
     # Offline page
     path("offline/", views.offline_page, name="offline"),
+
+    # API endpoints for offline PWA support
+    path("api/menu/", views.api_menu, name="api_menu"),
+    path("api/tables/", views.api_tables, name="api_tables"),
+    path("api/orders/create/", views.api_create_order, name="api_create_order"),
+    path("api/orders/sync/", views.api_sync_orders, name="api_sync_orders"),
 ]

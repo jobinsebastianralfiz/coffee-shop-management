@@ -26,9 +26,9 @@
         .container {
             background: white;
             border-radius: 1.5rem;
-            padding: 3rem 2rem;
+            padding: 2rem 1.5rem;
             text-align: center;
-            max-width: 320px;
+            max-width: 360px;
             width: 100%;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         }
@@ -36,7 +36,7 @@
         .icon {
             width: 80px;
             height: 80px;
-            background: #f1f5f9;
+            background: #fef3c7;
             border-radius: 1rem;
             display: flex;
             align-items: center;
@@ -47,40 +47,134 @@
         .icon svg {
             width: 40px;
             height: 40px;
-            color: #64748b;
+            color: #d97706;
         }
 
         h1 {
             font-size: 1.5rem;
             font-weight: 700;
             color: #1e293b;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.5rem;
         }
 
-        p {
+        .subtitle {
             color: #64748b;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
             line-height: 1.6;
+            font-size: 0.9rem;
         }
 
-        button {
+        .feature-box {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .feature-box h3 {
+            color: #166534;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feature-box h3 svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .feature-box p {
+            color: #15803d;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        .pending-box {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .pending-box h3 {
+            color: #92400e;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .pending-count {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #d97706;
+        }
+
+        .pending-label {
+            font-size: 0.75rem;
+            color: #b45309;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
             background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
             color: white;
             border: none;
-            padding: 1rem 2rem;
+            padding: 1rem;
             border-radius: 0.75rem;
             font-weight: 600;
             font-size: 1rem;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            margin-bottom: 0.75rem;
         }
 
-        button:active {
+        .btn:active {
             transform: scale(0.98);
         }
 
-        button:hover {
-            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.online {
+            background: #22c55e;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .hidden {
+            display: none;
         }
     </style>
 </head>
@@ -91,11 +185,94 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"></path>
             </svg>
         </div>
+
         <h1>You're Offline</h1>
-        <p>Please check your internet connection and try again.</p>
-        <button onclick="window.location.reload()">
-            Try Again
+        <p class="subtitle">Don't worry - you can still take orders!</p>
+
+        <div class="feature-box">
+            <h3>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Offline Mode Enabled
+            </h3>
+            <p>Your orders will be saved locally and automatically synced when you're back online.</p>
+        </div>
+
+        <div class="pending-box" id="pendingBox">
+            <h3>Pending Orders</h3>
+            <div class="pending-count" id="pendingCount">0</div>
+            <div class="pending-label">orders waiting to sync</div>
+        </div>
+
+        <a href="/waiter/tables/" class="btn">
+            View Tables & Take Orders
+        </a>
+
+        <button onclick="window.location.reload()" class="btn btn-secondary">
+            Check Connection
         </button>
+
+        <div class="status-indicator">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Offline</span>
+        </div>
     </div>
+
+    <script>
+        // Check for pending orders
+        async function checkPendingOrders() {
+            try {
+                const DB_NAME = 'kaffero-offline';
+                const request = indexedDB.open(DB_NAME, 1);
+
+                request.onsuccess = function() {
+                    const db = request.result;
+                    if (db.objectStoreNames.contains('pending_orders')) {
+                        const tx = db.transaction('pending_orders', 'readonly');
+                        const store = tx.objectStore('pending_orders');
+                        const countRequest = store.count();
+
+                        countRequest.onsuccess = function() {
+                            const count = countRequest.result;
+                            document.getElementById('pendingCount').textContent = count;
+                            if (count === 0) {
+                                document.getElementById('pendingBox').style.display = 'none';
+                            }
+                        };
+                    }
+                };
+            } catch (e) {
+                console.error('Failed to check pending orders:', e);
+            }
+        }
+
+        // Monitor connection status
+        function updateConnectionStatus() {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+
+            if (navigator.onLine) {
+                statusDot.classList.add('online');
+                statusText.textContent = 'Back Online!';
+
+                // Redirect to home after a moment
+                setTimeout(() => {
+                    window.location.href = '/waiter/';
+                }, 1500);
+            } else {
+                statusDot.classList.remove('online');
+                statusText.textContent = 'Offline';
+            }
+        }
+
+        // Initialize
+        checkPendingOrders();
+        updateConnectionStatus();
+
+        // Listen for online/offline events
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+    </script>
 </body>
 </html>
