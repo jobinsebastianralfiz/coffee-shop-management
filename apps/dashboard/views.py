@@ -1411,7 +1411,7 @@ def reports_view(request):
     """Reports and analytics dashboard."""
     from apps.core.models import Outlet
 
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -3665,7 +3665,7 @@ def expense_category_delete(request, pk):
 @login_required
 def cash_drawer_dashboard(request):
     """Cash drawer dashboard - current status."""
-    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.STAFF_CASHIER]:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -3701,7 +3701,7 @@ def cash_drawer_dashboard(request):
 @login_required
 def cash_drawer_open(request):
     """Open daily cash drawer."""
-    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.STAFF_CASHIER]:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:cash_drawer")
 
@@ -3742,7 +3742,7 @@ def cash_drawer_open(request):
 @login_required
 def cash_drawer_close(request):
     """Close daily cash drawer."""
-    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.STAFF_CASHIER]:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:cash_drawer")
 
@@ -3795,7 +3795,7 @@ def cash_drawer_close(request):
 @login_required
 def cash_drawer_history(request):
     """View cash drawer history."""
-    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.STAFF_CASHIER]:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:home")
 
@@ -3811,7 +3811,7 @@ def cash_drawer_history(request):
 @login_required
 def cash_drawer_detail(request, pk):
     """View cash drawer details for a specific day."""
-    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.STAFF_CASHIER]:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:home")
 
@@ -3836,7 +3836,7 @@ def cash_drawer_detail(request, pk):
 @login_required
 def cash_in_out(request):
     """Record cash in or out."""
-    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.STAFF_CASHIER]:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:cash_drawer")
 
@@ -3897,7 +3897,7 @@ def cash_in_out(request):
 @login_required
 def shift_start(request):
     """Start a cashier shift."""
-    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.STAFF_CASHIER]:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:home")
 
@@ -3945,7 +3945,7 @@ def shift_start(request):
 @login_required
 def shift_end(request):
     """End current shift."""
-    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.STAFF_CASHIER]:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:home")
 
@@ -3998,7 +3998,7 @@ def shift_end(request):
 @login_required
 def shift_history(request):
     """View shift history."""
-    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.STAFF_CASHIER]:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:home")
 
@@ -4022,7 +4022,7 @@ def shift_history(request):
 @login_required
 def cashier_reports(request):
     """Sales-only reports for cashiers."""
-    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.STAFF_CASHIER]:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
