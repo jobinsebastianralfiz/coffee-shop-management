@@ -19,6 +19,43 @@ from apps.tables.models import Floor, Table, TableSession
 
 
 # ============================================================================
+# Permission Helpers
+# ============================================================================
+
+
+def is_admin_user(user):
+    """Check if user has admin-level access (super admin or outlet manager)."""
+    return user.role in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]
+
+
+def get_user_outlet(user):
+    """Get the outlet a user is restricted to (None for super admin = all outlets)."""
+    if user.role == User.Role.SUPER_ADMIN:
+        return None  # Can access all outlets
+    return user.outlet
+
+
+def filter_by_outlet(queryset, user, outlet_field="outlet"):
+    """Filter a queryset by the user's outlet if they're not a super admin."""
+    outlet = get_user_outlet(user)
+    if outlet:
+        return queryset.filter(**{outlet_field: outlet})
+    return queryset
+
+
+def can_manage_user(manager, target_user):
+    """Check if manager can manage target user."""
+    if manager.role == User.Role.SUPER_ADMIN:
+        return True
+    if manager.role == User.Role.OUTLET_MANAGER:
+        # Can only manage staff in their outlet
+        if target_user.role in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
+            return False
+        return target_user.outlet_id == manager.outlet_id
+    return False
+
+
+# ============================================================================
 # Authentication Views
 # ============================================================================
 
@@ -722,12 +759,37 @@ def table_take_order(request, pk):
 def user_list(request):
     """User management - list all users."""
     from apps.core.models import Outlet
+    from django.conf import settings
 
-    if request.user.role != User.Role.SUPER_ADMIN:
+    # Check permission - allow super admin and outlet managers
+    if not is_admin_user(request.user):
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
-    outlets = Outlet.objects.filter(is_active=True).order_by("name")
+    # Outlet manager must have an outlet assigned
+    if request.user.role == User.Role.OUTLET_MANAGER and not request.user.outlet:
+        messages.error(request, "You are not assigned to an outlet.")
+        return redirect("dashboard:home")
+
+    is_outlet_mgr = request.user.role == User.Role.OUTLET_MANAGER
+    user_outlet = get_user_outlet(request.user)
+
+    # Get outlets based on role
+    if is_outlet_mgr:
+        outlets = Outlet.objects.filter(pk=user_outlet.pk)
+    else:
+        outlets = Outlet.objects.filter(is_active=True).order_by("name")
+
+    # Define available roles based on who is creating
+    if is_outlet_mgr:
+        # Outlet managers can only create staff roles
+        available_roles = [
+            (User.Role.STAFF_CASHIER, "Cashier"),
+            (User.Role.STAFF_KITCHEN, "Kitchen Staff"),
+            (User.Role.WAITER, "Waiter"),
+        ]
+    else:
+        available_roles = User.Role.choices
 
     # Handle user creation
     if request.method == "POST":
@@ -740,8 +802,10 @@ def user_list(request):
         pin = request.POST.get("pin", "").strip()
         outlet_id = request.POST.get("outlet", "").strip()
 
-        # Validation
-        if not username:
+        # Outlet managers can only create staff roles
+        if is_outlet_mgr and role in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
+            messages.error(request, "You cannot create admin users.")
+        elif not username:
             messages.error(request, "Username is required.")
         elif User.objects.filter(username=username).exists():
             messages.error(request, "Username already exists.")
@@ -755,9 +819,11 @@ def user_list(request):
                 f"Contact your vendor to upgrade."
             )
         else:
-            # Get outlet if provided
+            # Get outlet - for outlet managers, force their outlet
             outlet = None
-            if outlet_id:
+            if is_outlet_mgr:
+                outlet = user_outlet
+            elif outlet_id:
                 try:
                     outlet = Outlet.objects.get(pk=outlet_id)
                 except Outlet.DoesNotExist:
@@ -780,18 +846,29 @@ def user_list(request):
             messages.success(request, f"User '{username}' created successfully. Default password: changeme123")
             return redirect("dashboard:users")
 
-    # Filter by outlet if specified
-    users = User.objects.all().order_by("-date_joined")
-    selected_outlet = request.GET.get("outlet", "")
-    if selected_outlet:
-        users = users.filter(outlet_id=selected_outlet)
+    # Filter users based on role
+    if is_outlet_mgr:
+        # Outlet managers see only their outlet's staff (not other managers)
+        users = User.objects.filter(
+            outlet=user_outlet
+        ).exclude(
+            role__in=[User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]
+        ).order_by("-date_joined")
+        selected_outlet = str(user_outlet.pk)
+    else:
+        # Super admin sees all users
+        users = User.objects.all().order_by("-date_joined")
+        selected_outlet = request.GET.get("outlet", "")
+        if selected_outlet:
+            users = users.filter(outlet_id=selected_outlet)
 
     context = {
         "page_title": "User Management",
         "users": users,
-        "roles": User.Role.choices,
+        "roles": available_roles,
         "outlets": outlets,
         "selected_outlet": selected_outlet,
+        "is_outlet_manager": is_outlet_mgr,
     }
     return render(request, "dashboard/users/list.html", context)
 
@@ -801,7 +878,8 @@ def user_detail(request, pk):
     """View/edit user details."""
     from apps.core.models import Outlet
 
-    if request.user.role != User.Role.SUPER_ADMIN:
+    # Check permission - allow super admin and outlet managers
+    if not is_admin_user(request.user):
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -811,25 +889,51 @@ def user_detail(request, pk):
         messages.error(request, "User not found.")
         return redirect("dashboard:users")
 
-    outlets = Outlet.objects.filter(is_active=True).order_by("name")
+    # Outlet managers can only manage staff in their outlet
+    if not can_manage_user(request.user, user):
+        messages.error(request, "You do not have permission to manage this user.")
+        return redirect("dashboard:users")
+
+    is_outlet_mgr = request.user.role == User.Role.OUTLET_MANAGER
+    user_outlet = get_user_outlet(request.user)
+
+    # Get outlets based on role
+    if is_outlet_mgr:
+        outlets = Outlet.objects.filter(pk=user_outlet.pk)
+        available_roles = [
+            (User.Role.STAFF_CASHIER, "Cashier"),
+            (User.Role.STAFF_KITCHEN, "Kitchen Staff"),
+            (User.Role.WAITER, "Waiter"),
+        ]
+    else:
+        outlets = Outlet.objects.filter(is_active=True).order_by("name")
+        available_roles = User.Role.choices
 
     if request.method == "POST":
         user.first_name = request.POST.get("first_name", "")
         user.last_name = request.POST.get("last_name", "")
         user.email = request.POST.get("email", "")
         user.phone = request.POST.get("phone", "")
-        user.role = request.POST.get("role", user.role)
+
+        new_role = request.POST.get("role", user.role)
+        # Outlet managers cannot change role to admin roles
+        if is_outlet_mgr and new_role in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
+            messages.error(request, "You cannot assign admin roles.")
+            return redirect("dashboard:user_detail", pk=pk)
+
+        user.role = new_role
         user.is_active = request.POST.get("is_active") == "on"
 
-        # Handle outlet assignment
-        outlet_id = request.POST.get("outlet", "").strip()
-        if outlet_id:
-            try:
-                user.outlet = Outlet.objects.get(pk=outlet_id)
-            except Outlet.DoesNotExist:
+        # Handle outlet assignment - outlet managers cannot change outlet
+        if not is_outlet_mgr:
+            outlet_id = request.POST.get("outlet", "").strip()
+            if outlet_id:
+                try:
+                    user.outlet = Outlet.objects.get(pk=outlet_id)
+                except Outlet.DoesNotExist:
+                    user.outlet = None
+            else:
                 user.outlet = None
-        else:
-            user.outlet = None
 
         user.save()
         messages.success(request, "User updated successfully.")
@@ -838,8 +942,9 @@ def user_detail(request, pk):
     context = {
         "page_title": f"User: {user.get_full_name() or user.username}",
         "user_obj": user,
-        "roles": User.Role.choices,
+        "roles": available_roles,
         "outlets": outlets,
+        "is_outlet_manager": is_outlet_mgr,
     }
     return render(request, "dashboard/users/detail.html", context)
 
@@ -848,7 +953,7 @@ def user_detail(request, pk):
 @require_http_methods(["POST"])
 def user_toggle_status(request, pk):
     """Toggle user active status."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if not is_admin_user(request.user):
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:home")
 
@@ -856,6 +961,8 @@ def user_toggle_status(request, pk):
         user = User.objects.get(pk=pk)
         if user == request.user:
             messages.error(request, "You cannot deactivate yourself.")
+        elif not can_manage_user(request.user, user):
+            messages.error(request, "You do not have permission to manage this user.")
         else:
             user.is_active = not user.is_active
             user.save(update_fields=["is_active"])
@@ -871,12 +978,16 @@ def user_toggle_status(request, pk):
 @require_http_methods(["POST"])
 def user_reset_pin(request, pk):
     """Reset user PIN."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if not is_admin_user(request.user):
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:home")
 
     try:
         user = User.objects.get(pk=pk)
+        if not can_manage_user(request.user, user):
+            messages.error(request, "You do not have permission to manage this user.")
+            return redirect("dashboard:users")
+
         new_pin = request.POST.get("new_pin", "").strip()
         if len(new_pin) == 6 and new_pin.isdigit():
             user.pin = new_pin
@@ -894,12 +1005,16 @@ def user_reset_pin(request, pk):
 @require_http_methods(["POST"])
 def user_reset_password(request, pk):
     """Reset user password."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if not is_admin_user(request.user):
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:home")
 
     try:
         user = User.objects.get(pk=pk)
+        if not can_manage_user(request.user, user):
+            messages.error(request, "You do not have permission to manage this user.")
+            return redirect("dashboard:users")
+
         user.set_password("changeme123")
         user.save()
         messages.success(request, f"Password reset for '{user.username}'. New password: changeme123")
@@ -913,7 +1028,7 @@ def user_reset_password(request, pk):
 @require_http_methods(["POST"])
 def user_delete(request, pk):
     """Delete a user."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if not is_admin_user(request.user):
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:home")
 
@@ -921,6 +1036,8 @@ def user_delete(request, pk):
         user = User.objects.get(pk=pk)
         if user == request.user:
             messages.error(request, "You cannot delete yourself.")
+        elif not can_manage_user(request.user, user):
+            messages.error(request, "You do not have permission to delete this user.")
         else:
             username = user.username
             user.delete()

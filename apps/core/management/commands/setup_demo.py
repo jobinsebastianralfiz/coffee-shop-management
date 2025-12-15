@@ -95,8 +95,34 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.WARNING("Outlet already exists"))
 
+        # Create outlet manager if not exists
+        if not User.objects.filter(username="manager").exists():
+            if Outlet.objects.exists():
+                outlet = Outlet.objects.first()
+                manager = User.objects.create_user(
+                    username="manager",
+                    email="manager@coffeeshop.com",
+                    password="manager123",
+                    first_name="Outlet",
+                    last_name="Manager",
+                    role=User.Role.OUTLET_MANAGER,
+                    pin="111111",
+                    phone="9876543211",
+                    outlet=outlet,
+                )
+                self.stdout.write(
+                    self.style.SUCCESS(f"Created outlet manager (password: manager123, PIN: 111111)")
+                )
+        else:
+            self.stdout.write(self.style.WARNING("Outlet manager already exists"))
+
         self.stdout.write(self.style.SUCCESS("\nDemo setup complete!"))
         self.stdout.write(f"\nLogin credentials:")
-        self.stdout.write(f"  Username: admin")
-        self.stdout.write(f"  Password: {admin_password}")
-        self.stdout.write(f"  PIN: {admin_pin}")
+        self.stdout.write(f"  Super Admin:")
+        self.stdout.write(f"    Username: admin")
+        self.stdout.write(f"    Password: {admin_password}")
+        self.stdout.write(f"    PIN: {admin_pin}")
+        self.stdout.write(f"  Outlet Manager:")
+        self.stdout.write(f"    Username: manager")
+        self.stdout.write(f"    Password: manager123")
+        self.stdout.write(f"    PIN: 111111")

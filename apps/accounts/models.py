@@ -29,6 +29,7 @@ class User(AbstractUser):
 
     class Role(models.TextChoices):
         SUPER_ADMIN = "super_admin", "Super Admin"
+        OUTLET_MANAGER = "outlet_manager", "Outlet Manager"
         STAFF_CASHIER = "staff_cashier", "Cashier"
         STAFF_KITCHEN = "staff_kitchen", "Kitchen Staff"
         WAITER = "waiter", "Waiter"
@@ -86,9 +87,19 @@ class User(AbstractUser):
         return f"{self.get_full_name() or self.username} ({self.get_role_display()})"
 
     @property
-    def is_admin(self):
-        """Check if user has admin role."""
+    def is_super_admin(self):
+        """Check if user has super admin role."""
         return self.role == self.Role.SUPER_ADMIN
+
+    @property
+    def is_admin(self):
+        """Check if user has admin-level role (super admin or outlet manager)."""
+        return self.role in [self.Role.SUPER_ADMIN, self.Role.OUTLET_MANAGER]
+
+    @property
+    def is_outlet_manager(self):
+        """Check if user has outlet manager role."""
+        return self.role == self.Role.OUTLET_MANAGER
 
     @property
     def is_cashier(self):
@@ -104,6 +115,20 @@ class User(AbstractUser):
     def is_waiter(self):
         """Check if user has waiter role."""
         return self.role == self.Role.WAITER
+
+    def can_manage_outlet(self, outlet):
+        """Check if user can manage a specific outlet."""
+        if self.is_super_admin:
+            return True
+        if self.is_outlet_manager and self.outlet_id == outlet.id:
+            return True
+        return False
+
+    def get_managed_outlet(self):
+        """Get the outlet this user manages (for outlet managers)."""
+        if self.is_super_admin:
+            return None  # Super admin can access all
+        return self.outlet
 
     @classmethod
     def can_create_user(cls):
