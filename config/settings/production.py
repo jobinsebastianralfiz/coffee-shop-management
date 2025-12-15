@@ -34,10 +34,10 @@ SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 
-# CSRF Trusted Origins for Railway
+# CSRF Trusted Origins for Railway and custom domains
 CSRF_TRUSTED_ORIGINS = config(  # noqa: F405
     "CSRF_TRUSTED_ORIGINS",
-    default="https://*.railway.app,https://*.up.railway.app",
+    default="https://*.railway.app,https://*.up.railway.app,https://kaffero.app,https://www.kaffero.app",
     cast=Csv(),  # noqa: F405
 )
 
