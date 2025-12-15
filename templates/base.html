@@ -408,7 +408,6 @@
                     <span x-show="sidebarOpen" x-transition.opacity class="font-medium">Users</span>
                 </a>
 
-                {% if user.role == 'super_admin' %}
                 <!-- Inventory -->
                 <a href="{% url 'dashboard:inventory' %}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-xl {% if 'inventory' in request.path %}active{% endif %}">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -417,6 +416,7 @@
                     <span x-show="sidebarOpen" x-transition.opacity class="font-medium">Inventory</span>
                 </a>
 
+                {% if user.role == 'super_admin' %}
                 <!-- Expenses -->
                 <a href="{% url 'dashboard:expenses' %}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-xl {% if 'expenses' in request.path %}active{% endif %}">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -625,7 +625,6 @@
                     <span class="font-medium">Users</span>
                 </a>
 
-                {% if user.role == 'super_admin' %}
                 <!-- Inventory -->
                 <a href="{% url 'dashboard:inventory' %}" @click="mobileMenuOpen = false" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-xl {% if 'inventory' in request.path %}active{% endif %}">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -634,6 +633,7 @@
                     <span class="font-medium">Inventory</span>
                 </a>
 
+                {% if user.role == 'super_admin' %}
                 <!-- Expenses -->
                 <a href="{% url 'dashboard:expenses' %}" @click="mobileMenuOpen = false" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-xl {% if 'expenses' in request.path %}active{% endif %}">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

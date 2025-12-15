@@ -2147,13 +2147,17 @@ def inventory_dashboard(request):
     """Inventory management dashboard."""
     from apps.core.models import Outlet
 
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
-    # Get all outlets for filter
-    outlets = Outlet.objects.filter(is_active=True).order_by("name")
-    selected_outlet = request.GET.get("outlet", "")
+    # For outlet managers, auto-filter by their outlet
+    if request.user.role == User.Role.OUTLET_MANAGER:
+        selected_outlet = str(request.user.outlet_id) if request.user.outlet else ""
+        outlets = Outlet.objects.none()  # Don't show outlet selector for managers
+    else:
+        outlets = Outlet.objects.filter(is_active=True).order_by("name")
+        selected_outlet = request.GET.get("outlet", "")
 
     # Get stats - filter by outlet if selected
     items = InventoryItem.objects.filter(is_active=True)
@@ -2205,13 +2209,17 @@ def inventory_items(request):
     """List all inventory items."""
     from apps.core.models import Outlet
 
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
-    # Get all outlets for filter
-    outlets = Outlet.objects.filter(is_active=True).order_by("name")
-    selected_outlet = request.GET.get("outlet", "")
+    # For outlet managers, auto-filter by their outlet
+    if request.user.role == User.Role.OUTLET_MANAGER:
+        selected_outlet = str(request.user.outlet_id) if request.user.outlet else ""
+        outlets = Outlet.objects.none()
+    else:
+        outlets = Outlet.objects.filter(is_active=True).order_by("name")
+        selected_outlet = request.GET.get("outlet", "")
 
     category_filter = request.GET.get("category", "")
     status_filter = request.GET.get("status", "")
@@ -2255,7 +2263,7 @@ def inventory_items(request):
 @login_required
 def inventory_item_detail(request, pk):
     """View inventory item details."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -2290,7 +2298,7 @@ def inventory_item_detail(request, pk):
 @login_required
 def inventory_item_create(request):
     """Create new inventory item."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:inventory_items")
 
@@ -2330,7 +2338,7 @@ def inventory_item_create(request):
 @login_required
 def inventory_item_edit(request, pk):
     """Edit inventory item."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:inventory_items")
 
@@ -2361,7 +2369,7 @@ def inventory_item_edit(request, pk):
 @require_http_methods(["POST"])
 def inventory_item_delete(request, pk):
     """Delete inventory item."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:inventory_items")
 
@@ -2380,7 +2388,7 @@ def inventory_item_delete(request, pk):
 @require_http_methods(["POST"])
 def inventory_stock_adjustment(request, pk):
     """Adjust stock for an inventory item."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:inventory_items")
 
@@ -2461,7 +2469,7 @@ def inventory_stock_adjustment(request, pk):
 @login_required
 def inventory_categories(request):
     """List and manage inventory categories."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -2479,7 +2487,7 @@ def inventory_categories(request):
 @login_required
 def inventory_category_create(request):
     """Create new inventory category."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:inventory_categories")
 
@@ -2506,7 +2514,7 @@ def inventory_category_create(request):
 @login_required
 def inventory_category_edit(request, pk):
     """Edit inventory category."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:inventory_categories")
 
@@ -2541,7 +2549,7 @@ def inventory_category_edit(request, pk):
 @require_http_methods(["POST"])
 def inventory_category_delete(request, pk):
     """Delete inventory category."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:inventory_categories")
 
@@ -2567,7 +2575,7 @@ def inventory_category_delete(request, pk):
 @login_required
 def suppliers(request):
     """List and manage suppliers."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -2586,7 +2594,7 @@ def suppliers(request):
 @login_required
 def supplier_detail(request, pk):
     """View supplier details."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -2611,7 +2619,7 @@ def supplier_detail(request, pk):
 @login_required
 def supplier_create(request):
     """Create new supplier."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:suppliers")
 
@@ -2647,7 +2655,7 @@ def supplier_create(request):
 @login_required
 def supplier_edit(request, pk):
     """Edit supplier."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:suppliers")
 
@@ -2677,7 +2685,7 @@ def supplier_edit(request, pk):
 @require_http_methods(["POST"])
 def supplier_delete(request, pk):
     """Delete supplier."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:suppliers")
 
@@ -2705,7 +2713,7 @@ def supplier_delete(request, pk):
 @login_required
 def purchase_orders(request):
     """List purchase orders."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -2727,7 +2735,7 @@ def purchase_orders(request):
 @login_required
 def purchase_order_detail(request, pk):
     """View purchase order details."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -2753,7 +2761,7 @@ def purchase_order_detail(request, pk):
 @login_required
 def purchase_order_create(request):
     """Create new purchase order."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:purchase_orders")
 
@@ -2791,7 +2799,7 @@ def purchase_order_create(request):
 @require_http_methods(["POST"])
 def purchase_order_add_item(request, pk):
     """Add item to purchase order."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:purchase_orders")
 
@@ -2834,7 +2842,7 @@ def purchase_order_add_item(request, pk):
 @require_http_methods(["POST"])
 def purchase_order_remove_item(request, pk, item_pk):
     """Remove item from purchase order."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:purchase_orders")
 
@@ -2863,7 +2871,7 @@ def purchase_order_remove_item(request, pk, item_pk):
 @require_http_methods(["POST"])
 def purchase_order_update_status(request, pk):
     """Update purchase order status."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:purchase_orders")
 
@@ -2897,7 +2905,7 @@ def purchase_order_update_status(request, pk):
 @require_http_methods(["POST"])
 def purchase_order_receive(request, pk):
     """Receive items from purchase order and update inventory."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:purchase_orders")
 
@@ -2973,7 +2981,7 @@ def purchase_order_receive(request, pk):
 @login_required
 def stock_alerts(request):
     """View stock alerts."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -2997,7 +3005,7 @@ def stock_alerts(request):
 @require_http_methods(["POST"])
 def stock_alert_resolve(request, pk):
     """Resolve a stock alert."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:stock_alerts")
 
@@ -3019,7 +3027,7 @@ def stock_alert_resolve(request, pk):
 @login_required
 def stock_movements(request):
     """View stock movement history."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
