@@ -1,0 +1,520 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Welcome Hero Section -->
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 lg:p-10">
+        <!-- Background Pattern -->
+        <div class="absolute inset-0 opacity-10">
+            <svg class="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <defs>
+                    <pattern id="grid-pattern" width="10" height="10" patternUnits="userSpaceOnUse">
+                        <circle cx="1" cy="1" r="1" fill="white"/>
+                    </pattern>
+                </defs>
+                <rect width="100" height="100" fill="url(#grid-pattern)"/>
+            </svg>
+        </div>
+        <!-- Gradient Orbs -->
+        <div class="absolute -top-24 -right-24 w-96 h-96 bg-indigo-500 rounded-full blur-3xl opacity-20"></div>
+        <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-purple-500 rounded-full blur-3xl opacity-20"></div>
+
+        <div class="relative flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-white/80 text-sm font-medium mb-4">
+                    <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                    Admin Dashboard
+                </div>
+                <h1 class="text-3xl lg:text-4xl font-bold text-white mb-2">
+                    Welcome back, {{ request.user.first_name|default:request.user.username }}!
+                </h1>
+                <p class="text-slate-400 text-lg">
+                    Here's your business overview across all <span class="text-white font-medium">{{ stats.total_outlets }} outlets</span>.
+                </p>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="{% url 'dashboard:outlets' %}" class="group inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-xl font-semibold hover:bg-slate-100 transition-all shadow-lg hover:shadow-xl">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                    Manage Outlets
+                </a>
+                <a href="{% url 'dashboard:reports' %}" class="inline-flex items-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl font-semibold hover:bg-white/20 transition-all border border-white/20">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    View Reports
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <!-- Today's Orders -->
+        <div class="group relative bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-bl-full"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                    </div>
+                    <span class="text-xs font-semibold text-slate-400">Today</span>
+                </div>
+                <p class="text-sm font-medium text-slate-500 mb-1">Total Orders</p>
+                <p class="text-3xl font-bold text-slate-900">{{ stats.total_orders_today }}</p>
+            </div>
+        </div>
+
+        <!-- Today's Revenue -->
+        <div class="group relative bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-bl-full"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <span class="text-xs font-semibold text-slate-400">Today</span>
+                </div>
+                <p class="text-sm font-medium text-slate-500 mb-1">Revenue</p>
+                <p class="text-3xl font-bold text-slate-900">{{ currency_symbol }}{{ stats.revenue_today|floatformat:0 }}</p>
+            </div>
+        </div>
+
+        <!-- Month Orders -->
+        <div class="group relative bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-500/10 to-transparent rounded-bl-full"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <span class="text-xs font-semibold text-slate-400">This Month</span>
+                </div>
+                <p class="text-sm font-medium text-slate-500 mb-1">Total Orders</p>
+                <p class="text-3xl font-bold text-slate-900">{{ stats.total_orders_month }}</p>
+            </div>
+        </div>
+
+        <!-- Month Revenue -->
+        <div class="group relative bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-transparent rounded-bl-full"></div>
+            <div class="relative">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                        </svg>
+                    </div>
+                    <span class="text-xs font-semibold text-slate-400">This Month</span>
+                </div>
+                <p class="text-sm font-medium text-slate-500 mb-1">Revenue</p>
+                <p class="text-3xl font-bold text-slate-900">{{ currency_symbol }}{{ stats.revenue_month|floatformat:0 }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plan Info Card -->
+    {% if plan_info %}
+    <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 rounded-2xl p-6 shadow-lg">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-xl font-bold text-white">{{ plan_info.name }} Plan</h3>
+                        <span class="px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-semibold">Active</span>
+                    </div>
+                    <p class="text-white/80 text-sm mt-1">
+                        {% for feature in plan_info.features|slice:":3" %}
+                            {{ feature }}{% if not forloop.last %} &bull; {% endif %}
+                        {% endfor %}
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="text-center">
+                    <p class="text-3xl font-bold text-white">{{ plan_info.outlets_used }}</p>
+                    <p class="text-white/70 text-sm">of {{ plan_info.max_outlets_display }} outlets</p>
+                </div>
+                <div class="h-12 w-px bg-white/20"></div>
+                <div class="text-center">
+                    <p class="text-3xl font-bold text-white">{{ stats.total_staff }}</p>
+                    <p class="text-white/70 text-sm">staff members</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <!-- Revenue Chart -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-100">
+                <h2 class="text-lg font-bold text-slate-900">Revenue Trend</h2>
+                <p class="text-sm text-slate-500 mt-0.5">Last 7 days performance</p>
+            </div>
+            <div class="p-6">
+                <canvas id="revenueChart" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Orders Chart -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-100">
+                <h2 class="text-lg font-bold text-slate-900">Orders Trend</h2>
+                <p class="text-sm text-slate-500 mt-0.5">Last 7 days orders</p>
+            </div>
+            <div class="p-6">
+                <canvas id="ordersChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <!-- Outlet Performance - Takes 2 columns -->
+        <div class="xl:col-span-2">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Outlet Performance</h2>
+                        <p class="text-sm text-slate-500 mt-0.5">Today's performance by outlet</p>
+                    </div>
+                    <a href="{% url 'dashboard:outlets' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                        View All
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </a>
+                </div>
+
+                <div class="p-6">
+                    {% if outlet_stats %}
+                    <div class="space-y-4">
+                        {% for item in outlet_stats %}
+                        <div class="p-4 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                                        {{ item.outlet.name|slice:":2"|upper }}
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-slate-900">{{ item.outlet.name }}</p>
+                                        <p class="text-xs text-slate-500">{{ item.outlet.address|truncatechars:40 }}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-6">
+                                    <div class="text-center">
+                                        <p class="text-lg font-bold text-slate-900">{{ item.orders_today }}</p>
+                                        <p class="text-xs text-slate-500">Orders</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-lg font-bold text-emerald-600">{{ currency_symbol }}{{ item.revenue_today|floatformat:0 }}</p>
+                                        <p class="text-xs text-slate-500">Revenue</p>
+                                    </div>
+                                    <div class="text-center">
+                                        {% if item.pending_orders > 0 %}
+                                        <p class="text-lg font-bold text-amber-600">{{ item.pending_orders }}</p>
+                                        {% else %}
+                                        <p class="text-lg font-bold text-slate-400">0</p>
+                                        {% endif %}
+                                        <p class="text-xs text-slate-500">Pending</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-12">
+                        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+                            <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                            </svg>
+                        </div>
+                        <p class="font-semibold text-slate-700">No outlets found</p>
+                        <p class="text-sm text-slate-500 mt-1">Create your first outlet to get started</p>
+                        <a href="{% url 'dashboard:outlet_create' %}" class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                            Add Outlet
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Status Distribution -->
+        <div class="xl:col-span-1">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden h-full">
+                <div class="px-6 py-5 border-b border-slate-100">
+                    <h2 class="text-lg font-bold text-slate-900">Order Status</h2>
+                    <p class="text-sm text-slate-500 mt-0.5">Today's orders by status</p>
+                </div>
+
+                <div class="p-6">
+                    <canvas id="statusChart" height="200"></canvas>
+
+                    <div class="mt-6 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                                <span class="text-sm text-slate-600">Pending</span>
+                            </div>
+                            <span class="font-semibold text-slate-900">{{ status_data.pending }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                                <span class="text-sm text-slate-600">Preparing</span>
+                            </div>
+                            <span class="font-semibold text-slate-900">{{ status_data.preparing }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-purple-500"></div>
+                                <span class="text-sm text-slate-600">Ready</span>
+                            </div>
+                            <span class="font-semibold text-slate-900">{{ status_data.ready }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                                <span class="text-sm text-slate-600">Completed</span>
+                            </div>
+                            <span class="font-semibold text-slate-900">{{ status_data.completed|add:status_data.served }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <!-- Top Selling Items -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Top Selling Items</h2>
+                    <p class="text-sm text-slate-500 mt-0.5">This month's best performers</p>
+                </div>
+                <a href="{% url 'dashboard:menu' %}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">View Menu</a>
+            </div>
+
+            <div class="p-6">
+                {% if top_items %}
+                <div class="space-y-4">
+                    {% for item in top_items %}
+                    <div class="flex items-center gap-4 p-4 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
+                            #{{ forloop.counter }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-slate-900 truncate">{{ item.menu_item__name }}</p>
+                            <p class="text-sm text-slate-500">{{ item.total_qty }} sold</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-emerald-600">{{ currency_symbol }}{{ item.total_revenue|floatformat:0 }}</p>
+                            <p class="text-xs text-slate-400">revenue</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-12">
+                    <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+                        <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                    </div>
+                    <p class="font-semibold text-slate-700">No sales data yet</p>
+                    <p class="text-sm text-slate-500 mt-1">Top items will appear once orders are completed</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-100">
+                <h2 class="text-lg font-bold text-slate-900">Quick Actions</h2>
+                <p class="text-sm text-slate-500 mt-0.5">Manage your business</p>
+            </div>
+
+            <div class="p-4 grid grid-cols-2 gap-4">
+                <a href="{% url 'dashboard:outlets' %}" class="group flex flex-col items-center gap-3 p-6 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                    </div>
+                    <p class="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">Outlets</p>
+                </a>
+
+                <a href="{% url 'dashboard:users' %}" class="group flex flex-col items-center gap-3 p-6 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                    </div>
+                    <p class="font-semibold text-slate-900 group-hover:text-emerald-600 transition-colors">Staff</p>
+                </a>
+
+                <a href="{% url 'dashboard:menu' %}" class="group flex flex-col items-center gap-3 p-6 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                    </div>
+                    <p class="font-semibold text-slate-900 group-hover:text-amber-600 transition-colors">Menu</p>
+                </a>
+
+                <a href="{% url 'dashboard:reports' %}" class="group flex flex-col items-center gap-3 p-6 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <p class="font-semibold text-slate-900 group-hover:text-rose-600 transition-colors">Reports</p>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Revenue Chart
+const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+new Chart(revenueCtx, {
+    type: 'line',
+    data: {
+        labels: {{ chart_data.labels|safe }},
+        datasets: [{
+            label: 'Revenue',
+            data: {{ chart_data.revenue|safe }},
+            borderColor: 'rgb(99, 102, 241)',
+            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: 'rgb(99, 102, 241)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.05)'
+                },
+                ticks: {
+                    callback: function(value) {
+                        return '{{ currency_symbol }}' + value.toLocaleString();
+                    }
+                }
+            },
+            x: {
+                grid: { display: false }
+            }
+        }
+    }
+});
+
+// Orders Chart
+const ordersCtx = document.getElementById('ordersChart').getContext('2d');
+new Chart(ordersCtx, {
+    type: 'bar',
+    data: {
+        labels: {{ chart_data.labels|safe }},
+        datasets: [{
+            label: 'Orders',
+            data: {{ chart_data.orders|safe }},
+            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+            borderColor: 'rgb(16, 185, 129)',
+            borderWidth: 0,
+            borderRadius: 8
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.05)'
+                },
+                ticks: {
+                    stepSize: 1
+                }
+            },
+            x: {
+                grid: { display: false }
+            }
+        }
+    }
+});
+
+// Status Doughnut Chart
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+new Chart(statusCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Pending', 'Preparing', 'Ready', 'Completed'],
+        datasets: [{
+            data: [
+                {{ status_data.pending|add:status_data.confirmed }},
+                {{ status_data.preparing }},
+                {{ status_data.ready }},
+                {{ status_data.completed|add:status_data.served }}
+            ],
+            backgroundColor: [
+                'rgb(245, 158, 11)',
+                'rgb(59, 130, 246)',
+                'rgb(139, 92, 246)',
+                'rgb(16, 185, 129)'
+            ],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+            legend: { display: false }
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -5,7 +5,8 @@ Dashboard views for the Coffee Shop Management System.
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Sum
+from django.db import models
+from django.db.models import Count, Sum, Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -13,6 +14,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from apps.accounts.models import User
+from apps.core.models import Outlet
 from apps.menu.models import Category, MenuItem
 from apps.orders.models import Order, OrderItem, Payment, KitchenOrderTicket
 from apps.tables.models import Floor, Table, TableSession
@@ -122,17 +124,16 @@ def dashboard_home(request):
     """Dashboard home with statistics."""
     from django.conf import settings as django_settings
     from apps.core.models import Outlet
+    from datetime import timedelta
+    import json
 
     today = timezone.now().date()
+    user = request.user
 
-    # Get order stats
-    today_orders = Order.objects.filter(created_at__date=today)
-    completed_orders = today_orders.filter(status__in=[Order.Status.COMPLETED, Order.Status.SERVED])
-
-    # Get plan info from settings (only for super admin)
-    max_outlets = getattr(django_settings, "MAX_OUTLETS", 1)
-    plan_info = None
-    if request.user.role == "super_admin":
+    # Super Admin Dashboard - Show charts and outlet-wise data
+    if user.role == User.Role.SUPER_ADMIN:
+        # Get plan info from settings
+        max_outlets = getattr(django_settings, "MAX_OUTLETS", 1)
         plan_info = {
             "name": getattr(django_settings, "PLAN_NAME", "Basic"),
             "max_outlets": max_outlets,
@@ -143,30 +144,141 @@ def dashboard_home(request):
             "features": getattr(django_settings, "PLAN_FEATURES", []),
         }
 
-    # Get stats
-    context = {
-        "page_title": "Dashboard",
-        "stats": {
-            "total_orders_today": today_orders.count(),
-            "revenue_today": completed_orders.aggregate(total=Sum("total_amount"))["total"] or 0,
-            "active_tables": Table.objects.filter(status=Table.Status.OCCUPIED).count(),
-            "pending_orders": today_orders.filter(status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING]).count(),
-        },
-        "tables": {
-            "total": Table.objects.filter(is_active=True).count(),
-            "vacant": Table.objects.filter(is_active=True, status=Table.Status.VACANT).count(),
-            "occupied": Table.objects.filter(is_active=True, status=Table.Status.OCCUPIED).count(),
-            "reserved": Table.objects.filter(is_active=True, status=Table.Status.RESERVED).count(),
-        },
-        "menu": {
-            "total_categories": Category.objects.filter(is_active=True).count(),
-            "total_items": MenuItem.objects.filter(is_available=True).count(),
-        },
-        "recent_sessions": TableSession.objects.select_related("table", "waiter").order_by("-started_at")[:5],
-        "plan_info": plan_info,
-    }
+        # Get all outlets
+        outlets = Outlet.objects.filter(is_active=True)
 
-    return render(request, "dashboard/home.html", context)
+        # Overall stats across all outlets
+        all_orders = Order.objects.all()
+        today_orders = all_orders.filter(created_at__date=today)
+        completed_today = today_orders.filter(status__in=[Order.Status.COMPLETED, Order.Status.SERVED])
+
+        # This month stats
+        month_start = today.replace(day=1)
+        month_orders = all_orders.filter(created_at__date__gte=month_start)
+        completed_month = month_orders.filter(status__in=[Order.Status.COMPLETED, Order.Status.SERVED])
+
+        # Revenue for last 7 days (for chart)
+        revenue_data = []
+        order_count_data = []
+        labels = []
+        for i in range(6, -1, -1):
+            day = today - timedelta(days=i)
+            day_orders = all_orders.filter(created_at__date=day)
+            day_completed = day_orders.filter(status__in=[Order.Status.COMPLETED, Order.Status.SERVED])
+            day_revenue = day_completed.aggregate(total=Sum("total_amount"))["total"] or 0
+            revenue_data.append(float(day_revenue))
+            order_count_data.append(day_orders.count())
+            labels.append(day.strftime("%a"))
+
+        # Outlet-wise performance
+        outlet_stats = []
+        for outlet in outlets:
+            outlet_orders = all_orders.filter(
+                models.Q(table__floor__outlet=outlet) |
+                models.Q(table__isnull=True, created_by__outlet=outlet)
+            )
+            outlet_today = outlet_orders.filter(created_at__date=today)
+            outlet_completed = outlet_today.filter(status__in=[Order.Status.COMPLETED, Order.Status.SERVED])
+            outlet_revenue = outlet_completed.aggregate(total=Sum("total_amount"))["total"] or 0
+            outlet_stats.append({
+                "outlet": outlet,
+                "orders_today": outlet_today.count(),
+                "revenue_today": outlet_revenue,
+                "pending_orders": outlet_today.filter(
+                    status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING]
+                ).count(),
+            })
+
+        # Top selling items (this month)
+        top_items = OrderItem.objects.filter(
+            order__created_at__date__gte=month_start,
+            order__status__in=[Order.Status.COMPLETED, Order.Status.SERVED]
+        ).values("menu_item__name").annotate(
+            total_qty=Sum("quantity"),
+            total_revenue=Sum("total_price")
+        ).order_by("-total_qty")[:5]
+
+        # Order status distribution (today)
+        status_distribution = today_orders.values("status").annotate(count=Count("id"))
+        status_data = {item["status"]: item["count"] for item in status_distribution}
+
+        context = {
+            "page_title": "Dashboard",
+            "is_super_admin": True,
+            "plan_info": plan_info,
+            "stats": {
+                "total_orders_today": today_orders.count(),
+                "revenue_today": completed_today.aggregate(total=Sum("total_amount"))["total"] or 0,
+                "total_orders_month": month_orders.count(),
+                "revenue_month": completed_month.aggregate(total=Sum("total_amount"))["total"] or 0,
+                "total_outlets": outlets.count(),
+                "total_staff": User.objects.filter(is_active=True).exclude(role=User.Role.SUPER_ADMIN).count(),
+            },
+            "outlet_stats": outlet_stats,
+            "chart_data": {
+                "labels": json.dumps(labels),
+                "revenue": json.dumps(revenue_data),
+                "orders": json.dumps(order_count_data),
+            },
+            "top_items": top_items,
+            "status_data": {
+                "pending": status_data.get(Order.Status.PENDING, 0),
+                "confirmed": status_data.get(Order.Status.CONFIRMED, 0),
+                "preparing": status_data.get(Order.Status.PREPARING, 0),
+                "ready": status_data.get(Order.Status.READY, 0),
+                "served": status_data.get(Order.Status.SERVED, 0),
+                "completed": status_data.get(Order.Status.COMPLETED, 0),
+            },
+        }
+
+        return render(request, "dashboard/home_admin.html", context)
+
+    # Outlet Manager / Staff Dashboard - Show operational data
+    else:
+        # Filter by outlet for outlet manager
+        user_outlet = user.outlet
+
+        # Get order stats for user's outlet
+        if user_outlet:
+            today_orders = Order.objects.filter(
+                created_at__date=today
+            ).filter(
+                models.Q(table__floor__outlet=user_outlet) |
+                models.Q(table__isnull=True, created_by__outlet=user_outlet)
+            )
+            tables_qs = Table.objects.filter(floor__outlet=user_outlet, is_active=True)
+        else:
+            today_orders = Order.objects.filter(created_at__date=today)
+            tables_qs = Table.objects.filter(is_active=True)
+
+        completed_orders = today_orders.filter(status__in=[Order.Status.COMPLETED, Order.Status.SERVED])
+
+        # Get stats
+        context = {
+            "page_title": "Dashboard",
+            "is_super_admin": False,
+            "stats": {
+                "total_orders_today": today_orders.count(),
+                "revenue_today": completed_orders.aggregate(total=Sum("total_amount"))["total"] or 0,
+                "active_tables": tables_qs.filter(status=Table.Status.OCCUPIED).count(),
+                "pending_orders": today_orders.filter(status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING]).count(),
+            },
+            "tables": {
+                "total": tables_qs.count(),
+                "vacant": tables_qs.filter(status=Table.Status.VACANT).count(),
+                "occupied": tables_qs.filter(status=Table.Status.OCCUPIED).count(),
+                "reserved": tables_qs.filter(status=Table.Status.RESERVED).count(),
+            },
+            "menu": {
+                "total_categories": Category.objects.filter(is_active=True).count(),
+                "total_items": MenuItem.objects.filter(is_available=True).count(),
+            },
+            "recent_sessions": TableSession.objects.select_related("table", "waiter").filter(
+                table__floor__outlet=user_outlet
+            ).order_by("-started_at")[:5] if user_outlet else TableSession.objects.select_related("table", "waiter").order_by("-started_at")[:5],
+        }
+
+        return render(request, "dashboard/home.html", context)
 
 
 # ============================================================================
@@ -225,18 +337,46 @@ def change_password_view(request):
 @login_required
 def menu_list(request):
     """Menu management - list categories and items."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    user = request.user
+    if user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
-    categories = Category.objects.prefetch_related("items").order_by("display_order")
+    selected_outlet = request.GET.get("outlet", "")
+
+    # Get outlets for filter dropdown (super admin only)
+    outlets = None
+    if user.role == User.Role.SUPER_ADMIN:
+        outlets = Outlet.objects.filter(is_active=True).order_by("name")
+
+    categories = Category.objects.select_related("outlet").prefetch_related("items").order_by("display_order")
+    menu_items = MenuItem.objects.all()
+
+    # Get all categories for modal dropdowns (for super admin, includes outlet info)
+    all_categories = categories
+
+    # Filter by outlet
+    if user.role == User.Role.OUTLET_MANAGER:
+        # Outlet manager only sees their outlet's menu
+        if user.outlet:
+            categories = categories.filter(outlet=user.outlet)
+            all_categories = categories  # Same for outlet manager
+            menu_items = menu_items.filter(category__outlet=user.outlet)
+    elif user.role == User.Role.SUPER_ADMIN and selected_outlet:
+        # Super admin can filter by outlet for display
+        categories = categories.filter(outlet_id=selected_outlet)
+        menu_items = menu_items.filter(category__outlet_id=selected_outlet)
+        # But keep all_categories unfiltered for modal dropdowns
 
     context = {
         "page_title": "Menu Management",
         "categories": categories,
-        "total_items": MenuItem.objects.count(),
-        "available_items": MenuItem.objects.filter(is_available=True).count(),
+        "all_categories": all_categories,  # For modal category dropdowns
+        "total_items": menu_items.count(),
+        "available_items": menu_items.filter(is_available=True).count(),
         "food_types": MenuItem.FoodType.choices,
+        "outlets": outlets,
+        "selected_outlet": selected_outlet,
     }
     return render(request, "dashboard/menu/list.html", context)
 
@@ -286,7 +426,8 @@ def menu_item_detail(request, pk):
 @login_required
 def category_create(request):
     """Create a new category."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    user = request.user
+    if user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:menu")
 
@@ -295,15 +436,31 @@ def category_create(request):
         description = request.POST.get("description", "").strip()
         display_order = request.POST.get("display_order", 0)
 
+        # Get outlet - super admin selects, outlet manager uses their outlet
+        outlet = None
+        if user.role == User.Role.SUPER_ADMIN:
+            outlet_id = request.POST.get("outlet")
+            if outlet_id:
+                try:
+                    outlet = Outlet.objects.get(pk=outlet_id)
+                except Outlet.DoesNotExist:
+                    messages.error(request, "Selected outlet not found.")
+                    return redirect("dashboard:menu")
+        elif user.role == User.Role.OUTLET_MANAGER:
+            outlet = user.outlet
+
         if not name:
             messages.error(request, "Category name is required.")
-        elif Category.objects.filter(name=name).exists():
-            messages.error(request, "A category with this name already exists.")
+        elif not outlet:
+            messages.error(request, "Please select an outlet.")
+        elif Category.objects.filter(name=name, outlet=outlet).exists():
+            messages.error(request, "A category with this name already exists for this outlet.")
         else:
             category = Category.objects.create(
                 name=name,
                 description=description,
                 display_order=int(display_order) if display_order else 0,
+                outlet=outlet,
             )
             # Handle image upload
             if "image" in request.FILES:
@@ -317,7 +474,8 @@ def category_create(request):
 @login_required
 def category_edit(request, pk):
     """Edit a category."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    user = request.user
+    if user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:menu")
 
@@ -327,21 +485,38 @@ def category_edit(request, pk):
         messages.error(request, "Category not found.")
         return redirect("dashboard:menu")
 
+    # Outlet manager can only edit their own outlet's categories
+    if user.role == User.Role.OUTLET_MANAGER and category.outlet != user.outlet:
+        messages.error(request, "You do not have permission to edit this category.")
+        return redirect("dashboard:menu")
+
     if request.method == "POST":
         name = request.POST.get("name", "").strip()
         description = request.POST.get("description", "").strip()
         display_order = request.POST.get("display_order", 0)
         is_active = request.POST.get("is_active") == "on"
 
+        # Get outlet - only super admin can change it
+        outlet = category.outlet
+        if user.role == User.Role.SUPER_ADMIN:
+            outlet_id = request.POST.get("outlet")
+            if outlet_id:
+                try:
+                    outlet = Outlet.objects.get(pk=outlet_id)
+                except Outlet.DoesNotExist:
+                    messages.error(request, "Selected outlet not found.")
+                    return redirect("dashboard:menu")
+
         if not name:
             messages.error(request, "Category name is required.")
-        elif Category.objects.filter(name=name).exclude(pk=pk).exists():
-            messages.error(request, "A category with this name already exists.")
+        elif Category.objects.filter(name=name, outlet=outlet).exclude(pk=pk).exists():
+            messages.error(request, "A category with this name already exists for this outlet.")
         else:
             category.name = name
             category.description = description
             category.display_order = int(display_order) if display_order else 0
             category.is_active = is_active
+            category.outlet = outlet
             # Handle image upload
             if "image" in request.FILES:
                 category.image = request.FILES["image"]
@@ -1590,7 +1765,11 @@ def reports_view(request):
     )
 
     # Average order value
-    avg_order = month_orders.aggregate(avg=Sum("total_amount") / Count("id") if month_orders.count() > 0 else 0)
+    if month_orders.exists():
+        from django.db.models import Avg
+        avg_order = month_orders.aggregate(avg=Avg("total_amount"))
+    else:
+        avg_order = {"avg": 0}
 
     context = {
         "page_title": "Reports & Analytics",
@@ -1620,7 +1799,7 @@ def reports_view(request):
 @login_required
 def settings_view(request):
     """System settings."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -1630,7 +1809,25 @@ def settings_view(request):
     tax = TaxSettings.load()
     order_settings = OrderSettings.load()
 
+    # Outlet selection for super admin (for context, settings are still global)
+    outlets = None
+    selected_outlet = request.GET.get("outlet", "")
+    current_outlet = None
+
+    if request.user.role == User.Role.SUPER_ADMIN:
+        outlets = Outlet.objects.all()
+        if selected_outlet:
+            current_outlet = Outlet.objects.filter(id=selected_outlet).first()
+    else:
+        # Outlet manager sees their outlet context
+        current_outlet = request.user.outlet
+
     if request.method == "POST":
+        # Only super admin can modify settings
+        if request.user.role != User.Role.SUPER_ADMIN:
+            messages.error(request, "Only super admin can modify settings.")
+            return redirect("dashboard:settings")
+
         setting_type = request.POST.get("setting_type")
 
         if setting_type == "branding":
@@ -1700,6 +1897,10 @@ def settings_view(request):
         "business": business,
         "tax": tax,
         "order_settings": order_settings,
+        "outlets": outlets,
+        "selected_outlet": selected_outlet,
+        "current_outlet": current_outlet,
+        "can_edit": request.user.role == User.Role.SUPER_ADMIN,
     }
     return render(request, "dashboard/settings/index.html", context)
 
@@ -3440,15 +3641,31 @@ from apps.finance.models import (
 @login_required
 def expense_dashboard(request):
     """Expense management dashboard."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
     today = timezone.now().date()
     month_start = today.replace(day=1)
 
-    # Get stats
+    # Get base queryset
     expenses = Expense.objects.filter(status=Expense.Status.PAID)
+
+    # Outlet filtering
+    outlets = None
+    selected_outlet = request.GET.get("outlet", "")
+
+    if request.user.role == User.Role.SUPER_ADMIN:
+        outlets = Outlet.objects.all()
+        if selected_outlet:
+            expenses = expenses.filter(outlet_id=selected_outlet)
+    else:
+        # Outlet manager - filter by their outlet
+        if request.user.outlet:
+            expenses = expenses.filter(outlet=request.user.outlet)
+        else:
+            expenses = expenses.none()
+
     today_expenses = expenses.filter(date=today)
     month_expenses = expenses.filter(date__gte=month_start)
 
@@ -3460,7 +3677,16 @@ def expense_dashboard(request):
     ).order_by("-total")[:5]
 
     # Recent expenses
-    recent_expenses = Expense.objects.select_related("category", "created_by").order_by("-date", "-created_at")[:10]
+    recent_expenses_qs = Expense.objects.select_related("category", "created_by", "outlet")
+    if request.user.role == User.Role.SUPER_ADMIN:
+        if selected_outlet:
+            recent_expenses_qs = recent_expenses_qs.filter(outlet_id=selected_outlet)
+    else:
+        if request.user.outlet:
+            recent_expenses_qs = recent_expenses_qs.filter(outlet=request.user.outlet)
+        else:
+            recent_expenses_qs = recent_expenses_qs.none()
+    recent_expenses = recent_expenses_qs.order_by("-date", "-created_at")[:10]
 
     context = {
         "page_title": "Expenses",
@@ -3473,6 +3699,8 @@ def expense_dashboard(request):
         "category_breakdown": category_breakdown,
         "recent_expenses": recent_expenses,
         "categories": ExpenseCategory.objects.filter(is_active=True),
+        "outlets": outlets,
+        "selected_outlet": selected_outlet,
     }
     return render(request, "dashboard/expenses/dashboard.html", context)
 
@@ -3480,7 +3708,7 @@ def expense_dashboard(request):
 @login_required
 def expense_list(request):
     """List all expenses with filters."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission to access this page.")
         return redirect("dashboard:home")
 
@@ -3489,7 +3717,22 @@ def expense_list(request):
     date_from = request.GET.get("date_from", "")
     date_to = request.GET.get("date_to", "")
 
-    expenses = Expense.objects.select_related("category", "created_by").order_by("-date", "-created_at")
+    expenses = Expense.objects.select_related("category", "created_by", "outlet").order_by("-date", "-created_at")
+
+    # Outlet filtering
+    outlets = None
+    selected_outlet = request.GET.get("outlet", "")
+
+    if request.user.role == User.Role.SUPER_ADMIN:
+        outlets = Outlet.objects.all()
+        if selected_outlet:
+            expenses = expenses.filter(outlet_id=selected_outlet)
+    else:
+        # Outlet manager - filter by their outlet
+        if request.user.outlet:
+            expenses = expenses.filter(outlet=request.user.outlet)
+        else:
+            expenses = expenses.none()
 
     if category_filter:
         expenses = expenses.filter(category_id=category_filter)
@@ -3510,6 +3753,8 @@ def expense_list(request):
         "current_status": status_filter,
         "date_from": date_from,
         "date_to": date_to,
+        "outlets": outlets,
+        "selected_outlet": selected_outlet,
     }
     return render(request, "dashboard/expenses/list.html", context)
 
@@ -3517,7 +3762,7 @@ def expense_list(request):
 @login_required
 def expense_create(request):
     """Create a new expense."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:expenses")
 
@@ -3530,6 +3775,13 @@ def expense_create(request):
         vendor_name = request.POST.get("vendor_name", "")
         reference_number = request.POST.get("reference_number", "")
         notes = request.POST.get("notes", "")
+
+        # Determine outlet
+        if request.user.role == User.Role.SUPER_ADMIN:
+            outlet_id = request.POST.get("outlet")
+            outlet = Outlet.objects.filter(id=outlet_id).first() if outlet_id else None
+        else:
+            outlet = request.user.outlet
 
         if not all([category_id, date, amount]):
             messages.error(request, "Category, date, and amount are required.")
@@ -3546,6 +3798,7 @@ def expense_create(request):
                     notes=notes,
                     status=Expense.Status.PAID,
                     created_by=request.user,
+                    outlet=outlet,
                 )
 
                 # If cash expense, create cash drawer transaction
@@ -3577,10 +3830,12 @@ def expense_create(request):
                 messages.error(request, f"Error creating expense: {str(e)}")
 
     categories = ExpenseCategory.objects.filter(is_active=True)
+    outlets = Outlet.objects.all() if request.user.role == User.Role.SUPER_ADMIN else None
     context = {
         "page_title": "Add Expense",
         "categories": categories,
         "today": timezone.now().date(),
+        "outlets": outlets,
     }
     return render(request, "dashboard/expenses/form.html", context)
 
@@ -3588,12 +3843,16 @@ def expense_create(request):
 @login_required
 def expense_detail(request, pk):
     """View expense details."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:expenses")
 
     try:
-        expense = Expense.objects.select_related("category", "created_by", "approved_by").get(pk=pk)
+        expense = Expense.objects.select_related("category", "created_by", "approved_by", "outlet").get(pk=pk)
+        # For outlet_manager, verify expense belongs to their outlet
+        if request.user.role == User.Role.OUTLET_MANAGER and expense.outlet != request.user.outlet:
+            messages.error(request, "You do not have permission to view this expense.")
+            return redirect("dashboard:expense_list")
     except Expense.DoesNotExist:
         messages.error(request, "Expense not found.")
         return redirect("dashboard:expense_list")
@@ -3610,12 +3869,16 @@ def expense_detail(request, pk):
 @login_required
 def expense_edit(request, pk):
     """Edit an expense."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:expenses")
 
     try:
-        expense = Expense.objects.get(pk=pk)
+        expense = Expense.objects.select_related("outlet").get(pk=pk)
+        # For outlet_manager, verify expense belongs to their outlet
+        if request.user.role == User.Role.OUTLET_MANAGER and expense.outlet != request.user.outlet:
+            messages.error(request, "You do not have permission to edit this expense.")
+            return redirect("dashboard:expense_list")
     except Expense.DoesNotExist:
         messages.error(request, "Expense not found.")
         return redirect("dashboard:expense_list")
@@ -3645,10 +3908,12 @@ def expense_edit(request, pk):
         return redirect("dashboard:expense_detail", pk=pk)
 
     categories = ExpenseCategory.objects.filter(is_active=True)
+    outlets = Outlet.objects.all() if request.user.role == User.Role.SUPER_ADMIN else None
     context = {
         "page_title": f"Edit Expense {expense.expense_number}",
         "expense": expense,
         "categories": categories,
+        "outlets": outlets,
     }
     return render(request, "dashboard/expenses/form.html", context)
 
@@ -3657,12 +3922,16 @@ def expense_edit(request, pk):
 @require_http_methods(["POST"])
 def expense_delete(request, pk):
     """Delete an expense."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:expenses")
 
     try:
-        expense = Expense.objects.get(pk=pk)
+        expense = Expense.objects.select_related("outlet").get(pk=pk)
+        # For outlet_manager, verify expense belongs to their outlet
+        if request.user.role == User.Role.OUTLET_MANAGER and expense.outlet != request.user.outlet:
+            messages.error(request, "You do not have permission to delete this expense.")
+            return redirect("dashboard:expense_list")
         expense_number = expense.expense_number
         expense.delete()
         messages.success(request, f"Expense {expense_number} deleted.")
@@ -3777,8 +4046,24 @@ def cash_drawer_dashboard(request):
 
     today = timezone.now().date()
 
-    # Get or display today's cash drawer
-    cash_drawer = CashDrawer.objects.filter(date=today).first()
+    # Outlet filtering
+    outlets = None
+    selected_outlet = request.GET.get("outlet", "")
+
+    # Get or display today's cash drawer with outlet filter
+    cash_drawer_qs = CashDrawer.objects.filter(date=today)
+
+    if request.user.role == User.Role.SUPER_ADMIN:
+        outlets = Outlet.objects.all()
+        if selected_outlet:
+            cash_drawer_qs = cash_drawer_qs.filter(outlet_id=selected_outlet)
+        cash_drawer = cash_drawer_qs.first()
+    else:
+        # Outlet manager or cashier - filter by their outlet
+        if request.user.outlet:
+            cash_drawer = cash_drawer_qs.filter(outlet=request.user.outlet).first()
+        else:
+            cash_drawer = None
 
     # Get current user's active shift
     active_shift = None
@@ -3800,6 +4085,8 @@ def cash_drawer_dashboard(request):
         "active_shift": active_shift,
         "recent_transactions": recent_transactions,
         "today": today,
+        "outlets": outlets,
+        "selected_outlet": selected_outlet,
     }
     return render(request, "dashboard/cash_drawer/dashboard.html", context)
 
@@ -3813,9 +4100,21 @@ def cash_drawer_open(request):
 
     today = timezone.now().date()
 
-    # Check if already open
-    if CashDrawer.objects.filter(date=today).exists():
-        messages.warning(request, "Cash drawer for today is already open.")
+    # Determine outlet
+    if request.user.role == User.Role.SUPER_ADMIN:
+        outlet = None  # Super admin needs to select outlet
+        if request.method == "POST":
+            outlet_id = request.POST.get("outlet")
+            outlet = Outlet.objects.filter(id=outlet_id).first() if outlet_id else None
+    else:
+        outlet = request.user.outlet
+
+    # Check if already open for this outlet
+    existing_drawer_qs = CashDrawer.objects.filter(date=today)
+    if outlet:
+        existing_drawer_qs = existing_drawer_qs.filter(outlet=outlet)
+    if existing_drawer_qs.exists():
+        messages.warning(request, "Cash drawer for today is already open for this outlet.")
         return redirect("dashboard:cash_drawer")
 
     if request.method == "POST":
@@ -3826,6 +4125,7 @@ def cash_drawer_open(request):
             opening_balance=opening_balance,
             opened_by=request.user,
             opened_at=timezone.now(),
+            outlet=outlet,
         )
         cash_drawer.calculate_expected()
         cash_drawer.save()
@@ -3834,13 +4134,19 @@ def cash_drawer_open(request):
         return redirect("dashboard:cash_drawer")
 
     # Get previous day's closing balance as suggestion
-    previous_drawer = CashDrawer.objects.filter(is_closed=True).order_by("-date").first()
+    previous_drawer_qs = CashDrawer.objects.filter(is_closed=True)
+    if outlet:
+        previous_drawer_qs = previous_drawer_qs.filter(outlet=outlet)
+    previous_drawer = previous_drawer_qs.order_by("-date").first()
     suggested_balance = previous_drawer.actual_balance if previous_drawer else 0
+
+    outlets = Outlet.objects.all() if request.user.role == User.Role.SUPER_ADMIN else None
 
     context = {
         "page_title": "Open Cash Drawer",
         "suggested_balance": suggested_balance,
         "today": today,
+        "outlets": outlets,
     }
     return render(request, "dashboard/cash_drawer/open.html", context)
 
@@ -3854,10 +4160,23 @@ def cash_drawer_close(request):
 
     today = timezone.now().date()
 
+    # Determine outlet
+    cash_drawer_qs = CashDrawer.objects.filter(date=today)
+    if request.user.role == User.Role.SUPER_ADMIN:
+        outlet_id = request.GET.get("outlet") or request.POST.get("outlet")
+        if outlet_id:
+            cash_drawer_qs = cash_drawer_qs.filter(outlet_id=outlet_id)
+    else:
+        if request.user.outlet:
+            cash_drawer_qs = cash_drawer_qs.filter(outlet=request.user.outlet)
+
     try:
-        cash_drawer = CashDrawer.objects.get(date=today)
+        cash_drawer = cash_drawer_qs.get()
     except CashDrawer.DoesNotExist:
         messages.error(request, "No cash drawer open for today.")
+        return redirect("dashboard:cash_drawer")
+    except CashDrawer.MultipleObjectsReturned:
+        messages.error(request, "Multiple cash drawers found. Please select an outlet.")
         return redirect("dashboard:cash_drawer")
 
     if cash_drawer.is_closed:
@@ -3905,11 +4224,27 @@ def cash_drawer_history(request):
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:home")
 
-    drawers = CashDrawer.objects.order_by("-date")[:30]
+    # Outlet filtering
+    outlets = None
+    selected_outlet = request.GET.get("outlet", "")
+
+    drawers = CashDrawer.objects.select_related("outlet", "opened_by", "closed_by").order_by("-date")
+
+    if request.user.role == User.Role.SUPER_ADMIN:
+        outlets = Outlet.objects.all()
+        if selected_outlet:
+            drawers = drawers.filter(outlet_id=selected_outlet)
+    else:
+        if request.user.outlet:
+            drawers = drawers.filter(outlet=request.user.outlet)
+        else:
+            drawers = drawers.none()
 
     context = {
         "page_title": "Cash Drawer History",
-        "drawers": drawers,
+        "drawers": drawers[:30],
+        "outlets": outlets,
+        "selected_outlet": selected_outlet,
     }
     return render(request, "dashboard/cash_drawer/history.html", context)
 
@@ -3922,7 +4257,11 @@ def cash_drawer_detail(request, pk):
         return redirect("dashboard:home")
 
     try:
-        cash_drawer = CashDrawer.objects.prefetch_related("transactions", "shifts").get(pk=pk)
+        cash_drawer = CashDrawer.objects.select_related("outlet").prefetch_related("transactions", "shifts").get(pk=pk)
+        # For outlet_manager or cashier, verify cash drawer belongs to their outlet
+        if request.user.role in [User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER] and cash_drawer.outlet != request.user.outlet:
+            messages.error(request, "You do not have permission to view this cash drawer.")
+            return redirect("dashboard:cash_drawer_history")
     except CashDrawer.DoesNotExist:
         messages.error(request, "Cash drawer not found.")
         return redirect("dashboard:cash_drawer_history")
@@ -3948,10 +4287,18 @@ def cash_in_out(request):
 
     today = timezone.now().date()
 
+    # Get cash drawer for the user's outlet
+    cash_drawer_qs = CashDrawer.objects.filter(date=today, is_closed=False)
+    if request.user.outlet:
+        cash_drawer_qs = cash_drawer_qs.filter(outlet=request.user.outlet)
+
     try:
-        cash_drawer = CashDrawer.objects.get(date=today, is_closed=False)
+        cash_drawer = cash_drawer_qs.get()
     except CashDrawer.DoesNotExist:
         messages.error(request, "No open cash drawer for today.")
+        return redirect("dashboard:cash_drawer")
+    except CashDrawer.MultipleObjectsReturned:
+        messages.error(request, "Multiple cash drawers found. Please select an outlet.")
         return redirect("dashboard:cash_drawer")
 
     if request.method == "POST":

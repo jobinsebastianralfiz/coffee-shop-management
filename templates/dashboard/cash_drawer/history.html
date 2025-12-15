@@ -18,6 +18,16 @@
                 <p class="text-slate-500 mt-1">View past cash drawer records</p>
             </div>
         </div>
+        {% if outlets and user.role == 'super_admin' %}
+        <div class="flex items-center gap-3">
+            <select onchange="filterByOutlet(this.value)" class="px-4 py-2 border border-slate-200 rounded-xl bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="">All Outlets</option>
+                {% for outlet in outlets %}
+                <option value="{{ outlet.id }}" {% if selected_outlet == outlet.id|stringformat:"s" %}selected{% endif %}>{{ outlet.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Summary Cards -->
@@ -78,6 +88,9 @@
                 <thead class="bg-slate-50 border-b border-slate-200">
                     <tr>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
+                        {% if user.role == 'super_admin' %}
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Outlet</th>
+                        {% endif %}
                         <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Opening</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Cash Sales</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">In/Out</th>
@@ -94,6 +107,9 @@
                             <p class="font-semibold text-slate-800">{{ drawer.date|date:"M d, Y" }}</p>
                             <p class="text-xs text-slate-500">{{ drawer.date|date:"l" }}</p>
                         </td>
+                        {% if user.role == 'super_admin' %}
+                        <td class="px-6 py-4 text-slate-600">{{ drawer.outlet.name|default:"-" }}</td>
+                        {% endif %}
                         <td class="px-6 py-4 text-slate-600">{{ currency_symbol }}{{ drawer.opening_balance|floatformat:2 }}</td>
                         <td class="px-6 py-4 font-semibold text-emerald-600">+{{ currency_symbol }}{{ drawer.total_cash_sales|floatformat:2 }}</td>
                         <td class="px-6 py-4">
@@ -158,4 +174,16 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+function filterByOutlet(outletId) {
+    const url = new URL(window.location.href);
+    if (outletId) {
+        url.searchParams.set('outlet', outletId);
+    } else {
+        url.searchParams.delete('outlet');
+    }
+    window.location.href = url.toString();
+}
+</script>
 {% endblock %}

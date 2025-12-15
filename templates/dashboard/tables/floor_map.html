@@ -26,9 +26,9 @@
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
             <h1 class="text-2xl font-bold text-slate-900">Floor Map</h1>
-            <p class="text-slate-500 mt-1">Tap a table to take order</p>
+            <p class="text-slate-500 mt-1">{% if user.role == 'super_admin' %}View table status and details{% else %}Tap a table to take order{% endif %}</p>
         </div>
-        {% if user.role == 'outlet_manager' %}
+        {% if user.role == 'outlet_manager' or user.role == 'super_admin' %}
         <a href="{% url 'dashboard:tables' %}?view=manage{% if selected_outlet %}&outlet={{ selected_outlet }}{% endif %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 transition-colors">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
@@ -153,7 +153,71 @@
     </div>
 </div>
 
-<!-- JavaScript for outlet filtering -->
+<!-- Table Details Modal (Super Admin) -->
+<div id="tableDetailsModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('tableDetailsModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+            <h3 class="text-xl font-bold text-slate-900 mb-1">Table Details</h3>
+            <p class="text-slate-500 text-sm mb-6" id="tableOutletName"></p>
+
+            <div class="space-y-4">
+                <!-- Table Info -->
+                <div class="bg-slate-50 rounded-xl p-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-xs text-slate-500">Table Number</span>
+                            <p class="font-bold text-lg text-slate-900" id="modalTableNumber"></p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-500">Capacity</span>
+                            <p class="font-bold text-lg text-slate-900" id="modalTableCapacity"></p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-500">Floor</span>
+                            <p class="font-semibold text-slate-700" id="modalTableFloor"></p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-500">Status</span>
+                            <p class="font-semibold" id="modalTableStatus"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QR Code -->
+                <div id="qrCodeSection" class="text-center">
+                    <p class="text-sm font-medium text-slate-700 mb-3">QR Code</p>
+                    <div class="bg-white border-2 border-slate-100 p-4 rounded-xl inline-block">
+                        <img id="modalQRCode" src="" alt="QR Code" class="w-40 h-40 mx-auto">
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2">Scan to order from this table</p>
+                    <a id="modalQRDownload" href="" download class="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Download QR
+                    </a>
+                </div>
+
+                <!-- No QR Code Message -->
+                <div id="noQRSection" class="hidden text-center py-4">
+                    <svg class="w-12 h-12 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                    </svg>
+                    <p class="text-slate-500 mt-2">No QR code generated</p>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <button type="button" onclick="document.getElementById('tableDetailsModal').classList.add('hidden')" class="w-full px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for outlet filtering and table details -->
 <script>
 function filterByOutlet(outletId) {
     const url = new URL(window.location.href);
@@ -163,6 +227,47 @@ function filterByOutlet(outletId) {
         url.searchParams.delete('outlet');
     }
     window.location.href = url.toString();
+}
+
+function showTableDetails(tableNumber, capacity, status, qrUrl, floorName, outletName) {
+    document.getElementById('modalTableNumber').textContent = tableNumber;
+    document.getElementById('modalTableCapacity').textContent = capacity + ' seats';
+    document.getElementById('modalTableFloor').textContent = floorName;
+    document.getElementById('modalTableStatus').textContent = status;
+    document.getElementById('tableOutletName').textContent = outletName || '';
+
+    // Set status color
+    const statusEl = document.getElementById('modalTableStatus');
+    statusEl.className = 'font-semibold';
+    if (status === 'Vacant') {
+        statusEl.classList.add('text-emerald-600');
+    } else if (status === 'Ordering' || status === 'Preparing') {
+        statusEl.classList.add('text-amber-600');
+    } else if (status === 'Ready!') {
+        statusEl.classList.add('text-purple-600');
+    } else if (status === 'Served') {
+        statusEl.classList.add('text-orange-600');
+    } else if (status === 'Reserved') {
+        statusEl.classList.add('text-blue-600');
+    } else {
+        statusEl.classList.add('text-slate-600');
+    }
+
+    // Handle QR code
+    const qrSection = document.getElementById('qrCodeSection');
+    const noQRSection = document.getElementById('noQRSection');
+
+    if (qrUrl) {
+        document.getElementById('modalQRCode').src = qrUrl;
+        document.getElementById('modalQRDownload').href = qrUrl;
+        qrSection.classList.remove('hidden');
+        noQRSection.classList.add('hidden');
+    } else {
+        qrSection.classList.add('hidden');
+        noQRSection.classList.remove('hidden');
+    }
+
+    document.getElementById('tableDetailsModal').classList.remove('hidden');
 }
 </script>
 {% endblock %}

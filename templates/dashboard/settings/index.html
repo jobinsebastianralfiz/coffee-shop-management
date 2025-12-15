@@ -5,9 +5,32 @@
 {% block content %}
 <div class="max-w-5xl mx-auto space-y-6">
     <!-- Header -->
-    <div>
-        <h1 class="text-2xl font-bold text-slate-900">Settings</h1>
-        <p class="text-slate-500 mt-1">Configure your {{ business_name }} system</p>
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Settings</h1>
+            <p class="text-slate-500 mt-1">
+                {% if not can_edit %}
+                View-only mode - Contact super admin to make changes
+                {% else %}
+                Configure your {{ business_name }} system
+                {% endif %}
+            </p>
+        </div>
+        {% if outlets and user.role == 'super_admin' %}
+        <div class="flex items-center gap-3">
+            <select onchange="filterByOutlet(this.value)" class="px-4 py-2 border border-slate-200 rounded-xl bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="">Global Settings</option>
+                {% for outlet in outlets %}
+                <option value="{{ outlet.id }}" {% if selected_outlet == outlet.id|stringformat:"s" %}selected{% endif %}>{{ outlet.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        {% if current_outlet and user.role == 'outlet_manager' %}
+        <div class="px-4 py-2 bg-indigo-100 text-indigo-800 rounded-xl font-medium">
+            {{ current_outlet.name }}
+        </div>
+        {% endif %}
     </div>
 
     <!-- Settings Tabs -->
@@ -398,5 +421,30 @@
             }
         });
     });
+
+    function filterByOutlet(outletId) {
+        const url = new URL(window.location.href);
+        if (outletId) {
+            url.searchParams.set('outlet', outletId);
+        } else {
+            url.searchParams.delete('outlet');
+        }
+        window.location.href = url.toString();
+    }
+
+    {% if not can_edit %}
+    // Disable all form inputs for non-admin users
+    document.addEventListener('DOMContentLoaded', function() {
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            form.querySelectorAll('input, select, textarea').forEach(input => {
+                input.disabled = true;
+            });
+            form.querySelectorAll('button[type="submit"]').forEach(btn => {
+                btn.style.display = 'none';
+            });
+        });
+    });
+    {% endif %}
 </script>
 {% endblock %}

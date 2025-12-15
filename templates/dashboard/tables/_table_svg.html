@@ -1,7 +1,13 @@
 {# Table SVG with chairs - reusable partial #}
 {# Variables: table, chair_fill, chair_stroke, table_fill, status_text, status_color, is_ready, is_combined, combined_with #}
 
+{% if user.role == 'super_admin' %}
+<div class="relative cursor-pointer block group {% if is_ready %}animate-pulse{% endif %}"
+     onclick="showTableDetails('{{ table.number }}', '{{ table.capacity }}', '{{ status_text }}', '{% if table.qr_code %}{{ table.qr_code.url }}{% endif %}', '{{ table.floor.name }}', '{% if table.floor.outlet %}{{ table.floor.outlet.name }}{% endif %}')">
+{% else %}
 <a href="{% url 'dashboard:table_take_order' table.pk %}" class="relative cursor-pointer block group {% if is_ready %}animate-pulse{% endif %}">
+{% endif %}
+
     <!-- SVG Table with Chairs -->
     <svg width="{% if table.capacity <= 2 %}100{% elif table.capacity <= 4 %}120{% elif table.capacity <= 6 %}160{% else %}180{% endif %}"
          height="{% if table.capacity <= 2 %}100{% elif table.capacity <= 4 %}120{% else %}120{% endif %}"
@@ -94,4 +100,9 @@
         </svg>
     </div>
     {% endif %}
+
+{% if user.role == 'super_admin' %}
+</div>
+{% else %}
 </a>
+{% endif %}

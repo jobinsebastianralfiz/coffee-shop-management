@@ -4,6 +4,24 @@
 
 {% block content %}
 <div class="space-y-6">
+    <!-- Outlet Filter (Super Admin Only) -->
+    {% if outlets and user.role == 'super_admin' %}
+    <div class="flex items-center justify-between bg-white rounded-xl border border-slate-200 p-4">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            <span class="text-sm font-medium text-slate-700">Filter by Outlet:</span>
+        </div>
+        <select onchange="filterByOutlet(this.value)" class="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            <option value="">All Outlets</option>
+            {% for outlet in outlets %}
+            <option value="{{ outlet.pk }}" {% if selected_outlet == outlet.pk|stringformat:"i" %}selected{% endif %}>{{ outlet.name }} ({{ outlet.code }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -92,6 +110,9 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2" x-data="{ open: false }">
+                    {% if user.role == 'super_admin' and category.outlet %}
+                    <span class="px-2 py-1 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-lg">{{ category.outlet.name }}</span>
+                    {% endif %}
                     {% if not category.is_active %}
                     <span class="px-2 py-1 text-xs font-medium bg-slate-100 text-slate-600 rounded-lg">Inactive</span>
                     {% endif %}
@@ -102,7 +123,7 @@
                             </svg>
                         </button>
                         <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
-                            <button onclick="openEditCategoryModal({{ category.id }}, '{{ category.name|escapejs }}', '{{ category.description|escapejs }}', {{ category.display_order }}, {{ category.is_active|yesno:'true,false' }})" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                            <button onclick="openEditCategoryModal({{ category.id }}, '{{ category.name|escapejs }}', '{{ category.description|escapejs }}', {{ category.display_order }}, {{ category.is_active|yesno:'true,false' }}, '{{ category.outlet_id|default:"" }}')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                                 </svg>
@@ -172,7 +193,7 @@
                                 </svg>
                             </button>
                             <div x-show="menuOpen" @click.away="menuOpen = false" x-transition class="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
-                                <button onclick="openEditItemModal({{ item.id }}, '{{ item.name|escapejs }}', '{{ item.description|escapejs }}', '{{ item.base_price }}', '{{ item.food_type }}', {{ item.category.id }}, {{ item.preparation_time }}, {{ item.is_available|yesno:'true,false' }}, {{ item.is_featured|yesno:'true,false' }})" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                <button onclick="openEditItemModal({{ item.id }}, '{{ item.name|escapejs }}', '{{ item.description|escapejs }}', '{{ item.base_price }}', '{{ item.food_type }}', {{ item.category.id }}, {{ item.preparation_time }}, {{ item.is_available|yesno:'true,false' }}, {{ item.is_featured|yesno:'true,false' }}, '{{ item.category.outlet_id|default:"" }}')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                                     </svg>
@@ -268,6 +289,17 @@
 
             <form action="{% url 'dashboard:category_create' %}" method="POST" enctype="multipart/form-data" class="space-y-4">
                 {% csrf_token %}
+                {% if outlets and user.role == 'super_admin' %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet *</label>
+                    <select name="outlet" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        <option value="">Select an outlet</option>
+                        {% for outlet in outlets %}
+                        <option value="{{ outlet.pk }}">{{ outlet.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Category Name</label>
                     <input type="text" name="name" placeholder="e.g. Hot Beverages" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
@@ -307,6 +339,17 @@
 
             <form id="editCategoryForm" method="POST" enctype="multipart/form-data" class="space-y-4">
                 {% csrf_token %}
+                {% if outlets and user.role == 'super_admin' %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet *</label>
+                    <select name="outlet" id="editCategoryOutlet" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        <option value="">Select an outlet</option>
+                        {% for outlet in outlets %}
+                        <option value="{{ outlet.pk }}">{{ outlet.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Category Name</label>
                     <input type="text" name="name" id="editCategoryName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
@@ -350,6 +393,17 @@
 
             <form action="{% url 'dashboard:menu_item_create' %}" method="POST" enctype="multipart/form-data" class="space-y-4">
                 {% csrf_token %}
+                {% if outlets and user.role == 'super_admin' %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet *</label>
+                    <select name="item_outlet" id="addItemOutlet" required onchange="filterCategoriesByOutlet(this.value, 'addItemCategory')" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        <option value="">Select an outlet</option>
+                        {% for outlet in outlets %}
+                        <option value="{{ outlet.pk }}">{{ outlet.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Item Name</label>
@@ -357,10 +411,10 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
-                        <select name="category" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                        <select name="category" id="addItemCategory" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
                             <option value="">Select category</option>
-                            {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% for cat in all_categories %}
+                            <option value="{{ cat.id }}" data-outlet="{{ cat.outlet_id }}">{{ cat.name }}{% if user.role == 'super_admin' and cat.outlet %} ({{ cat.outlet.name }}){% endif %}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -426,6 +480,17 @@
 
             <form id="editItemForm" method="POST" enctype="multipart/form-data" class="space-y-4">
                 {% csrf_token %}
+                {% if outlets and user.role == 'super_admin' %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet *</label>
+                    <select name="item_outlet" id="editItemOutlet" required onchange="filterCategoriesByOutlet(this.value, 'editItemCategory')" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        <option value="">Select an outlet</option>
+                        {% for outlet in outlets %}
+                        <option value="{{ outlet.pk }}">{{ outlet.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Item Name</label>
@@ -434,8 +499,8 @@
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
                         <select name="category" id="editItemCategory" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
-                            {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% for cat in all_categories %}
+                            <option value="{{ cat.id }}" data-outlet="{{ cat.outlet_id }}">{{ cat.name }}{% if user.role == 'super_admin' and cat.outlet %} ({{ cat.outlet.name }}){% endif %}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -492,25 +557,84 @@
 </div>
 
 <script>
-function openEditCategoryModal(id, name, description, order, isActive) {
+function filterByOutlet(outletId) {
+    const url = new URL(window.location.href);
+    if (outletId) {
+        url.searchParams.set('outlet', outletId);
+    } else {
+        url.searchParams.delete('outlet');
+    }
+    window.location.href = url.toString();
+}
+
+function filterCategoriesByOutlet(outletId, categorySelectId) {
+    const categorySelect = document.getElementById(categorySelectId);
+    if (!categorySelect) return;
+
+    const options = categorySelect.querySelectorAll('option');
+    let firstVisibleOption = null;
+
+    options.forEach(option => {
+        if (option.value === '') {
+            // Keep the placeholder option visible
+            option.style.display = '';
+            return;
+        }
+
+        const optionOutlet = option.getAttribute('data-outlet');
+        if (!outletId || optionOutlet === outletId) {
+            option.style.display = '';
+            if (!firstVisibleOption) {
+                firstVisibleOption = option;
+            }
+        } else {
+            option.style.display = 'none';
+        }
+    });
+
+    // Reset selection if current selection is hidden
+    const currentOption = categorySelect.options[categorySelect.selectedIndex];
+    if (currentOption && currentOption.style.display === 'none') {
+        categorySelect.value = '';
+    }
+}
+
+function openEditCategoryModal(id, name, description, order, isActive, outletId) {
     document.getElementById('editCategoryForm').action = '/dashboard/menu/category/' + id + '/edit/';
     document.getElementById('editCategoryName').value = name;
     document.getElementById('editCategoryDescription').value = description || '';
     document.getElementById('editCategoryOrder').value = order;
     document.getElementById('editCategoryActive').checked = isActive;
+
+    // Set outlet if element exists (super admin only)
+    const outletSelect = document.getElementById('editCategoryOutlet');
+    if (outletSelect && outletId) {
+        outletSelect.value = outletId;
+    }
+
     document.getElementById('editCategoryModal').classList.remove('hidden');
 }
 
-function openEditItemModal(id, name, description, price, foodType, categoryId, prepTime, isAvailable, isFeatured) {
+function openEditItemModal(id, name, description, price, foodType, categoryId, prepTime, isAvailable, isFeatured, outletId) {
     document.getElementById('editItemForm').action = '/dashboard/menu/item/' + id + '/edit/';
     document.getElementById('editItemName').value = name;
     document.getElementById('editItemDescription').value = description || '';
     document.getElementById('editItemPrice').value = price;
     document.getElementById('editItemFoodType').value = foodType;
-    document.getElementById('editItemCategory').value = categoryId;
     document.getElementById('editItemPrepTime').value = prepTime;
     document.getElementById('editItemAvailable').checked = isAvailable;
     document.getElementById('editItemFeatured').checked = isFeatured;
+
+    // Set outlet and filter categories if outlet element exists (super admin only)
+    const outletSelect = document.getElementById('editItemOutlet');
+    if (outletSelect && outletId) {
+        outletSelect.value = outletId;
+        filterCategoriesByOutlet(outletId, 'editItemCategory');
+    }
+
+    // Set category after filtering
+    document.getElementById('editItemCategory').value = categoryId;
+
     document.getElementById('editItemModal').classList.remove('hidden');
 }
 </script>
