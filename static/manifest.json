@@ -1,0 +1,41 @@
+{
+  "name": "Coffee Shop Waiter",
+  "short_name": "Waiter",
+  "description": "Waiter app for Coffee Shop Management System",
+  "start_url": "/waiter/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#4f46e5",
+  "background_color": "#f8fafc",
+  "icons": [
+    {
+      "src": "/static/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "business"],
+  "shortcuts": [
+    {
+      "name": "Tables",
+      "short_name": "Tables",
+      "description": "View floor map",
+      "url": "/waiter/tables/",
+      "icons": [{"src": "/static/images/icon-tables.png", "sizes": "96x96"}]
+    },
+    {
+      "name": "Orders",
+      "short_name": "Orders",
+      "description": "View orders",
+      "url": "/waiter/orders/",
+      "icons": [{"src": "/static/images/icon-orders.png", "sizes": "96x96"}]
+    }
+  ]
+}

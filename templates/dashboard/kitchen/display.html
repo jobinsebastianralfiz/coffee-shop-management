@@ -1,0 +1,300 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Kitchen Display{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .order-card {
+        animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .fade-out {
+        animation: fadeOut 0.3s ease-out forwards;
+    }
+    @keyframes fadeOut {
+        to {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-6">
+    <!-- Header with Controls -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <p class="text-slate-500 mt-1">Real-time order management for kitchen staff</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- Audio Toggle -->
+            <button id="audio-toggle" data-enabled="true" onclick="kitchenManager.toggleAudio()"
+                    class="p-2.5 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors" title="Toggle Audio Notifications">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                </svg>
+            </button>
+            <!-- Refresh Button -->
+            <button onclick="kitchenManager.refresh()" class="p-2.5 rounded-xl hover:bg-slate-100 text-slate-500 transition-colors" title="Refresh Orders">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+            </button>
+            <!-- Connection Status -->
+            <div class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100">
+                <span id="connection-status" class="w-2 h-2 rounded-full bg-green-500 transition-colors"></span>
+                <span class="text-sm font-semibold text-slate-600">Live</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
+            <p id="pending-count" class="text-3xl font-bold text-amber-600">{{ pending_orders|length }}</p>
+            <p class="text-sm text-amber-700 font-medium">Pending</p>
+        </div>
+        <div class="bg-cyan-50 border border-cyan-200 rounded-2xl p-4 text-center">
+            <p id="preparing-count" class="text-3xl font-bold text-cyan-600">{{ preparing_orders|length }}</p>
+            <p class="text-sm text-cyan-700 font-medium">Preparing</p>
+        </div>
+        <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 text-center">
+            <p id="ready-count" class="text-3xl font-bold text-indigo-600">{{ ready_orders|length }}</p>
+            <p class="text-sm text-indigo-700 font-medium">Ready</p>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
+            <p id="total-count" class="text-3xl font-bold text-emerald-600">{{ pending_orders|length|add:preparing_orders|length|add:ready_orders|length }}</p>
+            <p class="text-sm text-emerald-700 font-medium">Total Active</p>
+        </div>
+    </div>
+
+    <!-- Orders Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Pending Column -->
+        <div>
+            <div class="flex items-center gap-2 mb-4" data-column="pending">
+                <span class="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></span>
+                <h2 class="text-lg font-bold text-slate-800">Pending Orders</h2>
+            </div>
+
+            <div id="pending-orders" class="space-y-4">
+                {% if pending_orders %}
+                    {% for order in pending_orders %}
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden order-card" data-order-id="{{ order.pk }}">
+                        <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center">
+                            <div>
+                                <span class="font-bold text-lg">#{{ order.order_number }}</span>
+                                <span class="ml-2 text-slate-500">{% if order.table %}Table {{ order.table.number }}{% else %}Takeaway{% endif %}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-slate-500">{{ order.created_at|timesince }} ago</span>
+                                {% if order.kitchen_ticket %}
+                                <span class="px-2 py-0.5 rounded text-xs font-medium
+                                    {% if order.kitchen_ticket.priority == 'rush' %}bg-red-100 text-red-700 animate-pulse
+                                    {% elif order.kitchen_ticket.priority == 'high' %}bg-orange-100 text-orange-700
+                                    {% elif order.kitchen_ticket.priority == 'low' %}bg-slate-100 text-slate-700
+                                    {% else %}bg-blue-100 text-blue-700{% endif %}">
+                                    {{ order.kitchen_ticket.priority|upper }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="px-4 py-3">
+                            {% for item in order.items.all %}
+                            <div class="flex justify-between items-start py-1 border-b border-slate-100 last:border-0">
+                                <div class="flex-1">
+                                    <span class="font-medium">{{ item.quantity }}x</span>
+                                    <span class="ml-1">{{ item.item_name }}</span>
+                                    {% if item.variant_name %}<span class="text-slate-500 text-sm ml-1">({{ item.variant_name }})</span>{% endif %}
+                                    {% if item.special_instructions %}<p class="text-xs text-orange-600 mt-0.5">{{ item.special_instructions }}</p>{% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if order.kitchen_notes %}
+                        <div class="px-4 py-2 bg-amber-50 border-t border-amber-100">
+                            <p class="text-sm text-amber-800"><strong>Note:</strong> {{ order.kitchen_notes }}</p>
+                        </div>
+                        {% endif %}
+                        <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                            <button onclick="kitchenManager.startPreparing({{ order.pk }})"
+                                    class="flex-1 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors">
+                                Start Preparing
+                            </button>
+                            <button onclick="kitchenManager.showPriorityMenu({{ order.pk }})"
+                                    class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition-colors">
+                                Priority
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="flex flex-col items-center justify-center py-12 text-slate-400">
+                        <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                        <p class="text-lg">No pending orders</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Preparing Column -->
+        <div>
+            <div class="flex items-center gap-2 mb-4" data-column="preparing">
+                <span class="w-3 h-3 rounded-full bg-cyan-500 animate-pulse"></span>
+                <h2 class="text-lg font-bold text-slate-800">Preparing</h2>
+            </div>
+
+            <div id="preparing-orders" class="space-y-4">
+                {% if preparing_orders %}
+                    {% for order in preparing_orders %}
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden order-card" data-order-id="{{ order.pk }}">
+                        <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center">
+                            <div>
+                                <span class="font-bold text-lg">#{{ order.order_number }}</span>
+                                <span class="ml-2 text-slate-500">{% if order.table %}Table {{ order.table.number }}{% else %}Takeaway{% endif %}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-slate-500">{{ order.created_at|timesince }} ago</span>
+                                {% if order.kitchen_ticket %}
+                                <span class="px-2 py-0.5 rounded text-xs font-medium
+                                    {% if order.kitchen_ticket.priority == 'rush' %}bg-red-100 text-red-700 animate-pulse
+                                    {% elif order.kitchen_ticket.priority == 'high' %}bg-orange-100 text-orange-700
+                                    {% elif order.kitchen_ticket.priority == 'low' %}bg-slate-100 text-slate-700
+                                    {% else %}bg-blue-100 text-blue-700{% endif %}">
+                                    {{ order.kitchen_ticket.priority|upper }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="px-4 py-3">
+                            {% for item in order.items.all %}
+                            <div class="flex justify-between items-start py-1 border-b border-slate-100 last:border-0">
+                                <div class="flex-1">
+                                    <span class="font-medium">{{ item.quantity }}x</span>
+                                    <span class="ml-1">{{ item.item_name }}</span>
+                                    {% if item.variant_name %}<span class="text-slate-500 text-sm ml-1">({{ item.variant_name }})</span>{% endif %}
+                                    {% if item.special_instructions %}<p class="text-xs text-orange-600 mt-0.5">{{ item.special_instructions }}</p>{% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if order.kitchen_notes %}
+                        <div class="px-4 py-2 bg-amber-50 border-t border-amber-100">
+                            <p class="text-sm text-amber-800"><strong>Note:</strong> {{ order.kitchen_notes }}</p>
+                        </div>
+                        {% endif %}
+                        <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                            <button onclick="kitchenManager.bumpOrder({{ order.pk }})"
+                                    class="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors">
+                                Bump (Ready)
+                            </button>
+                            <button onclick="kitchenManager.showPriorityMenu({{ order.pk }})"
+                                    class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition-colors">
+                                Priority
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="flex flex-col items-center justify-center py-12 text-slate-400">
+                        <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <p class="text-lg">No orders being prepared</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Ready Column -->
+        <div>
+            <div class="flex items-center gap-2 mb-4" data-column="ready">
+                <span class="w-3 h-3 rounded-full bg-indigo-500 animate-pulse"></span>
+                <h2 class="text-lg font-bold text-slate-800">Ready to Serve</h2>
+            </div>
+
+            <div id="ready-orders" class="space-y-4">
+                {% if ready_orders %}
+                    {% for order in ready_orders %}
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden order-card" data-order-id="{{ order.pk }}">
+                        <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center">
+                            <div>
+                                <span class="font-bold text-lg">#{{ order.order_number }}</span>
+                                <span class="ml-2 text-slate-500">{% if order.table %}Table {{ order.table.number }}{% else %}Takeaway{% endif %}</span>
+                            </div>
+                            <span class="px-2 py-1 rounded-lg bg-emerald-500 text-white text-xs font-bold animate-pulse">READY</span>
+                        </div>
+                        <div class="px-4 py-3">
+                            {% for item in order.items.all %}
+                            <div class="flex justify-between items-start py-1 border-b border-slate-100 last:border-0">
+                                <div class="flex-1">
+                                    <span class="font-medium">{{ item.quantity }}x</span>
+                                    <span class="ml-1">{{ item.item_name }}</span>
+                                    {% if item.variant_name %}<span class="text-slate-500 text-sm ml-1">({{ item.variant_name }})</span>{% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                            <button onclick="kitchenManager.recallOrder({{ order.pk }})"
+                                    class="flex-1 px-4 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors">
+                                Recall
+                            </button>
+                            <form method="POST" class="flex-1">
+                                {% csrf_token %}
+                                <input type="hidden" name="order_id" value="{{ order.pk }}">
+                                <input type="hidden" name="status" value="served">
+                                <button type="submit" class="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors">
+                                    Mark Served
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="flex flex-col items-center justify-center py-12 text-slate-400">
+                        <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <p class="text-lg">No orders ready</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/kitchen-websocket.js' %}"></script>
+<script>
+    // Update total count when individual counts change
+    function updateTotalCount() {
+        const pending = parseInt(document.getElementById('pending-count').textContent) || 0;
+        const preparing = parseInt(document.getElementById('preparing-count').textContent) || 0;
+        const ready = parseInt(document.getElementById('ready-count').textContent) || 0;
+        document.getElementById('total-count').textContent = pending + preparing + ready;
+    }
+
+    // Observe count changes
+    const observer = new MutationObserver(updateTotalCount);
+    ['pending-count', 'preparing-count', 'ready-count'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) observer.observe(el, { childList: true, characterData: true, subtree: true });
+    });
+</script>
+{% endblock %}

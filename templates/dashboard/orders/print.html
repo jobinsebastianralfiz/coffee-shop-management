@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bill - Order #{{ order.order_number }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            max-width: 80mm;
+            margin: 0 auto;
+            padding: 10mm 5mm;
+            background: white;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #000;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 10px;
+            color: #333;
+        }
+
+        .info-section {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #000;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+
+        .info-label {
+            color: #666;
+        }
+
+        .items-section {
+            margin-bottom: 15px;
+        }
+
+        .items-header {
+            display: flex;
+            justify-content: space-between;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #000;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            padding-bottom: 5px;
+        }
+
+        .item-name {
+            flex: 1;
+        }
+
+        .item-qty {
+            width: 30px;
+            text-align: center;
+        }
+
+        .item-price {
+            width: 60px;
+            text-align: right;
+        }
+
+        .item-instructions {
+            font-size: 10px;
+            font-style: italic;
+            color: #666;
+            margin-left: 10px;
+            margin-bottom: 5px;
+        }
+
+        .totals-section {
+            padding-top: 10px;
+            border-top: 1px dashed #000;
+            margin-bottom: 15px;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+
+        .total-row.grand-total {
+            font-size: 14px;
+            font-weight: bold;
+            padding-top: 5px;
+            border-top: 1px solid #000;
+            margin-top: 5px;
+        }
+
+        .payment-section {
+            padding: 10px 0;
+            border-top: 1px dashed #000;
+            border-bottom: 1px dashed #000;
+            margin-bottom: 15px;
+        }
+
+        .payment-status {
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 5px;
+            border: 2px solid #000;
+            margin-bottom: 10px;
+        }
+
+        .payment-status.paid {
+            background: #000;
+            color: #fff;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+        }
+
+        .footer p {
+            margin-bottom: 5px;
+        }
+
+        .qr-section {
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            @page {
+                margin: 5mm;
+                size: 80mm auto;
+            }
+        }
+
+        .print-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: system-ui, sans-serif;
+            font-size: 14px;
+        }
+
+        .print-btn:hover {
+            background: #4338ca;
+        }
+
+        @media print {
+            .print-btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-btn" onclick="window.print()">Print Bill</button>
+
+    <!-- Header -->
+    <div class="header">
+        <h1>{{ business.business_name }}</h1>
+        {% if business.tagline %}<p>{{ business.tagline }}</p>{% endif %}
+        {% if business.address %}<p>{{ business.address }}</p>{% endif %}
+        {% if business.phone %}<p>Tel: {{ business.phone }}</p>{% endif %}
+        {% if business.gst_number %}<p>GSTIN: {{ business.gst_number }}</p>{% endif %}
+        {% if business.fssai_number %}<p>FSSAI: {{ business.fssai_number }}</p>{% endif %}
+    </div>
+
+    <!-- Order Info -->
+    <div class="info-section">
+        <div class="info-row">
+            <span class="info-label">Order #:</span>
+            <span><strong>{{ order.order_number }}</strong></span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Date:</span>
+            <span>{{ order.created_at|date:"d/m/Y" }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Time:</span>
+            <span>{{ order.created_at|date:"H:i" }}</span>
+        </div>
+        {% if order.table %}
+        <div class="info-row">
+            <span class="info-label">Table:</span>
+            <span>{{ order.table.number }}</span>
+        </div>
+        {% endif %}
+        <div class="info-row">
+            <span class="info-label">Type:</span>
+            <span>{{ order.get_order_type_display }}</span>
+        </div>
+        {% if order.customer_name %}
+        <div class="info-row">
+            <span class="info-label">Customer:</span>
+            <span>{{ order.customer_name }}</span>
+        </div>
+        {% endif %}
+        {% if order.served_by %}
+        <div class="info-row">
+            <span class="info-label">Served by:</span>
+            <span>{{ order.served_by.get_full_name|default:order.served_by.username }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Items -->
+    <div class="items-section">
+        <div class="items-header">
+            <span class="item-name">Item</span>
+            <span class="item-qty">Qty</span>
+            <span class="item-price">Amount</span>
+        </div>
+        {% for item in order.items.all %}
+        <div class="item-row">
+            <span class="item-name">{{ item.item_name }}{% if item.variant_name %} ({{ item.variant_name }}){% endif %}</span>
+            <span class="item-qty">{{ item.quantity }}</span>
+            <span class="item-price">{{ item.total_price }}</span>
+        </div>
+        {% if item.special_instructions %}
+        <div class="item-instructions">* {{ item.special_instructions }}</div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Totals -->
+    <div class="totals-section">
+        <div class="total-row">
+            <span>Subtotal</span>
+            <span>{{ order.subtotal }}</span>
+        </div>
+        {% if order.discount_amount > 0 %}
+        <div class="total-row">
+            <span>Discount {% if order.discount_percentage > 0 %}({{ order.discount_percentage }}%){% endif %}</span>
+            <span>-{{ order.discount_amount }}</span>
+        </div>
+        {% endif %}
+        {% if order.cgst_amount > 0 %}
+        <div class="total-row">
+            <span>CGST</span>
+            <span>{{ order.cgst_amount }}</span>
+        </div>
+        {% endif %}
+        {% if order.sgst_amount > 0 %}
+        <div class="total-row">
+            <span>SGST</span>
+            <span>{{ order.sgst_amount }}</span>
+        </div>
+        {% endif %}
+        {% if order.service_charge > 0 %}
+        <div class="total-row">
+            <span>Service Charge</span>
+            <span>{{ order.service_charge }}</span>
+        </div>
+        {% endif %}
+        <div class="total-row grand-total">
+            <span>GRAND TOTAL</span>
+            <span>{{ business.currency_symbol|default:"₹" }}{{ order.total_amount }}</span>
+        </div>
+    </div>
+
+    <!-- Payment Status -->
+    <div class="payment-section">
+        {% if order.is_paid %}
+        <div class="payment-status paid">PAID</div>
+        {% for payment in order.payments.all %}
+        <div class="total-row">
+            <span>{{ payment.get_method_display }}</span>
+            <span>{{ payment.amount }}</span>
+        </div>
+        {% endfor %}
+        {% if order.payments.first.change_amount and order.payments.first.change_amount > 0 %}
+        <div class="total-row">
+            <span>Change</span>
+            <span>{{ order.payments.first.change_amount }}</span>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="payment-status">UNPAID</div>
+        <div class="total-row">
+            <span>Balance Due</span>
+            <span><strong>{{ order.balance_due }}</strong></span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>Thank you for dining with us!</p>
+        <p>Visit again soon</p>
+        {% if business.website %}<p>{{ business.website }}</p>{% endif %}
+        <p style="margin-top: 10px;">--- END OF BILL ---</p>
+    </div>
+
+    <script>
+        // Auto-print when page loads (optional - uncomment if needed)
+        // window.onload = function() { window.print(); }
+    </script>
+</body>
+</html>

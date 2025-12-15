@@ -1,0 +1,49 @@
+# Django Core
+Django>=5.0,<6.0
+djangorestframework>=3.14.0
+django-cors-headers>=4.3.0
+django-filter>=23.5
+
+# Authentication
+djangorestframework-simplejwt>=5.3.0
+
+# Database
+psycopg2-binary>=2.9.9
+
+# Redis & Channels (Real-time)
+redis>=5.0.0
+channels>=4.0.0
+channels-redis>=4.1.0
+
+# Celery (Background Tasks)
+celery>=5.3.0
+django-celery-beat>=2.5.0
+
+# Image Processing & QR Code
+Pillow>=10.0.0
+qrcode>=7.4.0
+
+# Configuration
+python-decouple>=3.8
+
+# Static Files
+whitenoise>=6.6.0
+
+# API Documentation
+drf-spectacular>=0.27.0
+
+# Payments
+razorpay>=1.4.0
+
+# Report Generation
+reportlab>=4.0.0
+openpyxl>=3.1.0
+
+# SMS Notifications
+twilio>=8.10.0
+
+# Date/Time utilities
+python-dateutil>=2.8.0
+
+# UUID for QR codes
+shortuuid>=1.0.0

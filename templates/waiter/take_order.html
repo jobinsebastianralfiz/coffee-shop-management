@@ -1,0 +1,141 @@
+{% extends "waiter/base.html" %}
+
+{% block title %}Seat {{ seat }} - Table {{ table.number }}{% endblock %}
+
+{% block content %}
+<div x-data="takeOrderApp()" class="min-h-screen pb-32">
+    <!-- Header -->
+    <header class="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
+        <div class="px-4 py-3">
+            <div class="flex items-center gap-4">
+                <a href="{% url 'waiter:table_detail' table.pk %}" class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </a>
+                <div class="flex-1">
+                    <h1 class="text-lg font-bold text-slate-800">Table {{ table.number }} - Seat {{ seat }}</h1>
+                    <p class="text-sm text-slate-500">
+                        {% if current_order %}
+                        Order: {{ current_order.order_number }}
+                        {% else %}
+                        New Order
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Tabs -->
+        <div class="px-4 pb-3 overflow-x-auto hide-scrollbar">
+            <div class="flex gap-2">
+                <button
+                    @click="selectedCategory = null"
+                    :class="selectedCategory === null ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700'"
+                    class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                >
+                    All
+                </button>
+                {% for category in categories %}
+                <button
+                    @click="selectedCategory = {{ category.pk }}"
+                    :class="selectedCategory === {{ category.pk }} ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700'"
+                    class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                >
+                    {{ category.name }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </header>
+
+    <!-- Menu Items -->
+    <main class="p-4 space-y-6">
+        {% for category in categories %}
+        <div x-show="selectedCategory === null || selectedCategory === {{ category.pk }}">
+            <h2 class="text-lg font-bold text-slate-800 mb-3">{{ category.name }}</h2>
+            <div class="grid grid-cols-1 gap-3">
+                {% for item in category.items.all %}
+                {% if item.is_available %}
+                <div class="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4">
+                    <!-- Item Image/Icon -->
+                    {% if item.image %}
+                    <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                        <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-full h-full object-cover">
+                    </div>
+                    {% else %}
+                    <div class="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                    </div>
+                    {% endif %}
+
+                    <!-- Item Info -->
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-semibold text-slate-800">{{ item.name }}</h3>
+                        <p class="text-lg font-bold text-indigo-600">{{ item.base_price }}</p>
+                    </div>
+
+                    <!-- Add Button -->
+                    <form method="POST" action="{% url 'waiter:add_item' pk=table.pk seat=seat %}" class="flex-shrink-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="menu_item" value="{{ item.pk }}">
+                        <input type="hidden" name="quantity" value="1">
+                        <button type="submit" class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center touch-active">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </main>
+
+    <!-- Bottom Cart Bar -->
+    {% if current_order and current_order.items.exists %}
+    <div class="fixed bottom-20 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40 shadow-lg">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <p class="text-sm text-slate-500">{{ current_order.items.count }} items</p>
+                <p class="text-xl font-bold text-slate-800">{{ current_order.subtotal }}</p>
+            </div>
+            <form method="POST" action="{% url 'waiter:submit_order' pk=table.pk seat=seat %}">
+                {% csrf_token %}
+                <button type="submit" class="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-lg touch-active">
+                    Send to Kitchen
+                </button>
+            </form>
+        </div>
+
+        <!-- Cart Items Preview -->
+        <div class="space-y-2 max-h-32 overflow-y-auto">
+            {% for item in current_order.items.all %}
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-slate-600">{{ item.quantity }}x {{ item.item_name }}</span>
+                <span class="font-medium text-slate-800">{{ item.total_price }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="fixed bottom-20 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40">
+        <p class="text-center text-slate-500 text-sm">Tap + to add items to this order</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function takeOrderApp() {
+    return {
+        selectedCategory: null,
+    }
+}
+</script>
+{% endblock %}

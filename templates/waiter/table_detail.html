@@ -1,0 +1,95 @@
+{% extends "waiter/base.html" %}
+
+{% block title %}Table {{ table.number }}{% endblock %}
+
+{% block content %}
+<div class="p-4 space-y-6">
+    <!-- Header -->
+    <div class="flex items-center gap-4">
+        <a href="{% url 'waiter:tables' %}" class="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center">
+            <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+        </a>
+        <div class="flex-1">
+            <h1 class="text-xl font-bold text-slate-800">Table {{ table.number }}</h1>
+            <p class="text-sm text-slate-500">{{ table.floor.name }} - {{ table.capacity }} seats</p>
+        </div>
+        <span class="px-3 py-1 text-xs font-semibold rounded-full capitalize
+            {% if table.status == 'vacant' %}bg-slate-100 text-slate-700
+            {% elif table.status == 'occupied' %}bg-emerald-100 text-emerald-700
+            {% elif table.status == 'billed' %}bg-blue-100 text-blue-700
+            {% else %}bg-amber-100 text-amber-700{% endif %}">
+            {{ table.status }}
+        </span>
+    </div>
+
+    <!-- Seats Grid -->
+    <div>
+        <h2 class="text-lg font-semibold text-slate-800 mb-3">Select Seat</h2>
+        <div class="grid grid-cols-2 gap-3">
+            {% for seat in seat_info %}
+            <a href="{% url 'waiter:take_order' pk=table.pk seat=seat.number %}" class="bg-white rounded-2xl p-4 shadow-sm touch-active
+                {% if seat.order %}ring-2 {% if seat.order.status == 'ready' %}ring-emerald-500{% elif seat.order.status == 'preparing' %}ring-blue-500{% else %}ring-amber-500{% endif %}{% endif %}">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-xl flex items-center justify-center
+                        {% if seat.order %}
+                            {% if seat.order.status == 'ready' %}bg-emerald-100
+                            {% elif seat.order.status == 'preparing' %}bg-blue-100
+                            {% else %}bg-amber-100{% endif %}
+                        {% else %}bg-slate-100{% endif %}">
+                        <svg class="w-6 h-6 {% if seat.order %}{% if seat.order.status == 'ready' %}text-emerald-600{% elif seat.order.status == 'preparing' %}text-blue-600{% else %}text-amber-600{% endif %}{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-bold text-slate-800">Seat {{ seat.number }}</p>
+                        {% if seat.order %}
+                        <p class="text-xs text-slate-500">{{ seat.order.order_number }}</p>
+                        <span class="inline-flex mt-1 px-2 py-0.5 text-xs font-medium rounded capitalize
+                            {% if seat.order.status == 'ready' %}bg-emerald-100 text-emerald-700
+                            {% elif seat.order.status == 'preparing' %}bg-blue-100 text-blue-700
+                            {% else %}bg-amber-100 text-amber-700{% endif %}">
+                            {{ seat.order.get_status_display }}
+                        </span>
+                        {% else %}
+                        <p class="text-xs text-slate-400">No order</p>
+                        {% endif %}
+                    </div>
+                    <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Active Orders for this table -->
+    {% if active_orders %}
+    <div>
+        <h2 class="text-lg font-semibold text-slate-800 mb-3">Active Orders</h2>
+        <div class="space-y-3">
+            {% for order in active_orders %}
+            <a href="{% url 'waiter:order_detail' order.pk %}" class="block bg-white rounded-2xl p-4 shadow-sm touch-active">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="font-semibold text-slate-800">{{ order.order_number }}</p>
+                        <p class="text-sm text-slate-500">{{ order.party_name|default:"No seat" }}</p>
+                        <p class="text-xs text-slate-400 mt-1">{{ order.items.count }} items - {{ order.total }}</p>
+                    </div>
+                    <span class="px-3 py-1 text-xs font-semibold rounded-full capitalize
+                        {% if order.status == 'ready' %}bg-emerald-100 text-emerald-700
+                        {% elif order.status == 'preparing' %}bg-blue-100 text-blue-700
+                        {% elif order.status == 'confirmed' %}bg-amber-100 text-amber-700
+                        {% else %}bg-slate-100 text-slate-700{% endif %}">
+                        {{ order.get_status_display }}
+                    </span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

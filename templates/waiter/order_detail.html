@@ -1,0 +1,153 @@
+{% extends "waiter/base.html" %}
+
+{% block title %}Order {{ order.order_number }}{% endblock %}
+
+{% block content %}
+<div class="p-4 space-y-6">
+    <!-- Header -->
+    <div class="flex items-center gap-4">
+        <a href="{% url 'waiter:orders' %}" class="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center">
+            <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+        </a>
+        <div class="flex-1">
+            <h1 class="text-xl font-bold text-slate-800">{{ order.order_number }}</h1>
+            <p class="text-sm text-slate-500">
+                {% if order.table %}Table {{ order.table.number }}{% endif %}
+                {% if order.party_name %} - {{ order.party_name }}{% endif %}
+            </p>
+        </div>
+        <span class="px-3 py-1 text-xs font-semibold rounded-full capitalize
+            {% if order.status == 'ready' %}bg-emerald-100 text-emerald-700
+            {% elif order.status == 'preparing' %}bg-blue-100 text-blue-700
+            {% elif order.status == 'confirmed' %}bg-amber-100 text-amber-700
+            {% elif order.status == 'completed' %}bg-slate-100 text-slate-700
+            {% else %}bg-slate-100 text-slate-700{% endif %}">
+            {{ order.get_status_display }}
+        </span>
+    </div>
+
+    <!-- Order Info Card -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+                <p class="text-slate-500">Order Type</p>
+                <p class="font-semibold text-slate-800">{{ order.get_order_type_display }}</p>
+            </div>
+            <div>
+                <p class="text-slate-500">Source</p>
+                <p class="font-semibold text-slate-800">{{ order.get_order_source_display }}</p>
+            </div>
+            <div>
+                <p class="text-slate-500">Created</p>
+                <p class="font-semibold text-slate-800">{{ order.created_at|date:"h:i A" }}</p>
+            </div>
+            <div>
+                <p class="text-slate-500">Elapsed</p>
+                <p class="font-semibold text-slate-800">{{ order.created_at|timesince }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Actions -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <h2 class="font-semibold text-slate-800 mb-3">Update Status</h2>
+        <div class="grid grid-cols-2 gap-2">
+            {% if order.status == 'pending' or order.status == 'confirmed' %}
+            <form method="POST" action="{% url 'waiter:update_order_status' order.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="preparing">
+                <button type="submit" class="w-full py-3 rounded-xl bg-blue-100 text-blue-700 font-semibold text-sm touch-active">
+                    Mark Preparing
+                </button>
+            </form>
+            {% endif %}
+
+            {% if order.status == 'preparing' %}
+            <form method="POST" action="{% url 'waiter:update_order_status' order.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="ready">
+                <button type="submit" class="w-full py-3 rounded-xl bg-emerald-100 text-emerald-700 font-semibold text-sm touch-active">
+                    Mark Ready
+                </button>
+            </form>
+            {% endif %}
+
+            {% if order.status == 'ready' %}
+            <form method="POST" action="{% url 'waiter:update_order_status' order.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="completed">
+                <button type="submit" class="w-full py-3 rounded-xl bg-slate-800 text-white font-semibold text-sm touch-active">
+                    Mark Completed
+                </button>
+            </form>
+            {% endif %}
+
+            {% if order.status not in 'completed,cancelled' %}
+            <form method="POST" action="{% url 'waiter:update_order_status' order.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="status" value="cancelled">
+                <button type="submit" class="w-full py-3 rounded-xl bg-red-100 text-red-700 font-semibold text-sm touch-active"
+                    onclick="return confirm('Cancel this order?')">
+                    Cancel Order
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Order Items -->
+    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-100">
+            <h2 class="font-semibold text-slate-800">Items ({{ order.items.count }})</h2>
+        </div>
+        <div class="divide-y divide-slate-100">
+            {% for item in order.items.all %}
+            <div class="p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">
+                            {{ item.quantity }}
+                        </span>
+                        <div>
+                            <p class="font-medium text-slate-800">{{ item.item_name }}</p>
+                            {% if item.special_instructions %}
+                            <p class="text-xs text-slate-500 mt-1">{{ item.special_instructions }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="font-semibold text-slate-800">{{ item.total_price }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Order Summary -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm">
+        <div class="space-y-3">
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-slate-500">Subtotal</span>
+                <span class="text-slate-800">{{ order.subtotal }}</span>
+            </div>
+            {% if order.discount > 0 %}
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-slate-500">Discount</span>
+                <span class="text-emerald-600">-{{ order.discount }}</span>
+            </div>
+            {% endif %}
+            {% if order.tax > 0 %}
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-slate-500">Tax</span>
+                <span class="text-slate-800">{{ order.tax }}</span>
+            </div>
+            {% endif %}
+            <div class="flex items-center justify-between pt-3 border-t border-slate-200">
+                <span class="font-semibold text-slate-800">Total</span>
+                <span class="text-xl font-bold text-indigo-600">{{ order.total }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

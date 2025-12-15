@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block title %}Payment Settings{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="fade-in max-w-3xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex items-center gap-3">
+        <a href="{% url 'dashboard:settings' %}" class="p-2 rounded-xl hover:bg-slate-100 text-slate-500">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-xl font-bold text-slate-800">Payment Gateway Settings</h1>
+            <p class="text-sm text-slate-500">Configure Razorpay for QR payments</p>
+        </div>
+    </div>
+
+    <form method="POST" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Gateway Selection -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-bold text-slate-800 mb-4">Payment Gateway</h3>
+            <div class="grid grid-cols-3 gap-3">
+                <label class="relative cursor-pointer">
+                    <input type="radio" name="gateway" value="razorpay" {% if settings.gateway == 'razorpay' %}checked{% endif %} class="peer sr-only">
+                    <div class="p-4 rounded-xl border-2 border-slate-200 text-center peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all">
+                        <span class="text-2xl">💳</span>
+                        <p class="font-semibold text-slate-800 mt-2">Razorpay</p>
+                        <p class="text-xs text-slate-500">Dynamic QR</p>
+                    </div>
+                </label>
+                <label class="relative cursor-pointer">
+                    <input type="radio" name="gateway" value="payu" {% if settings.gateway == 'payu' %}checked{% endif %} class="peer sr-only">
+                    <div class="p-4 rounded-xl border-2 border-slate-200 text-center peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all">
+                        <span class="text-2xl">🏦</span>
+                        <p class="font-semibold text-slate-800 mt-2">PayU</p>
+                        <p class="text-xs text-slate-500">Coming soon</p>
+                    </div>
+                </label>
+                <label class="relative cursor-pointer">
+                    <input type="radio" name="gateway" value="manual" {% if settings.gateway == 'manual' %}checked{% endif %} class="peer sr-only">
+                    <div class="p-4 rounded-xl border-2 border-slate-200 text-center peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all">
+                        <span class="text-2xl">✍️</span>
+                        <p class="font-semibold text-slate-800 mt-2">Manual</p>
+                        <p class="text-xs text-slate-500">Record only</p>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Razorpay Settings -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-slate-800">Razorpay API Keys</h3>
+                <a href="https://dashboard.razorpay.com/app/keys" target="_blank" class="text-sm text-indigo-600 hover:text-indigo-800">
+                    Get API Keys →
+                </a>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Key ID</label>
+                    <input type="text" name="razorpay_key_id" value="{{ settings.razorpay_key_id }}"
+                           placeholder="rzp_test_xxxxxxxxxxxx"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                    <p class="text-xs text-slate-500 mt-1">Starts with rzp_test_ (test) or rzp_live_ (production)</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Key Secret</label>
+                    <input type="password" name="razorpay_key_secret" value="{{ settings.razorpay_key_secret }}"
+                           placeholder="••••••••••••••••"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Webhook Secret (Optional)</label>
+                    <input type="password" name="razorpay_webhook_secret" value="{{ settings.razorpay_webhook_secret }}"
+                           placeholder="••••••••••••••••"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                    <p class="text-xs text-slate-500 mt-1">For automatic payment confirmation via webhooks</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- UPI Fallback Settings -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="font-bold text-slate-800 mb-4">UPI Settings (Fallback)</h3>
+            <p class="text-sm text-slate-500 mb-4">Used when Razorpay is unavailable or for static QR display</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">UPI ID</label>
+                    <input type="text" name="upi_id" value="{{ settings.upi_id }}"
+                           placeholder="yourshop@paytm"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Merchant Name</label>
+                    <input type="text" name="upi_merchant_name" value="{{ settings.upi_merchant_name }}"
+                           placeholder="Coffee Shop Name"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+                </div>
+            </div>
+        </div>
+
+        <!-- Mode Toggle -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-slate-800">Live Mode</h3>
+                    <p class="text-sm text-slate-500">Enable to process real payments</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="is_live_mode" {% if settings.is_live_mode %}checked{% endif %} class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+            </div>
+            {% if not settings.is_live_mode %}
+            <div class="mt-3 p-3 bg-amber-50 rounded-xl">
+                <p class="text-sm text-amber-700">
+                    <strong>Test Mode:</strong> Use test API keys. No real money will be charged.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Save Button -->
+        <div class="flex justify-end">
+            <button type="submit" class="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold shadow-lg hover:shadow-xl transition-all">
+                Save Settings
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

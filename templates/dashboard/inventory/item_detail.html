@@ -1,0 +1,377 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ item.name }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'dashboard:inventory_items' %}" class="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-600 transition-all shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl font-bold text-slate-800">{{ item.name }}</h1>
+                    {% if item.is_perishable %}
+                    <span class="px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-600">Perishable</span>
+                    {% endif %}
+                </div>
+                <span class="text-sm text-slate-500 font-mono">{{ item.sku }}</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="document.getElementById('adjustModal').classList.remove('hidden')" class="btn-primary">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Adjust Stock
+            </button>
+            <button onclick="document.getElementById('editModal').classList.remove('hidden')" class="btn-secondary">
+                Edit Item
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Info -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Stock Status Card -->
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200">
+                    <h2 class="font-bold text-slate-800">Stock Information</h2>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div class="text-center">
+                            <p class="text-3xl font-bold {% if item.current_stock <= 0 %}text-red-600{% elif item.is_low_stock %}text-amber-600{% else %}text-emerald-600{% endif %}">
+                                {{ item.current_stock }}
+                            </p>
+                            <p class="text-sm text-slate-500">Current Stock ({{ item.unit }})</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-3xl font-bold text-slate-800">{{ item.minimum_stock }}</p>
+                            <p class="text-sm text-slate-500">Minimum Level</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-3xl font-bold text-slate-800">{{ item.maximum_stock|default:"--" }}</p>
+                            <p class="text-sm text-slate-500">Maximum Level</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-3xl font-bold text-blue-600">{{ item.stock_value|floatformat:2 }}</p>
+                            <p class="text-sm text-slate-500">Stock Value</p>
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-6 border-t border-slate-100">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-slate-500">Stock Status</span>
+                            {% if item.stock_status == 'out_of_stock' %}
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-700">Out of Stock</span>
+                            {% elif item.stock_status == 'low_stock' %}
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold bg-amber-100 text-amber-700">Low Stock</span>
+                            {% elif item.stock_status == 'overstocked' %}
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold bg-purple-100 text-purple-700">Overstocked</span>
+                            {% else %}
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-700">In Stock</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Movements -->
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                    <h2 class="font-bold text-slate-800">Stock Movements</h2>
+                    <a href="{% url 'dashboard:stock_movements' %}?item={{ item.pk }}" class="text-sm text-blue-600 hover:text-blue-800">View All</a>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Quantity</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Before/After</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Reference</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for movement in movements %}
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-6 py-3">
+                                    <span class="px-2 py-1 rounded-lg text-xs font-medium
+                                        {% if movement.movement_type == 'purchase' %}bg-emerald-100 text-emerald-700
+                                        {% elif movement.movement_type == 'sale' %}bg-blue-100 text-blue-700
+                                        {% elif movement.movement_type == 'wastage' %}bg-red-100 text-red-700
+                                        {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                        {{ movement.get_movement_type_display }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-3">
+                                    <span class="font-semibold {% if movement.quantity > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
+                                        {% if movement.quantity > 0 %}+{% endif %}{{ movement.quantity }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-3 text-slate-500 text-sm">
+                                    {{ movement.stock_before }} &rarr; {{ movement.stock_after }}
+                                </td>
+                                <td class="px-6 py-3 text-slate-500 text-sm">
+                                    {% if movement.purchase_order %}
+                                    <a href="{% url 'dashboard:purchase_order_detail' movement.purchase_order.pk %}" class="text-blue-600 hover:text-blue-800">
+                                        {{ movement.reference_number }}
+                                    </a>
+                                    {% else %}
+                                    {{ movement.reason|default:"-" }}
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-3 text-slate-500 text-sm">{{ movement.created_at|date:"M d, H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="px-6 py-8 text-center text-slate-400">No stock movements yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Item Details -->
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200">
+                    <h2 class="font-bold text-slate-800">Item Details</h2>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">Category</p>
+                        <p class="font-medium text-slate-800">{{ item.category.name|default:"Uncategorized" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">Unit</p>
+                        <p class="font-medium text-slate-800">{{ item.get_unit_display }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">Cost Price</p>
+                        <p class="font-medium text-slate-800">{{ item.cost_price }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">Last Purchase Price</p>
+                        <p class="font-medium text-slate-800">{{ item.last_purchase_price|default:"--" }}</p>
+                    </div>
+                    {% if item.description %}
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">Description</p>
+                        <p class="text-slate-600">{{ item.description }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Supplier Info -->
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200">
+                    <h2 class="font-bold text-slate-800">Supplier</h2>
+                </div>
+                <div class="p-6">
+                    {% if item.supplier %}
+                    <a href="{% url 'dashboard:supplier_detail' item.supplier.pk %}" class="block hover:bg-slate-50 rounded-xl -m-2 p-2 transition-colors">
+                        <p class="font-semibold text-slate-800">{{ item.supplier.name }}</p>
+                        {% if item.supplier.contact_person %}
+                        <p class="text-sm text-slate-500">{{ item.supplier.contact_person }}</p>
+                        {% endif %}
+                        {% if item.supplier.phone %}
+                        <p class="text-sm text-slate-500">{{ item.supplier.phone }}</p>
+                        {% endif %}
+                    </a>
+                    {% else %}
+                    <p class="text-slate-400">No supplier assigned</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Alerts -->
+            {% if alerts %}
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200">
+                    <h2 class="font-bold text-slate-800">Alerts</h2>
+                </div>
+                <div class="divide-y divide-slate-100">
+                    {% for alert in alerts %}
+                    <div class="px-6 py-3 flex items-center justify-between">
+                        <div>
+                            <span class="px-2 py-0.5 rounded text-xs font-medium
+                                {% if alert.priority == 'critical' %}bg-red-100 text-red-700
+                                {% elif alert.priority == 'high' %}bg-amber-100 text-amber-700
+                                {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                                {{ alert.get_alert_type_display }}
+                            </span>
+                            <p class="text-xs text-slate-400 mt-1">{{ alert.created_at|timesince }} ago</p>
+                        </div>
+                        {% if not alert.is_resolved %}
+                        <form method="POST" action="{% url 'dashboard:stock_alert_resolve' alert.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="text-xs px-2 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200">Resolve</button>
+                        </form>
+                        {% else %}
+                        <span class="text-xs text-emerald-600">Resolved</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Delete Button -->
+            <form method="POST" action="{% url 'dashboard:inventory_item_delete' item.pk %}" onsubmit="return confirm('Are you sure you want to delete this item?');">
+                {% csrf_token %}
+                <button type="submit" class="w-full px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-medium transition-colors">
+                    Delete Item
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Stock Adjustment Modal -->
+<div id="adjustModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-md">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <h3 class="text-lg font-bold text-slate-800">Adjust Stock</h3>
+            <button onclick="document.getElementById('adjustModal').classList.add('hidden')" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <form method="POST" action="{% url 'dashboard:inventory_stock_adjustment' item.pk %}" class="p-6 space-y-4">
+            {% csrf_token %}
+            <div>
+                <p class="text-sm text-slate-500 mb-2">Current Stock: <strong>{{ item.current_stock }} {{ item.unit }}</strong></p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Movement Type *</label>
+                <select name="movement_type" required class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                    {% for value, label in movement_types %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Quantity *</label>
+                <input type="number" name="quantity" step="0.01" required class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                <p class="text-xs text-slate-400 mt-1">Positive value for add, quantity will be deducted for sales/wastage</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Reason</label>
+                <input type="text" name="reason" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="e.g., Physical count, Damaged goods">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                <textarea name="notes" rows="2" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <button type="button" onclick="document.getElementById('adjustModal').classList.add('hidden')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">
+                    Cancel
+                </button>
+                <button type="submit" class="btn-primary">
+                    Adjust Stock
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div id="editModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <h3 class="text-lg font-bold text-slate-800">Edit Item</h3>
+            <button onclick="document.getElementById('editModal').classList.add('hidden')" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <form method="POST" action="{% url 'dashboard:inventory_item_edit' item.pk %}" class="p-6 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Item Name *</label>
+                <input type="text" name="name" value="{{ item.name }}" required class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                    <select name="category" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                        <option value="">Select Category</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.pk }}" {% if item.category_id == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Unit</label>
+                    <select name="unit" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                        {% for value, label in units %}
+                        <option value="{{ value }}" {% if item.unit == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Minimum Stock</label>
+                    <input type="number" name="minimum_stock" step="0.01" value="{{ item.minimum_stock }}" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Maximum Stock</label>
+                    <input type="number" name="maximum_stock" step="0.01" value="{{ item.maximum_stock }}" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Cost Price</label>
+                    <input type="number" name="cost_price" step="0.01" value="{{ item.cost_price }}" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Supplier</label>
+                    <select name="supplier" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                        <option value="">Select Supplier</option>
+                        {% for sup in suppliers %}
+                        <option value="{{ sup.pk }}" {% if item.supplier_id == sup.pk %}selected{% endif %}>{{ sup.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea name="description" rows="2" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">{{ item.description }}</textarea>
+            </div>
+            <div class="flex items-center gap-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="is_perishable" {% if item.is_perishable %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <span class="text-sm text-slate-700">Perishable Item</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="is_active" {% if item.is_active %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <span class="text-sm text-slate-700">Active</span>
+                </label>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">
+                    Cancel
+                </button>
+                <button type="submit" class="btn-primary">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

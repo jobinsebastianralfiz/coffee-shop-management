@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Waiter">
+
+    <title>{% block title %}Waiter{% endblock %} | {{ business.business_name }}</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{% load static %}{% static 'manifest.json' %}">
+
+    {% if business.favicon %}
+    <link rel="icon" type="image/x-icon" href="{{ business.favicon.url }}">
+    <link rel="apple-touch-icon" href="{{ business.favicon.url }}">
+    {% endif %}
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* PWA standalone styles */
+        @media all and (display-mode: standalone) {
+            body {
+                padding-top: env(safe-area-inset-top);
+            }
+        }
+
+        /* Hide scrollbar but keep functionality */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Touch feedback */
+        .touch-active:active {
+            transform: scale(0.97);
+            opacity: 0.8;
+        }
+
+        /* Pull to refresh indicator */
+        .pull-indicator {
+            transition: transform 0.2s ease-out;
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-slate-100 min-h-screen pb-20">
+    {% load static %}
+
+    <!-- Offline indicator -->
+    <div
+        x-data="{ offline: !navigator.onLine }"
+        x-init="
+            window.addEventListener('online', () => offline = false);
+            window.addEventListener('offline', () => offline = true);
+        "
+        x-show="offline"
+        x-cloak
+        class="fixed top-0 left-0 right-0 bg-amber-500 text-white text-center py-2 text-sm font-medium z-50"
+    >
+        You are offline
+    </div>
+
+    <!-- Main content -->
+    <main class="pb-20">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Toast Messages -->
+    <div class="fixed top-4 left-4 right-4 z-50 flex flex-col gap-2" id="toast-container">
+        {% if messages %}
+            {% for message in messages %}
+            <div
+                class="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border {% if message.tags == 'success' %}bg-emerald-50 border-emerald-200 text-emerald-800{% elif message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}"
+                x-data="{ show: true }"
+                x-show="show"
+                x-init="setTimeout(() => show = false, 3000)"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+            >
+                {% if message.tags == 'success' %}
+                <svg class="w-5 h-5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                {% elif message.tags == 'error' %}
+                <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                {% endif %}
+                <span class="text-sm font-medium flex-1">{{ message }}</span>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-2 z-40" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom));">
+        <div class="flex items-center justify-around max-w-md mx-auto">
+            <a href="{% url 'waiter:home' %}" class="flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors {% if request.resolver_match.url_name == 'home' %}text-indigo-600{% else %}text-slate-500 hover:text-slate-700{% endif %}">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+                <span class="text-xs font-medium">Home</span>
+            </a>
+            <a href="{% url 'waiter:tables' %}" class="flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors {% if 'table' in request.resolver_match.url_name %}text-indigo-600{% else %}text-slate-500 hover:text-slate-700{% endif %}">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                </svg>
+                <span class="text-xs font-medium">Tables</span>
+            </a>
+            <a href="{% url 'waiter:orders' %}" class="flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors {% if 'order' in request.resolver_match.url_name %}text-indigo-600{% else %}text-slate-500 hover:text-slate-700{% endif %}">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+                <span class="text-xs font-medium">Orders</span>
+            </a>
+            <a href="{% url 'dashboard:home' %}" class="flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors text-slate-500 hover:text-slate-700">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
+                <span class="text-xs font-medium">Profile</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('{% static "js/sw.js" %}')
+                    .then((registration) => {
+                        console.log('SW registered:', registration);
+                    })
+                    .catch((error) => {
+                        console.log('SW registration failed:', error);
+                    });
+            });
+        }
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

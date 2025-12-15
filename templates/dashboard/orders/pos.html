@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}POS{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .menu-item-card {
+        transition: all 0.2s ease;
+    }
+    .menu-item-card:hover {
+        transform: scale(1.02);
+        box-shadow: 0 10px 25px -10px rgba(0,0,0,0.15);
+    }
+    .category-tab.active {
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="posSystem()" class="fade-in h-[calc(100vh-160px)]">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+        <!-- Left: Menu Items -->
+        <div class="lg:col-span-2 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <!-- Category Tabs -->
+            <div class="flex items-center gap-2 p-4 border-b border-slate-200 overflow-x-auto">
+                <button
+                    @click="selectedCategory = null"
+                    :class="selectedCategory === null ? 'category-tab active' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                    class="px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
+                >
+                    All Items
+                </button>
+                {% for category in categories %}
+                <button
+                    @click="selectedCategory = {{ category.pk }}"
+                    :class="selectedCategory === {{ category.pk }} ? 'category-tab active' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                    class="px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
+                >
+                    {{ category.name }}
+                </button>
+                {% endfor %}
+            </div>
+
+            <!-- Search -->
+            <div class="p-4 border-b border-slate-100">
+                <div class="relative">
+                    <input
+                        type="text"
+                        x-model="searchQuery"
+                        placeholder="Search menu items..."
+                        class="w-full h-11 pl-11 pr-4 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                    <svg class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Menu Items Grid -->
+            <div class="flex-1 overflow-y-auto p-4">
+                <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {% for category in categories %}
+                        {% for item in category.items.all %}
+                        {% if item.is_available %}
+                        <div
+                            x-show="(selectedCategory === null || selectedCategory === {{ category.pk }}) && (searchQuery === '' || '{{ item.name|lower }}'.includes(searchQuery.toLowerCase()))"
+                            @click="addToCart({ id: {{ item.pk }}, name: '{{ item.name|escapejs }}', price: {{ item.base_price }}, category: '{{ category.name|escapejs }}', food_type: '{{ item.food_type }}' })"
+                            class="menu-item-card bg-slate-50 rounded-xl p-4 cursor-pointer border border-transparent hover:border-indigo-200"
+                        >
+                            {% if item.image %}
+                            <div class="aspect-square rounded-lg bg-slate-200 mb-3 overflow-hidden">
+                                <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-full h-full object-cover">
+                            </div>
+                            {% else %}
+                            <div class="aspect-square rounded-lg bg-gradient-to-br from-slate-200 to-slate-300 mb-3 flex items-center justify-center">
+                                <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                                </svg>
+                            </div>
+                            {% endif %}
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <h4 class="font-semibold text-slate-800 text-sm truncate">{{ item.name }}</h4>
+                                    <p class="text-xs text-slate-500 mt-0.5">{{ category.name }}</p>
+                                </div>
+                                <!-- Food Type Indicator -->
+                                <div class="flex-shrink-0">
+                                    {% if item.food_type == 'veg' %}
+                                    <span class="w-4 h-4 rounded border-2 border-green-600 flex items-center justify-center">
+                                        <span class="w-2 h-2 rounded-full bg-green-600"></span>
+                                    </span>
+                                    {% elif item.food_type == 'non_veg' %}
+                                    <span class="w-4 h-4 rounded border-2 border-red-600 flex items-center justify-center">
+                                        <span class="w-2 h-2 rounded-full bg-red-600"></span>
+                                    </span>
+                                    {% elif item.food_type == 'egg' %}
+                                    <span class="w-4 h-4 rounded border-2 border-amber-500 flex items-center justify-center">
+                                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <p class="font-bold text-indigo-600 mt-2">{{ item.base_price }}</p>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Cart & Order -->
+        <div class="flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <!-- Order Header -->
+            <div class="p-4 border-b border-slate-200 bg-gradient-to-r from-indigo-500 to-purple-600">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold text-white">New Order</h3>
+                        {% if table %}
+                        <p class="text-indigo-200 text-sm">Table {{ table.number }}</p>
+                        {% endif %}
+                    </div>
+                    {% if current_order %}
+                    <a href="{% url 'dashboard:order_detail' pk=current_order.pk %}" class="px-3 py-1.5 bg-white/20 text-white text-sm font-semibold rounded-lg hover:bg-white/30 transition-colors">
+                        View Existing #{{ current_order.order_number }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Table Selection (if no table selected) -->
+            {% if not table %}
+            <div class="p-4 border-b border-slate-200 bg-slate-50">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Select Table (Optional)</label>
+                <select x-model="selectedTable" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">No Table (Takeaway/Delivery)</option>
+                    {% for floor in floors %}
+                    <optgroup label="{{ floor.name }}">
+                        {% for t in floor.tables.all %}
+                        {% if t.is_active %}
+                        <option value="{{ t.pk }}">Table {{ t.number }} {% if t.status == 'occupied' %}(Occupied){% endif %}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <!-- Order Type -->
+            <div class="p-4 border-b border-slate-200">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Order Type</label>
+                <div class="flex gap-2">
+                    {% for value, label in order_types %}
+                    <button
+                        @click="orderType = '{{ value }}'"
+                        :class="orderType === '{{ value }}' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                        class="flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
+                    >
+                        {{ label }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Cart Items -->
+            <div class="flex-1 overflow-y-auto p-4">
+                <template x-if="cart.length === 0">
+                    <div class="h-full flex flex-col items-center justify-center text-center">
+                        <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                            <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                            </svg>
+                        </div>
+                        <p class="text-slate-500 font-medium">Cart is empty</p>
+                        <p class="text-sm text-slate-400 mt-1">Click items to add to order</p>
+                    </div>
+                </template>
+
+                <div class="space-y-3">
+                    <template x-for="(item, index) in cart" :key="index">
+                        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-slate-800 text-sm truncate" x-text="item.name"></h4>
+                                <p class="text-xs text-slate-500" x-text="'@ ' + item.price"></p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button @click="decrementItem(index)" class="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                    </svg>
+                                </button>
+                                <span class="w-8 text-center font-semibold text-slate-800" x-text="item.quantity"></span>
+                                <button @click="incrementItem(index)" class="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            <p class="w-20 text-right font-bold text-slate-800" x-text="(item.price * item.quantity).toFixed(2)"></p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Customer Info (for takeaway/delivery) -->
+            <div x-show="orderType !== 'dine_in'" class="p-4 border-t border-slate-200 bg-slate-50">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" x-model="customerName" placeholder="Customer Name" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="tel" x-model="customerPhone" placeholder="Phone Number" class="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+
+            <!-- Cart Summary -->
+            <div class="p-4 border-t border-slate-200 bg-slate-50">
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Subtotal</span>
+                        <span class="font-semibold text-slate-800" x-text="subtotal.toFixed(2)"></span>
+                    </div>
+                    <div class="flex justify-between text-lg pt-2 border-t border-slate-200">
+                        <span class="font-bold text-slate-800">Total</span>
+                        <span class="font-bold text-indigo-600" x-text="subtotal.toFixed(2)"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="p-4 border-t border-slate-200">
+                <form method="POST" @submit="submitOrder">
+                    <input type="hidden" name="action" value="create_order">
+                    <input type="hidden" name="order_type" :value="orderType">
+                    <input type="hidden" name="customer_name" :value="customerName">
+                    <input type="hidden" name="customer_phone" :value="customerPhone">
+                    <input type="hidden" name="cart_items" :value="JSON.stringify(cart)">
+                    {% csrf_token %}
+
+                    <div class="flex gap-3">
+                        <button type="button" @click="clearCart()" class="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-100 transition-colors">
+                            Clear Cart
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="cart.length === 0"
+                            :class="cart.length === 0 ? 'opacity-50 cursor-not-allowed' : ''"
+                            class="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-sm shadow-lg shadow-indigo-500/30 hover:shadow-xl transition-all"
+                        >
+                            Create Order
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function posSystem() {
+    return {
+        cart: [],
+        selectedCategory: null,
+        searchQuery: '',
+        selectedTable: '{% if table %}{{ table.pk }}{% endif %}',
+        orderType: '{% if table %}dine_in{% else %}takeaway{% endif %}',
+        customerName: '',
+        customerPhone: '',
+
+        get subtotal() {
+            return this.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        },
+
+        addToCart(item) {
+            const existingIndex = this.cart.findIndex(i => i.id === item.id);
+            if (existingIndex !== -1) {
+                this.cart[existingIndex].quantity++;
+            } else {
+                this.cart.push({ ...item, quantity: 1 });
+            }
+        },
+
+        incrementItem(index) {
+            this.cart[index].quantity++;
+        },
+
+        decrementItem(index) {
+            if (this.cart[index].quantity > 1) {
+                this.cart[index].quantity--;
+            } else {
+                this.cart.splice(index, 1);
+            }
+        },
+
+        clearCart() {
+            this.cart = [];
+        },
+
+        submitOrder(e) {
+            if (this.cart.length === 0) {
+                e.preventDefault();
+                alert('Please add items to cart before creating order');
+                return false;
+            }
+            return true;
+        }
+    }
+}
+</script>
+{% endblock %}

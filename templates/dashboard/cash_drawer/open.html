@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Open Cash Drawer{% endblock %}
+{% block page_title %}Open Cash Drawer{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto space-y-6 fade-in">
+    <!-- Header -->
+    <div class="flex items-center gap-4">
+        <a href="{% url 'dashboard:cash_drawer' %}" class="p-2 rounded-xl hover:bg-slate-100 transition-colors">
+            <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Open Cash Drawer</h1>
+            <p class="text-slate-500 mt-1">Start today's cash drawer with an opening balance</p>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <form method="post" class="premium-card bg-white rounded-2xl p-6 space-y-6">
+        {% csrf_token %}
+
+        <div class="text-center mb-6">
+            <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <p class="text-slate-600">Opening drawer for <span class="font-semibold">{{ today|date:"F d, Y" }}</span></p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Opening Balance *</label>
+            <div class="relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg">{{ currency_symbol }}</span>
+                <input type="number" name="opening_balance" step="0.01" min="0" required autofocus
+                    class="w-full pl-12 pr-4 py-4 text-2xl font-bold text-center rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
+                    placeholder="0.00">
+            </div>
+            <p class="mt-2 text-sm text-slate-500">Enter the amount of cash in the drawer at the start of the day</p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Notes (Optional)</label>
+            <textarea name="notes" rows="3" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors resize-none" placeholder="Any notes about the opening balance..."></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-4 pt-4 border-t border-slate-200">
+            <a href="{% url 'dashboard:cash_drawer' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+                </svg>
+                Open Drawer
+            </button>
+        </div>
+    </form>
+
+    <!-- Tips -->
+    <div class="p-4 bg-blue-50 rounded-xl border border-blue-200">
+        <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div class="text-sm text-blue-800">
+                <p class="font-semibold mb-1">Tips for opening the drawer</p>
+                <ul class="list-disc list-inside space-y-1 text-blue-700">
+                    <li>Count all cash in the drawer before entering the amount</li>
+                    <li>Include bills and coins of all denominations</li>
+                    <li>Double-check your count to ensure accuracy</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

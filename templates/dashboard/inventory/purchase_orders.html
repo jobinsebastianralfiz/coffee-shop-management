@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}Purchase Orders{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'dashboard:inventory' %}" class="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-600 transition-all shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">Purchase Orders</h1>
+                <p class="text-slate-500 text-sm">Manage purchase orders from suppliers</p>
+            </div>
+        </div>
+        <a href="{% url 'dashboard:purchase_order_create' %}" class="btn-primary">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            New Purchase Order
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-4">
+        <form method="GET" class="flex flex-wrap items-center gap-4">
+            <select name="status" class="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                <option value="">All Status</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors">
+                Filter
+            </button>
+            {% if current_status %}
+            <a href="{% url 'dashboard:purchase_orders' %}" class="px-4 py-2 rounded-xl text-slate-500 hover:text-slate-700 font-medium">
+                Clear
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Order #</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Supplier</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Total</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Created</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Expected</th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for order in orders %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-6 py-4">
+                            <a href="{% url 'dashboard:purchase_order_detail' order.pk %}" class="font-semibold text-slate-800 hover:text-blue-600">
+                                {{ order.order_number }}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4 text-slate-600">{{ order.supplier.name }}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 rounded-lg text-xs font-medium
+                                {% if order.status == 'received' %}bg-emerald-100 text-emerald-700
+                                {% elif order.status == 'ordered' %}bg-blue-100 text-blue-700
+                                {% elif order.status == 'partial' %}bg-amber-100 text-amber-700
+                                {% elif order.status == 'approved' %}bg-indigo-100 text-indigo-700
+                                {% elif order.status == 'cancelled' %}bg-red-100 text-red-700
+                                {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                {{ order.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-semibold text-slate-800">{{ order.total_amount }}</td>
+                        <td class="px-6 py-4 text-slate-500">{{ order.created_at|date:"M d, Y" }}</td>
+                        <td class="px-6 py-4 text-slate-500">{{ order.expected_date|date:"M d, Y"|default:"-" }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'dashboard:purchase_order_detail' order.pk %}" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-blue-600 inline-block">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-12 text-center text-slate-400">
+                            <svg class="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                            </svg>
+                            <p class="font-medium">No purchase orders yet</p>
+                            <p class="text-sm">Create your first purchase order to restock inventory</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

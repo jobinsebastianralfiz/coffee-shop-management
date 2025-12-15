@@ -1,0 +1,93 @@
+{% extends "waiter/base.html" %}
+
+{% block title %}Orders{% endblock %}
+
+{% block content %}
+<div class="p-4 space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-slate-800">Orders</h1>
+            <p class="text-sm text-slate-500">Manage your orders</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
+        <a href="?status=active"
+            class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all
+            {% if status_filter == 'active' %}bg-slate-800 text-white{% else %}bg-white text-slate-700 shadow-sm{% endif %}">
+            Active
+        </a>
+        <a href="?status=completed"
+            class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all
+            {% if status_filter == 'completed' %}bg-slate-800 text-white{% else %}bg-white text-slate-700 shadow-sm{% endif %}">
+            Completed
+        </a>
+        <a href="?status=all"
+            class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all
+            {% if status_filter == 'all' %}bg-slate-800 text-white{% else %}bg-white text-slate-700 shadow-sm{% endif %}">
+            All
+        </a>
+    </div>
+
+    <!-- Orders List -->
+    {% if orders %}
+    <div class="space-y-3">
+        {% for order in orders %}
+        <a href="{% url 'waiter:order_detail' order.pk %}" class="block bg-white rounded-2xl p-4 shadow-sm touch-active">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center
+                        {% if order.status == 'ready' %}bg-emerald-100
+                        {% elif order.status == 'preparing' %}bg-blue-100
+                        {% elif order.status == 'confirmed' %}bg-amber-100
+                        {% elif order.status == 'completed' %}bg-slate-100
+                        {% else %}bg-slate-100{% endif %}">
+                        <span class="text-sm font-bold
+                            {% if order.status == 'ready' %}text-emerald-700
+                            {% elif order.status == 'preparing' %}text-blue-700
+                            {% elif order.status == 'confirmed' %}text-amber-700
+                            {% else %}text-slate-700{% endif %}">
+                            {% if order.table %}{{ order.table.number }}{% else %}--{% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800">{{ order.order_number }}</p>
+                        <p class="text-xs text-slate-500">{{ order.party_name|default:"No seat" }}</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 text-xs font-semibold rounded-full capitalize
+                    {% if order.status == 'ready' %}bg-emerald-100 text-emerald-700
+                    {% elif order.status == 'preparing' %}bg-blue-100 text-blue-700
+                    {% elif order.status == 'confirmed' %}bg-amber-100 text-amber-700
+                    {% elif order.status == 'completed' %}bg-slate-100 text-slate-700
+                    {% else %}bg-slate-100 text-slate-700{% endif %}">
+                    {{ order.get_status_display }}
+                </span>
+            </div>
+
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-slate-500">{{ order.items.count }} items</span>
+                <span class="font-semibold text-slate-800">{{ order.total }}</span>
+            </div>
+
+            <div class="flex items-center justify-between text-xs text-slate-400 mt-2">
+                <span>{{ order.created_at|timesince }} ago</span>
+                <span>{{ order.get_order_source_display }}</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+        <div class="w-16 h-16 mx-auto bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+            <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+        </div>
+        <p class="text-slate-500">No orders found</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

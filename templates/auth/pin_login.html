@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+
+{% block title %}PIN Login{% endblock %}
+
+{% block auth_content %}
+<div class="min-h-screen flex" style="background: linear-gradient(135deg, var(--login-gradient-start) 0%, var(--login-gradient-end) 100%);">
+
+    <!-- Left Panel - Branding (Hidden on mobile) -->
+    <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        <!-- Animated Background Elements -->
+        <div class="absolute inset-0">
+            <div class="absolute inset-0 opacity-10">
+                <svg class="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <defs>
+                        <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" stroke-width="0.5"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100" height="100" fill="url(#grid)"/>
+                </svg>
+            </div>
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
+            <div class="absolute bottom-1/4 right-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse" style="animation-delay: 1s;"></div>
+        </div>
+
+        <!-- Decorative circles -->
+        <div class="absolute -bottom-32 -left-32 w-96 h-96 bg-white/10 rounded-full"></div>
+        <div class="absolute -top-32 -right-32 w-[500px] h-[500px] bg-white/10 rounded-full"></div>
+
+        <!-- Content -->
+        <div class="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
+            {% if business_logo_dark %}
+            <img src="{{ business_logo_dark }}" alt="{{ business_name }}" class="w-24 h-24 object-contain rounded-3xl bg-white/10 p-4 backdrop-blur-sm mb-8">
+            {% elif business_logo %}
+            <img src="{{ business_logo }}" alt="{{ business_name }}" class="w-24 h-24 object-contain rounded-3xl bg-white/10 p-4 backdrop-blur-sm mb-8">
+            {% else %}
+            <div class="w-24 h-24 rounded-3xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20 mb-8">
+                <svg class="w-14 h-14 text-white/80" viewBox="0 0 100 100" fill="none">
+                    <path d="M20 35h50v45c0 5.523-4.477 10-10 10H30c-5.523 0-10-4.477-10-10V35z" fill="white" fill-opacity="0.2"/>
+                    <path d="M25 40h40v35c0 5.523-4.477 10-10 10H35c-5.523 0-10-4.477-10-10V40z" fill="white" fill-opacity="0.3"/>
+                    <path d="M70 45h10a10 10 0 010 20H70" stroke="white" stroke-width="3" fill="none"/>
+                </svg>
+            </div>
+            {% endif %}
+
+            <h1 class="text-4xl font-bold mb-3 text-center">{{ business_name }}</h1>
+            <p class="text-xl text-white/70 text-center max-w-md">
+                {{ business_tagline|default:"Quick & Secure Access" }}
+            </p>
+
+            <div class="mt-16 text-center">
+                <div class="inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                    <span class="font-medium">Staff Quick Login</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel - PIN Entry -->
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-6 bg-white">
+        <div class="w-full max-w-sm" x-data="pinLogin()">
+            <!-- Mobile Header -->
+            <div class="lg:hidden text-center mb-8">
+                {% if business_logo %}
+                <img src="{{ business_logo }}" alt="{{ business_name }}" class="w-14 h-14 mx-auto mb-3 rounded-xl object-contain shadow-lg">
+                {% else %}
+                <div class="w-14 h-14 brand-gradient rounded-xl flex items-center justify-center mx-auto mb-3 shadow-lg">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                </div>
+                {% endif %}
+                <h1 class="text-xl font-bold text-slate-800">{{ business_name }}</h1>
+            </div>
+
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">Enter PIN</h2>
+                <p class="text-slate-500 mt-1">Enter your 6-digit PIN to unlock</p>
+            </div>
+
+            {% if messages %}
+            {% for message in messages %}
+            <div class="mb-6 flex items-center gap-3 px-4 py-3 rounded-xl {% if message.tags == 'error' %}bg-red-50 border border-red-200 text-red-700{% else %}bg-emerald-50 border border-emerald-200 text-emerald-700{% endif %}">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span class="text-sm font-medium">{{ message }}</span>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <form method="post" @submit.prevent="submitForm">
+                {% csrf_token %}
+
+                <!-- PIN Dots Display -->
+                <div class="flex justify-center gap-4 mb-10">
+                    <template x-for="i in 6" :key="i">
+                        <div
+                            class="w-4 h-4 rounded-full transition-all duration-200"
+                            :class="pin.length >= i ? 'bg-indigo-500 scale-110' : 'bg-slate-200'"
+                        ></div>
+                    </template>
+                </div>
+
+                <!-- Hidden input -->
+                <input type="hidden" name="pin" x-model="pin" />
+
+                <!-- Number Pad -->
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <template x-for="num in [1,2,3,4,5,6,7,8,9]" :key="num">
+                        <button
+                            type="button"
+                            class="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-2xl font-semibold text-slate-700 transition-all duration-150 active:scale-95 select-none"
+                            @click="addDigit(num)"
+                        >
+                            <span x-text="num"></span>
+                        </button>
+                    </template>
+
+                    <!-- Empty / Back to Login -->
+                    <a
+                        href="{% url 'dashboard:login' %}"
+                        class="h-16 rounded-2xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-all"
+                    >
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                    </a>
+
+                    <!-- Zero -->
+                    <button
+                        type="button"
+                        class="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-2xl font-semibold text-slate-700 transition-all duration-150 active:scale-95 select-none"
+                        @click="addDigit(0)"
+                    >
+                        0
+                    </button>
+
+                    <!-- Backspace -->
+                    <button
+                        type="button"
+                        class="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 flex items-center justify-center text-slate-600 transition-all duration-150 active:scale-95"
+                        @click="removeDigit"
+                    >
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2V7a2 2 0 00-2-2h-8.172a2 2 0 00-1.414.586L3 12z"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Unlock Button (shown when PIN is complete) -->
+                <button
+                    type="submit"
+                    class="w-full h-14 rounded-2xl font-semibold transition-all duration-300 flex items-center justify-center gap-2"
+                    :class="pin.length === 6
+                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/30 hover:shadow-xl'
+                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'"
+                    :disabled="pin.length !== 6"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+                    </svg>
+                    <span x-text="pin.length === 6 ? 'Unlock' : 'Enter 6 digits'"></span>
+                </button>
+            </form>
+
+            <!-- Alternative Login -->
+            <div class="mt-8 text-center">
+                <a href="{% url 'dashboard:login' %}" class="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    Sign in with username instead
+                </a>
+            </div>
+
+            <!-- Footer -->
+            <p class="text-center text-slate-400 text-xs mt-8">
+                &copy; {% now "Y" %} {{ business_name }}
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+function pinLogin() {
+    return {
+        pin: '',
+
+        init() {
+            // Listen for keyboard input
+            document.addEventListener('keydown', (e) => {
+                if (e.key >= '0' && e.key <= '9') {
+                    this.addDigit(parseInt(e.key));
+                } else if (e.key === 'Backspace') {
+                    this.removeDigit();
+                } else if (e.key === 'Enter' && this.pin.length === 6) {
+                    this.submitForm();
+                }
+            });
+        },
+
+        addDigit(num) {
+            if (this.pin.length < 6) {
+                this.pin += num;
+
+                // Auto-submit when 6 digits entered
+                if (this.pin.length === 6) {
+                    setTimeout(() => this.submitForm(), 150);
+                }
+            }
+        },
+
+        removeDigit() {
+            this.pin = this.pin.slice(0, -1);
+        },
+
+        submitForm() {
+            if (this.pin.length === 6) {
+                this.$el.submit();
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

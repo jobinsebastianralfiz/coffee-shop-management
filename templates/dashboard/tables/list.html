@@ -1,0 +1,599 @@
+{% extends 'base.html' %}
+
+{% block title %}Table Management{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Outlet Filter (Super Admin Only) -->
+    {% if outlets %}
+    <div class="flex items-center justify-between bg-white rounded-xl border border-slate-200 p-4">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            <span class="text-sm font-medium text-slate-700">Filter by Outlet:</span>
+        </div>
+        <select onchange="filterByOutlet(this.value)" class="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            <option value="">All Outlets</option>
+            {% for outlet in outlets %}
+            <option value="{{ outlet.pk }}" {% if selected_outlet == outlet.pk|stringformat:"i" %}selected{% endif %}>{{ outlet.name }} ({{ outlet.code }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Table Management</h1>
+            <p class="text-slate-500 mt-1">Manage your floors, tables and QR codes</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'dashboard:tables' %}{% if selected_outlet %}?outlet={{ selected_outlet }}{% endif %}" class="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                </svg>
+                Floor Map
+            </a>
+            <button onclick="document.getElementById('floorModal').classList.remove('hidden')" class="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Add Floor
+            </button>
+            <button onclick="document.getElementById('tableModal').classList.remove('hidden')" class="px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Add Table
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+                    <span class="text-2xl font-bold text-emerald-600">{{ stats.vacant }}</span>
+                </div>
+                <div>
+                    <p class="text-sm text-slate-500">Vacant</p>
+                    <p class="font-semibold text-slate-900">Ready to Seat</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                    <span class="text-2xl font-bold text-amber-600">{{ stats.occupied }}</span>
+                </div>
+                <div>
+                    <p class="text-sm text-slate-500">Occupied</p>
+                    <p class="font-semibold text-slate-900">In Use</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                    <span class="text-2xl font-bold text-blue-600">{{ stats.reserved }}</span>
+                </div>
+                <div>
+                    <p class="text-sm text-slate-500">Reserved</p>
+                    <p class="font-semibold text-slate-900">Upcoming</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center">
+                    <span class="text-2xl font-bold text-slate-600">{{ stats.total }}</span>
+                </div>
+                <div>
+                    <p class="text-sm text-slate-500">Total</p>
+                    <p class="font-semibold text-slate-900">All Tables</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floors & Tables -->
+    {% if floors %}
+    <div x-data="{ activeFloor: '{{ floors.0.id }}' }">
+        <!-- Floor Tabs -->
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-2 flex flex-wrap gap-2">
+            {% for floor in floors %}
+            <button
+                class="px-4 py-2 rounded-xl font-medium transition-all"
+                :class="activeFloor === '{{ floor.id }}' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'"
+                @click="activeFloor = '{{ floor.id }}'"
+            >
+                {{ floor.name }}{% if floor.outlet and outlets|length > 1 %} <span class="text-xs opacity-70">({{ floor.outlet.code }})</span>{% endif %}
+                <span class="ml-2 px-2 py-0.5 rounded-full text-xs"
+                    :class="activeFloor === '{{ floor.id }}' ? 'bg-white/20' : 'bg-slate-200'">
+                    {{ floor.tables.count }}
+                </span>
+            </button>
+            {% endfor %}
+        </div>
+
+        <!-- Floor Content -->
+        {% for floor in floors %}
+        <div
+            x-show="activeFloor === '{{ floor.id }}'"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            class="mt-6"
+        >
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
+                <!-- Floor Header -->
+                <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">{{ floor.name }}</h2>
+                        {% if floor.description %}
+                        <p class="text-slate-500 text-sm mt-1">{{ floor.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="openEditFloorModal({{ floor.id }}, '{{ floor.name }}', '{{ floor.description }}', {{ floor.display_order }}, {{ floor.is_active|yesno:'true,false' }}, '{{ floor.outlet_id|default:"" }}')" class="px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            </svg>
+                            Edit
+                        </button>
+                        {% if not floor.tables.exists %}
+                        <form action="{% url 'dashboard:floor_delete' floor.pk %}" method="POST" class="inline" onsubmit="return confirm('Delete this floor?')">
+                            {% csrf_token %}
+                            <button type="submit" class="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                                Delete
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Tables Grid -->
+                {% if floor.tables.all %}
+                <div class="p-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    {% for table in floor.tables.all %}
+                    <div class="relative group" x-data="{ open: false }">
+                        <!-- Table Card -->
+                        <div class="aspect-square rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 hover:scale-105
+                            {% if table.status == 'vacant' %}bg-emerald-50 border-2 border-emerald-200 hover:border-emerald-400
+                            {% elif table.status == 'occupied' %}bg-amber-50 border-2 border-amber-200 hover:border-amber-400
+                            {% elif table.status == 'reserved' %}bg-blue-50 border-2 border-blue-200 hover:border-blue-400
+                            {% else %}bg-slate-50 border-2 border-slate-200{% endif %}"
+                            @click="open = !open"
+                        >
+                            <!-- Table Number -->
+                            <span class="text-3xl font-bold
+                                {% if table.status == 'vacant' %}text-emerald-600
+                                {% elif table.status == 'occupied' %}text-amber-600
+                                {% elif table.status == 'reserved' %}text-blue-600
+                                {% else %}text-slate-400{% endif %}
+                            ">{{ table.number }}</span>
+
+                            <!-- Capacity -->
+                            <div class="flex items-center gap-1 mt-2 text-xs text-slate-500">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                </svg>
+                                <span>{{ table.capacity }}</span>
+                            </div>
+
+                            <!-- Status Badge -->
+                            <span class="mt-2 px-2 py-0.5 rounded-full text-xs font-medium
+                                {% if table.status == 'vacant' %}bg-emerald-100 text-emerald-700
+                                {% elif table.status == 'occupied' %}bg-amber-100 text-amber-700
+                                {% elif table.status == 'reserved' %}bg-blue-100 text-blue-700
+                                {% else %}bg-slate-100 text-slate-600{% endif %}
+                            ">{{ table.get_status_display }}</span>
+
+                            <!-- QR indicator -->
+                            {% if table.qr_code %}
+                            <div class="absolute top-2 right-2">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                                </svg>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Dropdown Menu -->
+                        <div x-show="open" @click.away="open = false" x-transition
+                            class="absolute z-50 bottom-full mb-2 left-1/2 transform -translate-x-1/2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-2">
+
+                            <a href="{% url 'dashboard:table_detail' table.pk %}" class="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                View Details
+                            </a>
+
+                            <button onclick="openEditTableModal({{ table.id }}, '{{ table.number }}', '{{ table.name }}', {{ table.capacity }}, '{{ table.table_type }}', {{ table.floor.id }}, {{ table.is_active|yesno:'true,false' }})" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                </svg>
+                                Edit Table
+                            </button>
+
+                            {% if table.qr_code %}
+                            <button onclick="showQRCode('{{ table.qr_code.url }}', '{{ table.number }}')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                                </svg>
+                                View QR Code
+                            </button>
+                            {% endif %}
+
+                            <form action="{% url 'dashboard:table_regenerate_qr' table.pk %}" method="POST" class="w-full">
+                                {% csrf_token %}
+                                <button type="submit" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                    Regenerate QR
+                                </button>
+                            </form>
+
+                            <div class="border-t border-slate-100 my-2"></div>
+
+                            <form action="{% url 'dashboard:table_delete' table.pk %}" method="POST" class="w-full" onsubmit="return confirm('Delete table {{ table.number }}?')">
+                                {% csrf_token %}
+                                <button type="submit" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                    Delete Table
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="p-12 text-center">
+                    <svg class="w-16 h-16 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                    </svg>
+                    <p class="text-slate-500 mt-4">No tables on this floor</p>
+                    <button onclick="document.getElementById('tableModal').classList.remove('hidden')" class="mt-4 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800">Add First Table</button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center">
+        <svg class="w-20 h-20 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+        </svg>
+        <h3 class="text-xl font-bold text-slate-900 mt-6">No Floors Configured</h3>
+        <p class="text-slate-500 mt-2 max-w-md mx-auto">Start by creating floors to organize your restaurant layout, then add tables to each floor.</p>
+        <button onclick="document.getElementById('floorModal').classList.remove('hidden')" class="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+            Create First Floor
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Legend -->
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+        <h3 class="font-semibold text-slate-900 mb-3">Status Legend</h3>
+        <div class="flex flex-wrap gap-6">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded bg-emerald-100 border-2 border-emerald-200"></div>
+                <span class="text-sm text-slate-600">Vacant - Ready for guests</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded bg-amber-100 border-2 border-amber-200"></div>
+                <span class="text-sm text-slate-600">Occupied - Guests seated</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded bg-blue-100 border-2 border-blue-200"></div>
+                <span class="text-sm text-slate-600">Reserved - Upcoming booking</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded bg-slate-100 border-2 border-slate-200"></div>
+                <span class="text-sm text-slate-600">Unavailable - Not in service</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Floor Modal -->
+<div id="floorModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('floorModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold text-slate-900 mb-1">Add New Floor</h3>
+            <p class="text-slate-500 text-sm mb-6">Create a new floor/section for your restaurant.</p>
+
+            <form action="{% url 'dashboard:floor_create' %}" method="POST" class="space-y-4">
+                {% csrf_token %}
+                {% if outlets %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet</label>
+                    <select name="outlet" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        <option value="">-- Select Outlet --</option>
+                        {% for outlet in outlets %}
+                        <option value="{{ outlet.pk }}" {% if selected_outlet == outlet.pk|stringformat:"i" %}selected{% endif %}>{{ outlet.name }} ({{ outlet.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Floor Name</label>
+                    <input type="text" name="name" placeholder="e.g. Ground Floor, Rooftop" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Description (Optional)</label>
+                    <textarea name="description" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="Describe this floor..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Display Order</label>
+                    <input type="number" name="display_order" value="0" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="document.getElementById('floorModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                        Create Floor
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Floor Modal -->
+<div id="editFloorModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('editFloorModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold text-slate-900 mb-1">Edit Floor</h3>
+            <p class="text-slate-500 text-sm mb-6">Update floor details.</p>
+
+            <form id="editFloorForm" method="POST" class="space-y-4">
+                {% csrf_token %}
+                {% if outlets %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet</label>
+                    <select name="outlet" id="editFloorOutlet" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        <option value="">-- Select Outlet --</option>
+                        {% for outlet in outlets %}
+                        <option value="{{ outlet.pk }}">{{ outlet.name }} ({{ outlet.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Floor Name</label>
+                    <input type="text" name="name" id="editFloorName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <textarea name="description" id="editFloorDescription" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Display Order</label>
+                    <input type="number" name="display_order" id="editFloorOrder" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" name="is_active" id="editFloorActive" class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                    <label for="editFloorActive" class="text-sm font-medium text-slate-700">Active</label>
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="document.getElementById('editFloorModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Table Modal -->
+<div id="tableModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('tableModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold text-slate-900 mb-1">Add New Table</h3>
+            <p class="text-slate-500 text-sm mb-6">Add a table with automatic QR code generation.</p>
+
+            <form action="{% url 'dashboard:table_create' %}" method="POST" class="space-y-4">
+                {% csrf_token %}
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Table Number</label>
+                        <input type="text" name="number" placeholder="e.g. T1, 101" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Capacity</label>
+                        <input type="number" name="capacity" value="4" min="1" max="20" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Custom Name (Optional)</label>
+                    <input type="text" name="name" placeholder="e.g. Window Seat, Corner Booth" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Floor</label>
+                    <select name="floor" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                        <option value="">Select a floor</option>
+                        {% for floor in floors %}
+                        <option value="{{ floor.id }}">{{ floor.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Table Type</label>
+                    <select name="table_type" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        <option value="2_seater">2 Seater</option>
+                        <option value="4_seater" selected>4 Seater</option>
+                        <option value="6_seater">6 Seater</option>
+                        <option value="8_seater">8 Seater</option>
+                        <option value="booth">Booth</option>
+                        <option value="round">Round</option>
+                        <option value="bar">Bar Stool</option>
+                    </select>
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="document.getElementById('tableModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                        Create Table
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Table Modal -->
+<div id="editTableModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('editTableModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold text-slate-900 mb-1">Edit Table</h3>
+            <p class="text-slate-500 text-sm mb-6">Update table details.</p>
+
+            <form id="editTableForm" method="POST" class="space-y-4">
+                {% csrf_token %}
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Table Number</label>
+                        <input type="text" name="number" id="editTableNumber" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Capacity</label>
+                        <input type="number" name="capacity" id="editTableCapacity" min="1" max="20" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Custom Name</label>
+                    <input type="text" name="name" id="editTableName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Floor</label>
+                    <select name="floor" id="editTableFloor" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                        {% for floor in floors %}
+                        <option value="{{ floor.id }}">{{ floor.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Table Type</label>
+                    <select name="table_type" id="editTableType" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        <option value="2_seater">2 Seater</option>
+                        <option value="4_seater">4 Seater</option>
+                        <option value="6_seater">6 Seater</option>
+                        <option value="8_seater">8 Seater</option>
+                        <option value="booth">Booth</option>
+                        <option value="round">Round</option>
+                        <option value="bar">Bar Stool</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" name="is_active" id="editTableActive" class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                    <label for="editTableActive" class="text-sm font-medium text-slate-700">Active</label>
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="document.getElementById('editTableModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- QR Code Modal -->
+<div id="qrModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('qrModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
+            <h3 class="text-xl font-bold text-slate-900 mb-1">QR Code</h3>
+            <p class="text-slate-500 text-sm mb-6" id="qrTableName">Table T1</p>
+
+            <div class="bg-white p-4 rounded-xl inline-block">
+                <img id="qrCodeImage" src="" alt="QR Code" class="w-48 h-48 mx-auto">
+            </div>
+
+            <p class="text-xs text-slate-500 mt-4">Scan this QR code to order from this table</p>
+
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="document.getElementById('qrModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                    Close
+                </button>
+                <a id="qrDownloadLink" href="" download class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 inline-flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Download
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function filterByOutlet(outletId) {
+    const url = new URL(window.location.href);
+    if (outletId) {
+        url.searchParams.set('outlet', outletId);
+    } else {
+        url.searchParams.delete('outlet');
+    }
+    // Keep view=manage if already set
+    window.location.href = url.toString();
+}
+
+function openEditFloorModal(id, name, description, order, isActive, outletId) {
+    document.getElementById('editFloorForm').action = '/dashboard/floors/' + id + '/edit/';
+    document.getElementById('editFloorName').value = name;
+    document.getElementById('editFloorDescription').value = description || '';
+    document.getElementById('editFloorOrder').value = order;
+    document.getElementById('editFloorActive').checked = isActive;
+    // Set outlet if select exists
+    var outletSelect = document.getElementById('editFloorOutlet');
+    if (outletSelect && outletId) {
+        outletSelect.value = outletId;
+    }
+    document.getElementById('editFloorModal').classList.remove('hidden');
+}
+
+function openEditTableModal(id, number, name, capacity, tableType, floorId, isActive) {
+    document.getElementById('editTableForm').action = '/dashboard/tables/' + id + '/edit/';
+    document.getElementById('editTableNumber').value = number;
+    document.getElementById('editTableName').value = name || '';
+    document.getElementById('editTableCapacity').value = capacity;
+    document.getElementById('editTableType').value = tableType;
+    document.getElementById('editTableFloor').value = floorId;
+    document.getElementById('editTableActive').checked = isActive;
+    document.getElementById('editTableModal').classList.remove('hidden');
+}
+
+function showQRCode(url, tableNumber) {
+    document.getElementById('qrCodeImage').src = url;
+    document.getElementById('qrTableName').textContent = 'Table ' + tableNumber;
+    document.getElementById('qrDownloadLink').href = url;
+    document.getElementById('qrModal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

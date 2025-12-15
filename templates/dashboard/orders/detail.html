@@ -1,0 +1,671 @@
+{% extends "base.html" %}
+
+{% block title %}Order #{{ order.order_number }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div x-data="orderManager()" class="fade-in">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'dashboard:order_back' pk=order.pk %}" class="p-2 rounded-xl hover:bg-slate-100 text-slate-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">
+                    Order #{{ order.order_number }}
+                    {% if order.party_name %}<span class="text-indigo-600">• {{ order.party_name }}</span>{% endif %}
+                </h1>
+                <p class="text-sm text-slate-500">
+                    {% if order.table %}
+                        {% if order.combined_tables.exists %}
+                            Tables {{ order.all_table_numbers }}
+                        {% else %}
+                            Table {{ order.table.number }}
+                        {% endif %}
+                    {% else %}
+                        {{ order.get_order_type_display }}
+                    {% endif %}
+                    • {{ order.created_at|date:"g:i A" }}
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="px-3 py-1.5 rounded-lg text-xs font-bold
+                {% if order.status == 'pending' %}bg-amber-100 text-amber-700
+                {% elif order.status == 'confirmed' %}bg-blue-100 text-blue-700
+                {% elif order.status == 'preparing' %}bg-cyan-100 text-cyan-700
+                {% elif order.status == 'ready' %}bg-indigo-100 text-indigo-700
+                {% elif order.status == 'served' %}bg-purple-100 text-purple-700
+                {% elif order.status == 'completed' %}bg-emerald-100 text-emerald-700
+                {% else %}bg-red-100 text-red-700{% endif %}">
+                {{ order.get_status_display }}
+            </span>
+            <a href="{% url 'dashboard:order_print' pk=order.pk %}" target="_blank" class="p-2 rounded-xl hover:bg-slate-100 text-slate-500" title="Print Bill">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-180px)]">
+        <!-- Left: Menu Items (2 cols) -->
+        <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+            <!-- Seat Selector + Category Tabs -->
+            <div class="p-3 border-b border-slate-200 bg-slate-50">
+                <!-- Seat Number Selector -->
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="text-xs font-medium text-slate-500">Seat:</span>
+                    <div class="flex gap-1">
+                        <button type="button" @click="selectedSeat = null"
+                            :class="selectedSeat === null ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200'"
+                            class="w-8 h-8 rounded-lg text-xs font-bold transition-all">All</button>
+                        {% for seat in seat_numbers %}
+                        <button type="button" @click="selectedSeat = {{ seat }}"
+                            :class="selectedSeat === {{ seat }} ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200'"
+                            class="w-8 h-8 rounded-lg text-xs font-bold transition-all">{{ seat }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+                <!-- Category Tabs -->
+                <div class="flex items-center gap-1 overflow-x-auto">
+                    {% for category in categories %}
+                    <button
+                        @click="activeCategory = '{{ category.pk }}'"
+                        :class="activeCategory === '{{ category.pk }}' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
+                        class="px-4 py-2 rounded-xl font-semibold text-sm whitespace-nowrap transition-all">
+                        {{ category.name }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Menu Items Grid -->
+            <div class="flex-1 overflow-y-auto p-4">
+                {% for category in categories %}
+                <div x-show="activeCategory === '{{ category.pk }}'" x-transition class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {% for item in category.items.all %}
+                    {% if item.is_available %}
+                    <form method="POST" action="{% url 'dashboard:order_add_item' pk=order.pk %}" class="contents" @submit="addSeatToForm($event)">
+                        {% csrf_token %}
+                        <input type="hidden" name="menu_item" value="{{ item.pk }}">
+                        <input type="hidden" name="quantity" value="1">
+                        <input type="hidden" name="seat_number" :value="selectedSeat">
+                        <button type="submit" class="group relative bg-gradient-to-br from-slate-50 to-white rounded-xl border-2 border-slate-200 p-4 text-left hover:border-indigo-400 hover:shadow-lg transition-all active:scale-95">
+                            <div class="mb-2">
+                                <h4 class="font-semibold text-slate-800 text-sm leading-tight group-hover:text-indigo-600">{{ item.name }}</h4>
+                                {% if item.description %}
+                                <p class="text-xs text-slate-400 mt-1 line-clamp-1">{{ item.description }}</p>
+                                {% endif %}
+                            </div>
+                            <p class="text-lg font-bold text-indigo-600">₹{{ item.base_price }}</p>
+                            <!-- Quick add indicator -->
+                            <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                            </div>
+                        </button>
+                    </form>
+                    {% endif %}
+                    {% empty %}
+                    <div class="col-span-full text-center py-12 text-slate-400">
+                        <p>No items in this category</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Right: Order Summary (1 col) -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+            <!-- Order Header -->
+            <div class="p-4 border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-purple-600">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-white">Current Order</h3>
+                        <p class="text-indigo-200 text-sm">{{ order.item_count }} items</p>
+                    </div>
+                    {% if order.status in 'pending,confirmed' and order.items.exists %}
+                    <form method="POST" action="{% url 'dashboard:order_update_status' pk=order.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="confirmed">
+                        <button type="submit" class="px-3 py-1.5 rounded-lg bg-white/20 text-white text-sm font-semibold hover:bg-white/30 transition-colors">
+                            Send to Kitchen
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Order Items -->
+            <div class="flex-1 overflow-y-auto">
+                {% if order.items.exists %}
+                <div class="divide-y divide-slate-100">
+                    {% for item in order.items.all %}
+                    <div class="p-3 hover:bg-slate-50 transition-colors">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <h4 class="font-semibold text-slate-800 text-sm">{{ item.item_name }}</h4>
+                                    {% if item.seat_number %}
+                                    <span class="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded">S{{ item.seat_number }}</span>
+                                    {% endif %}
+                                </div>
+                                <p class="text-xs text-slate-500">₹{{ item.unit_price }} each</p>
+                                {% if item.special_instructions %}
+                                <p class="text-xs text-amber-600 mt-1 italic">{{ item.special_instructions }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="text-right">
+                                <p class="font-bold text-slate-800">₹{{ item.total_price }}</p>
+                            </div>
+                        </div>
+                        {% if order.status in 'pending,confirmed' %}
+                        <div class="flex items-center justify-between mt-2">
+                            <div class="flex items-center gap-1">
+                                <form method="POST" action="{% url 'dashboard:order_update_item_qty' pk=order.pk item_pk=item.pk %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="decrease">
+                                    <button type="submit" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                        </svg>
+                                    </button>
+                                </form>
+                                <span class="w-10 text-center font-bold text-slate-800">{{ item.quantity }}</span>
+                                <form method="POST" action="{% url 'dashboard:order_update_item_qty' pk=order.pk item_pk=item.pk %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="increase">
+                                    <button type="submit" class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 flex items-center justify-center transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                    </button>
+                                </form>
+                            </div>
+                            <form method="POST" action="{% url 'dashboard:order_remove_item' pk=order.pk item_pk=item.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <div class="mt-1">
+                            <span class="text-sm text-slate-500">Qty: {{ item.quantity }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="flex flex-col items-center justify-center h-full text-slate-400 p-8">
+                    <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <p class="font-medium">No items yet</p>
+                    <p class="text-sm">Tap menu items to add</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Order Totals -->
+            <div class="border-t border-slate-200 p-4 bg-slate-50 space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-600">Subtotal</span>
+                    <span class="font-medium text-slate-800">₹{{ order.subtotal }}</span>
+                </div>
+                {% if order.tax_amount > 0 %}
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-600">Tax</span>
+                    <span class="font-medium text-slate-800">₹{{ order.tax_amount }}</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between text-lg pt-2 border-t border-slate-200">
+                    <span class="font-bold text-slate-800">Total</span>
+                    <span class="font-bold text-indigo-600">₹{{ order.total_amount }}</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="p-4 border-t border-slate-200 space-y-2">
+                {# WAITER ACTIONS #}
+                {% if user.role == 'waiter' %}
+                    {% if order.status == 'pending' and order.items.exists %}
+                    <form method="POST" action="{% url 'dashboard:order_update_status' pk=order.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="confirmed">
+                        <button type="submit" class="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold shadow-lg hover:shadow-xl transition-all">
+                            Send to Kitchen
+                        </button>
+                    </form>
+                    {% elif order.status == 'ready' %}
+                    <form method="POST" action="{% url 'dashboard:order_update_status' pk=order.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="served">
+                        <button type="submit" class="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold shadow-lg hover:shadow-xl transition-all">
+                            Mark as Served
+                        </button>
+                    </form>
+                    {% elif order.status == 'served' %}
+                    <div class="text-center py-3 bg-orange-50 rounded-xl">
+                        <p class="text-orange-700 font-semibold">Waiting for Payment</p>
+                        <p class="text-orange-600 text-sm">Cashier will process</p>
+                    </div>
+                    {% elif order.status == 'completed' %}
+                    <div class="text-center py-2">
+                        <span class="px-4 py-2 rounded-xl bg-emerald-100 text-emerald-700 font-bold">✓ Completed</span>
+                    </div>
+                    {% elif order.status == 'cancelled' %}
+                    <div class="text-center py-2">
+                        <span class="px-4 py-2 rounded-xl bg-red-100 text-red-700 font-bold">✗ Cancelled</span>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-2 text-slate-500 text-sm">
+                        {{ order.get_status_display }}...
+                    </div>
+                    {% endif %}
+                    <a href="{% url 'dashboard:order_back' pk=order.pk %}" class="block w-full px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm text-center hover:bg-slate-50 transition-colors">
+                        Back to Tables
+                    </a>
+
+                {# CASHIER / SUPER ADMIN ACTIONS #}
+                {% else %}
+                    {% if order.status == 'pending' and order.items.exists %}
+                    <form method="POST" action="{% url 'dashboard:order_update_status' pk=order.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="status" value="confirmed">
+                        <button type="submit" class="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold shadow-lg hover:shadow-xl transition-all">
+                            Confirm & Send to Kitchen
+                        </button>
+                    </form>
+                    {% elif order.status == 'served' or order.status == 'ready' %}
+                    <button @click="showPayment = true" class="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-lg hover:shadow-xl transition-all">
+                        Process Payment (₹{{ order.balance_due }})
+                    </button>
+                    {% elif order.status == 'completed' %}
+                    <div class="text-center py-2">
+                        <span class="px-4 py-2 rounded-xl bg-emerald-100 text-emerald-700 font-bold">✓ Order Completed</span>
+                    </div>
+                    {% elif order.status == 'cancelled' %}
+                    <div class="text-center py-2">
+                        <span class="px-4 py-2 rounded-xl bg-red-100 text-red-700 font-bold">✗ Order Cancelled</span>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-2 text-slate-500 text-sm">
+                        Order is {{ order.get_status_display|lower }}...
+                    </div>
+                    {% endif %}
+
+                    {% if order.status not in 'completed,cancelled' %}
+                    <form method="POST" action="{% url 'dashboard:order_cancel' pk=order.pk %}" onsubmit="return confirm('Cancel this order?')">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full px-4 py-2 rounded-xl border border-red-200 text-red-600 font-semibold text-sm hover:bg-red-50 transition-colors">
+                            Cancel Order
+                        </button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div x-show="showPayment" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showPayment = false"></div>
+        <div x-data="paymentHandler()" class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="p-5 border-b border-slate-200">
+                <h3 class="text-lg font-bold text-slate-800">Process Payment</h3>
+                <p class="text-sm text-slate-500 mt-1">Amount Due: <span class="font-bold text-indigo-600 text-xl">₹{{ order.balance_due }}</span></p>
+            </div>
+
+            <!-- Payment Method Tabs -->
+            <div class="flex border-b border-slate-200">
+                <button @click="paymentTab = 'cash'" :class="paymentTab === 'cash' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-slate-500'" class="flex-1 px-4 py-3 font-semibold text-sm">
+                    💵 Cash
+                </button>
+                <button @click="paymentTab = 'card'" :class="paymentTab === 'card' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-slate-500'" class="flex-1 px-4 py-3 font-semibold text-sm">
+                    💳 Card
+                </button>
+                <button @click="paymentTab = 'upi'; initUpiPayment()" :class="paymentTab === 'upi' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-slate-500'" class="flex-1 px-4 py-3 font-semibold text-sm">
+                    📱 UPI
+                </button>
+                <button @click="paymentTab = 'split'" :class="paymentTab === 'split' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-slate-500'" class="flex-1 px-4 py-3 font-semibold text-sm">
+                    ✂️ Split
+                </button>
+            </div>
+
+            <!-- Cash Payment -->
+            <div x-show="paymentTab === 'cash'">
+                <form method="POST" action="{% url 'dashboard:order_payment' pk=order.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="method" value="cash">
+                    <div class="p-5 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Amount Received</label>
+                            <input type="number" name="amount_tendered" x-model="cashReceived" step="0.01" min="{{ order.balance_due }}"
+                                   class="w-full px-4 py-3 rounded-xl border border-slate-200 text-2xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-4">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-600">Bill Amount</span>
+                                <span class="font-semibold">₹{{ order.balance_due }}</span>
+                            </div>
+                            <div class="flex justify-between text-lg mt-2 pt-2 border-t border-slate-200">
+                                <span class="font-bold text-slate-800">Change</span>
+                                <span class="font-bold" :class="change >= 0 ? 'text-emerald-600' : 'text-red-600'" x-text="'₹' + change.toFixed(2)"></span>
+                            </div>
+                        </div>
+                        <input type="hidden" name="amount" value="{{ order.balance_due }}">
+                    </div>
+                    <div class="p-5 border-t border-slate-200 flex gap-3">
+                        <button type="button" @click="showPayment = false" class="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold">Cancel</button>
+                        <button type="submit" class="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold">Confirm Cash</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Card Payment -->
+            <div x-show="paymentTab === 'card'">
+                <form method="POST" action="{% url 'dashboard:order_payment' pk=order.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="method" value="card">
+                    <input type="hidden" name="amount" value="{{ order.balance_due }}">
+                    <div class="p-5 space-y-4">
+                        <div class="text-center py-6">
+                            <div class="w-20 h-20 mx-auto bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                                <span class="text-4xl">💳</span>
+                            </div>
+                            <p class="text-slate-600">Swipe/Tap card on your POS terminal</p>
+                            <p class="text-2xl font-bold text-slate-800 mt-2">₹{{ order.balance_due }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Transaction ID (Optional)</label>
+                            <input type="text" name="transaction_id" placeholder="Last 4 digits or ref number"
+                                   class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div class="p-5 border-t border-slate-200 flex gap-3">
+                        <button type="button" @click="showPayment = false" class="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold">Cancel</button>
+                        <button type="submit" class="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold">Confirm Card</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- UPI Payment -->
+            <div x-show="paymentTab === 'upi'">
+                <div class="p-5">
+                    <!-- Loading State -->
+                    <div x-show="upiLoading" class="text-center py-8">
+                        <div class="animate-spin w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full mx-auto"></div>
+                        <p class="text-slate-600 mt-4">Generating QR Code...</p>
+                    </div>
+
+                    <!-- Error State -->
+                    <div x-show="upiError" class="text-center py-8">
+                        <div class="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center mb-4">
+                            <span class="text-3xl">⚠️</span>
+                        </div>
+                        <p class="text-red-600 font-semibold" x-text="upiError"></p>
+                        <button @click="initUpiPayment()" class="mt-4 px-4 py-2 bg-slate-100 rounded-lg text-slate-700 text-sm">Try Again</button>
+                    </div>
+
+                    <!-- QR Code Display -->
+                    <div x-show="razorpayOrderId && !upiLoading && !upiError">
+                        <div class="text-center">
+                            <p class="text-slate-600 mb-4">Scan with any UPI app</p>
+                            <div id="razorpay-button" class="flex justify-center"></div>
+                            <p class="text-2xl font-bold text-purple-600 mt-4">₹{{ order.balance_due }}</p>
+                            <p class="text-sm text-slate-500 mt-2">Order #{{ order.order_number }}</p>
+                        </div>
+
+                        <!-- Payment Status Check -->
+                        <div x-show="checkingStatus" class="mt-4 text-center">
+                            <div class="animate-pulse flex items-center justify-center gap-2 text-purple-600">
+                                <div class="w-2 h-2 bg-purple-600 rounded-full animate-bounce"></div>
+                                <span>Waiting for payment...</span>
+                            </div>
+                        </div>
+
+                        <!-- Manual Confirm Option -->
+                        <form method="POST" action="{% url 'dashboard:order_payment' pk=order.pk %}" class="mt-4">
+                            {% csrf_token %}
+                            <input type="hidden" name="method" value="upi">
+                            <input type="hidden" name="amount" value="{{ order.balance_due }}">
+                            <input type="text" name="transaction_id" placeholder="UPI Transaction ID"
+                                   class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-3">
+                            <button type="submit" class="w-full px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm">
+                                Manually Confirm Payment
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <div class="p-5 border-t border-slate-200">
+                    <button type="button" @click="showPayment = false" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Split Bill by Seat -->
+            <div x-show="paymentTab === 'split'">
+                <div class="p-5">
+                    <p class="text-sm text-slate-600 mb-4">Pay separately by seat number:</p>
+
+                    {% regroup order.items.all by seat_number as items_by_seat %}
+                    <div class="space-y-3 max-h-64 overflow-y-auto">
+                        {% for seat_group in items_by_seat %}
+                        <div class="bg-slate-50 rounded-xl p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-bold text-slate-800">
+                                    {% if seat_group.grouper %}
+                                        Seat {{ seat_group.grouper }}
+                                    {% else %}
+                                        No Seat Assigned
+                                    {% endif %}
+                                </span>
+                                {% with total=0 %}
+                                {% for item in seat_group.list %}
+                                    {% with total=total|add:item.total_price %}{% endwith %}
+                                {% endfor %}
+                                {% endwith %}
+                            </div>
+                            <div class="text-xs text-slate-500 space-y-1">
+                                {% for item in seat_group.list %}
+                                <div class="flex justify-between">
+                                    <span>{{ item.quantity }}x {{ item.item_name }}</span>
+                                    <span>₹{{ item.total_price }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-200">
+                                <span class="font-semibold text-slate-700">Subtotal</span>
+                                <form method="POST" action="{% url 'dashboard:order_payment' pk=order.pk %}" class="flex items-center gap-2">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="method" value="cash">
+                                    <input type="hidden" name="seat_number" value="{{ seat_group.grouper }}">
+                                    {% with seat_total=0 %}
+                                    <span class="font-bold text-indigo-600">
+                                        {% for item in seat_group.list %}₹{{ item.total_price }}{% if not forloop.last %}+{% endif %}{% endfor %}
+                                    </span>
+                                    {% endwith %}
+                                    <button type="submit" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600">
+                                        Pay
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-8 text-slate-400">
+                            <p>No items with seat numbers assigned</p>
+                            <p class="text-sm mt-1">Assign seat numbers when adding items to use split billing</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="p-5 border-t border-slate-200">
+                    <button type="button" @click="showPayment = false" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+function orderManager() {
+    return {
+        activeCategory: '{{ categories.0.pk }}',
+        showPayment: false,
+        selectedSeat: null,
+
+        addSeatToForm(event) {
+            // Seat number is automatically added via :value binding
+            return true;
+        }
+    }
+}
+
+function paymentHandler() {
+    return {
+        paymentTab: 'cash',
+        cashReceived: {{ order.balance_due }},
+        upiLoading: false,
+        upiError: null,
+        razorpayOrderId: null,
+        razorpayKeyId: null,
+        checkingStatus: false,
+        statusInterval: null,
+
+        get change() {
+            return this.cashReceived - {{ order.balance_due }};
+        },
+
+        async initUpiPayment() {
+            if (this.razorpayOrderId) return; // Already initialized
+
+            this.upiLoading = true;
+            this.upiError = null;
+
+            try {
+                const response = await fetch('{% url "dashboard:create_razorpay_order" pk=order.pk %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || data.error) {
+                    throw new Error(data.error || 'Failed to create payment');
+                }
+
+                this.razorpayOrderId = data.razorpay_order_id;
+                this.razorpayKeyId = data.razorpay_key_id;
+                this.upiLoading = false;
+
+                // Open Razorpay checkout
+                this.openRazorpayCheckout(data);
+
+                // Start polling for payment status
+                this.startStatusCheck();
+
+            } catch (error) {
+                this.upiLoading = false;
+                this.upiError = error.message || 'Payment initialization failed';
+            }
+        },
+
+        openRazorpayCheckout(data) {
+            const options = {
+                key: data.razorpay_key_id,
+                amount: data.amount,
+                currency: data.currency,
+                name: 'Coffee Shop',
+                description: `Order #${data.order_number}`,
+                order_id: data.razorpay_order_id,
+                handler: (response) => {
+                    // Payment successful - verify on server
+                    this.verifyPayment(response);
+                },
+                prefill: {
+                    name: data.customer_name
+                },
+                theme: {
+                    color: '#6366f1'
+                },
+                modal: {
+                    ondismiss: () => {
+                        // User closed modal - keep polling
+                    }
+                }
+            };
+
+            const rzp = new Razorpay(options);
+            rzp.open();
+        },
+
+        async verifyPayment(response) {
+            try {
+                const res = await fetch('{% url "dashboard:verify_razorpay_payment" pk=order.pk %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_signature: response.razorpay_signature
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    // Payment verified - reload page
+                    window.location.reload();
+                } else {
+                    this.upiError = data.error || 'Payment verification failed';
+                }
+            } catch (error) {
+                this.upiError = 'Payment verification failed';
+            }
+        },
+
+        startStatusCheck() {
+            this.checkingStatus = true;
+
+            // Poll every 5 seconds
+            this.statusInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`{% url "dashboard:check_payment_status" pk=order.pk %}?razorpay_order_id=${this.razorpayOrderId}`);
+                    const data = await res.json();
+
+                    if (data.status === 'paid') {
+                        clearInterval(this.statusInterval);
+                        window.location.reload();
+                    }
+                } catch (error) {
+                    // Ignore polling errors
+                }
+            }, 5000);
+        },
+
+        stopStatusCheck() {
+            if (this.statusInterval) {
+                clearInterval(this.statusInterval);
+                this.checkingStatus = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

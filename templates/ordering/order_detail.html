@@ -1,0 +1,217 @@
+{% extends "ordering/base.html" %}
+
+{% block title %}Order #{{ order.order_number }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pb-24">
+    <!-- Header -->
+    <header class="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
+        <div class="px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-lg font-bold text-slate-800">Order #{{ order.order_number }}</h1>
+                    <p class="text-sm text-slate-500">Table {{ table.number }}</p>
+                </div>
+                <a href="{% url 'ordering:menu' table_uuid=table.uuid %}" class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold">
+                    Back to Menu
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Order Status -->
+    <div class="p-4">
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+            <!-- Status Badge -->
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4
+                    {% if order.status == 'pending' %}bg-amber-100
+                    {% elif order.status == 'confirmed' %}bg-blue-100
+                    {% elif order.status == 'preparing' %}bg-cyan-100
+                    {% elif order.status == 'ready' %}bg-indigo-100
+                    {% elif order.status == 'served' %}bg-purple-100
+                    {% elif order.status == 'completed' %}bg-emerald-100
+                    {% else %}bg-red-100{% endif %}">
+
+                    {% if order.status == 'pending' %}
+                    <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    {% elif order.status == 'confirmed' %}
+                    <svg class="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    {% elif order.status == 'preparing' %}
+                    <svg class="w-10 h-10 text-cyan-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    {% elif order.status == 'ready' %}
+                    <svg class="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                    </svg>
+                    {% elif order.status == 'served' or order.status == 'completed' %}
+                    <svg class="w-10 h-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    {% else %}
+                    <svg class="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    {% endif %}
+                </div>
+
+                <h2 class="text-xl font-bold text-slate-800 mb-1">
+                    {% if order.status == 'pending' %}Order Received
+                    {% elif order.status == 'confirmed' %}Order Confirmed
+                    {% elif order.status == 'preparing' %}Being Prepared
+                    {% elif order.status == 'ready' %}Ready for Pickup!
+                    {% elif order.status == 'served' %}Served
+                    {% elif order.status == 'completed' %}Completed
+                    {% else %}Cancelled{% endif %}
+                </h2>
+                <p class="text-slate-500 text-sm">
+                    {% if order.status == 'pending' %}Your order is being reviewed
+                    {% elif order.status == 'confirmed' %}We've received your order
+                    {% elif order.status == 'preparing' %}Our chef is preparing your food
+                    {% elif order.status == 'ready' %}Your food is ready at the counter
+                    {% elif order.status == 'served' %}Enjoy your meal!
+                    {% elif order.status == 'completed' %}Thank you for dining with us!
+                    {% else %}This order has been cancelled{% endif %}
+                </p>
+            </div>
+
+            <!-- Status Progress -->
+            {% if order.status not in 'cancelled' %}
+            <div class="flex items-center justify-between mb-6 px-4">
+                <div class="flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                        {% if order.status in 'pending,confirmed,preparing,ready,served,completed' %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-400{% endif %}">
+                        1
+                    </div>
+                    <span class="text-xs text-slate-500 mt-1">Ordered</span>
+                </div>
+                <div class="flex-1 h-1 mx-2 {% if order.status in 'confirmed,preparing,ready,served,completed' %}bg-emerald-500{% else %}bg-slate-200{% endif %}"></div>
+                <div class="flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                        {% if order.status in 'confirmed,preparing,ready,served,completed' %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-400{% endif %}">
+                        2
+                    </div>
+                    <span class="text-xs text-slate-500 mt-1">Confirmed</span>
+                </div>
+                <div class="flex-1 h-1 mx-2 {% if order.status in 'preparing,ready,served,completed' %}bg-emerald-500{% else %}bg-slate-200{% endif %}"></div>
+                <div class="flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                        {% if order.status in 'preparing,ready,served,completed' %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-400{% endif %}">
+                        3
+                    </div>
+                    <span class="text-xs text-slate-500 mt-1">Preparing</span>
+                </div>
+                <div class="flex-1 h-1 mx-2 {% if order.status in 'ready,served,completed' %}bg-emerald-500{% else %}bg-slate-200{% endif %}"></div>
+                <div class="flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                        {% if order.status in 'ready,served,completed' %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-400{% endif %}">
+                        4
+                    </div>
+                    <span class="text-xs text-slate-500 mt-1">Ready</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Estimated Time -->
+            {% if order.status in 'pending,confirmed,preparing' %}
+            <div class="bg-slate-50 rounded-xl p-4 text-center">
+                <p class="text-sm text-slate-500">Estimated Time</p>
+                <p class="text-2xl font-bold text-slate-800">~{{ order.estimated_prep_time }} mins</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Order Items -->
+    <div class="px-4 mb-4">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="p-4 border-b border-slate-100">
+                <h3 class="font-bold text-slate-800">Order Items</h3>
+            </div>
+            <div class="divide-y divide-slate-100">
+                {% for item in order.items.all %}
+                <div class="p-4 flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600">
+                        {{ item.quantity }}x
+                    </span>
+                    <div class="flex-1">
+                        <h4 class="font-medium text-slate-800">{{ item.item_name }}</h4>
+                        {% if item.special_instructions %}
+                        <p class="text-xs text-amber-600 italic">"{{ item.special_instructions }}"</p>
+                        {% endif %}
+                    </div>
+                    <span class="font-semibold text-slate-800">{{ item.total_price }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Summary -->
+    <div class="px-4">
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <h3 class="font-bold text-slate-800 mb-3">Order Summary</h3>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Subtotal</span>
+                    <span class="font-medium text-slate-800">{{ order.subtotal }}</span>
+                </div>
+                {% if order.discount_amount > 0 %}
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Discount</span>
+                    <span class="font-medium text-red-600">-{{ order.discount_amount }}</span>
+                </div>
+                {% endif %}
+                {% if order.cgst_amount > 0 %}
+                <div class="flex justify-between">
+                    <span class="text-slate-500">CGST</span>
+                    <span class="font-medium text-slate-800">{{ order.cgst_amount }}</span>
+                </div>
+                {% endif %}
+                {% if order.sgst_amount > 0 %}
+                <div class="flex justify-between">
+                    <span class="text-slate-500">SGST</span>
+                    <span class="font-medium text-slate-800">{{ order.sgst_amount }}</span>
+                </div>
+                {% endif %}
+                {% if order.service_charge > 0 %}
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Service Charge</span>
+                    <span class="font-medium text-slate-800">{{ order.service_charge }}</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between text-base pt-2 border-t border-slate-200">
+                    <span class="font-bold text-slate-800">Total</span>
+                    <span class="font-bold text-indigo-600">{{ order.total_amount }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Actions -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40">
+        <div class="flex gap-3">
+            <a href="{% url 'ordering:call_waiter' table_uuid=table.uuid %}" class="flex-1 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold text-center">
+                Call Waiter
+            </a>
+            <a href="{% url 'ordering:menu' table_uuid=table.uuid %}" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-center">
+                Order More
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if order.status in 'pending,confirmed,preparing' %}
+<!-- Auto-refresh for status updates -->
+<script>
+    setTimeout(function() {
+        window.location.reload();
+    }, 30000); // Refresh every 30 seconds
+</script>
+{% endif %}
+{% endblock %}

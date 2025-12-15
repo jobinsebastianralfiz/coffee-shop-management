@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block title %}Stock Movements{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'dashboard:inventory' %}" class="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-600 transition-all shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">Stock Movements</h1>
+                <p class="text-slate-500 text-sm">Track all stock ins and outs</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-4">
+        <form method="GET" class="flex flex-wrap items-center gap-4">
+            <select name="type" class="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                <option value="">All Types</option>
+                {% for value, label in movement_types %}
+                <option value="{{ value }}" {% if current_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="item" class="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                <option value="">All Items</option>
+                {% for item in items %}
+                <option value="{{ item.pk }}" {% if current_item == item.pk|stringformat:"s" %}selected{% endif %}>{{ item.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors">
+                Filter
+            </button>
+            {% if current_type or current_item %}
+            <a href="{% url 'dashboard:stock_movements' %}" class="px-4 py-2 rounded-xl text-slate-500 hover:text-slate-700 font-medium">
+                Clear
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Movements Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Item</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Type</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Quantity</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Stock Change</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Reference</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">By</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for movement in movements %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-6 py-4 text-slate-500 text-sm">
+                            {{ movement.created_at|date:"M d, Y" }}
+                            <br>
+                            <span class="text-xs text-slate-400">{{ movement.created_at|time:"H:i" }}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <a href="{% url 'dashboard:inventory_item_detail' movement.item.pk %}" class="font-medium text-slate-800 hover:text-blue-600">
+                                {{ movement.item.name }}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="px-2 py-1 rounded-lg text-xs font-medium
+                                {% if movement.movement_type == 'purchase' %}bg-emerald-100 text-emerald-700
+                                {% elif movement.movement_type == 'sale' %}bg-blue-100 text-blue-700
+                                {% elif movement.movement_type == 'wastage' %}bg-red-100 text-red-700
+                                {% elif movement.movement_type == 'adjustment' %}bg-purple-100 text-purple-700
+                                {% elif movement.movement_type == 'return' %}bg-amber-100 text-amber-700
+                                {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                {{ movement.get_movement_type_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="font-semibold {% if movement.quantity > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
+                                {% if movement.quantity > 0 %}+{% endif %}{{ movement.quantity }}
+                            </span>
+                            <span class="text-slate-400 text-sm">{{ movement.item.unit }}</span>
+                        </td>
+                        <td class="px-6 py-4 text-slate-500 text-sm">
+                            {{ movement.stock_before|floatformat:2 }} &rarr; {{ movement.stock_after|floatformat:2 }}
+                        </td>
+                        <td class="px-6 py-4 text-slate-500 text-sm">
+                            {% if movement.purchase_order %}
+                            <a href="{% url 'dashboard:purchase_order_detail' movement.purchase_order.pk %}" class="text-blue-600 hover:text-blue-800">
+                                {{ movement.reference_number }}
+                            </a>
+                            {% elif movement.reason %}
+                            {{ movement.reason }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-slate-500 text-sm">
+                            {{ movement.created_by.get_full_name|default:movement.created_by.username|default:"System" }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-12 text-center text-slate-400">
+                            <svg class="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+                            </svg>
+                            <p class="font-medium">No stock movements</p>
+                            <p class="text-sm">Stock movements will appear here when you adjust inventory</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,402 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-6">
+    <!-- Header -->
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900">Settings</h1>
+        <p class="text-slate-500 mt-1">Configure your {{ business_name }} system</p>
+    </div>
+
+    <!-- Settings Tabs -->
+    <div x-data="{ activeTab: 'branding' }">
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-2 flex flex-wrap gap-2 mb-6">
+            <button class="px-4 py-2.5 rounded-xl font-medium transition-all" :class="activeTab === 'branding' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'" @click="activeTab = 'branding'">Branding</button>
+            <button class="px-4 py-2.5 rounded-xl font-medium transition-all" :class="activeTab === 'business' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'" @click="activeTab = 'business'">Business</button>
+            <button class="px-4 py-2.5 rounded-xl font-medium transition-all" :class="activeTab === 'tax' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'" @click="activeTab = 'tax'">Tax & Billing</button>
+            <button class="px-4 py-2.5 rounded-xl font-medium transition-all" :class="activeTab === 'orders' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'" @click="activeTab = 'orders'">Orders</button>
+            <a href="{% url 'dashboard:payment_settings' %}" class="px-4 py-2.5 rounded-xl font-medium transition-all text-slate-600 hover:bg-slate-100 flex items-center gap-2">
+                <span>Payment Gateway</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Branding Settings -->
+        <div x-show="activeTab === 'branding'" x-transition class="space-y-6">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="setting_type" value="branding">
+
+                <!-- Logo & Identity -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
+                    <div class="p-6 border-b border-slate-100">
+                        <h2 class="text-lg font-semibold text-slate-900">Logo & Identity</h2>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Business Name</label>
+                                <input type="text" name="business_name" value="{{ business.business_name }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Tagline</label>
+                                <input type="text" name="tagline" value="{{ business.tagline }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="e.g. Management System">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Logo Upload -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Logo (Light Background)</label>
+                                <div class="flex items-center gap-4">
+                                    {% if business.logo %}
+                                    <img src="{{ business.logo.url }}" alt="Logo" class="w-16 h-16 rounded-xl object-contain bg-slate-100 p-2">
+                                    {% else %}
+                                    <div class="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center">
+                                        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                        </svg>
+                                    </div>
+                                    {% endif %}
+                                    <input type="file" name="logo" class="flex-1 text-sm border border-slate-200 rounded-xl file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700" accept="image/*">
+                                </div>
+                            </div>
+
+                            <!-- Logo Dark Upload -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Logo (Dark Background)</label>
+                                <div class="flex items-center gap-4">
+                                    {% if business.logo_dark %}
+                                    <img src="{{ business.logo_dark.url }}" alt="Logo Dark" class="w-16 h-16 rounded-xl object-contain bg-slate-800 p-2">
+                                    {% else %}
+                                    <div class="w-16 h-16 rounded-xl bg-slate-800 flex items-center justify-center">
+                                        <svg class="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                        </svg>
+                                    </div>
+                                    {% endif %}
+                                    <input type="file" name="logo_dark" class="flex-1 text-sm border border-slate-200 rounded-xl file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700" accept="image/*">
+                                </div>
+                            </div>
+
+                            <!-- Favicon Upload -->
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Favicon</label>
+                                <div class="flex items-center gap-4">
+                                    {% if business.favicon %}
+                                    <img src="{{ business.favicon.url }}" alt="Favicon" class="w-16 h-16 rounded-xl object-contain bg-slate-100 p-2">
+                                    {% else %}
+                                    <div class="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center">
+                                        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                        </svg>
+                                    </div>
+                                    {% endif %}
+                                    <input type="file" name="favicon" class="flex-1 text-sm border border-slate-200 rounded-xl file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700" accept="image/*">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Theme Colors -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
+                    <div class="p-6 border-b border-slate-100">
+                        <h2 class="text-lg font-semibold text-slate-900">Theme Colors</h2>
+                        <p class="text-slate-500 text-sm mt-1">Customize your brand colors</p>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Primary Color</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" name="primary_color" value="{{ business.primary_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
+                                    <input type="text" value="{{ business.primary_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Secondary Color</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" name="secondary_color" value="{{ business.secondary_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
+                                    <input type="text" value="{{ business.secondary_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Accent Color</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" name="accent_color" value="{{ business.accent_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
+                                    <input type="text" value="{{ business.accent_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preview -->
+                        <div class="mt-6 p-4 rounded-xl border-2 border-dashed border-slate-200">
+                            <p class="text-sm text-slate-500 mb-3">Preview:</p>
+                            <div class="h-16 rounded-lg" style="background: linear-gradient(135deg, {{ business.primary_color }} 0%, {{ business.secondary_color }} 50%, {{ business.accent_color }} 100%);"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar Colors -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
+                    <div class="p-6 border-b border-slate-100">
+                        <h2 class="text-lg font-semibold text-slate-900">Sidebar Customization</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Sidebar Background</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" name="sidebar_color" value="{{ business.sidebar_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
+                                    <input type="text" value="{{ business.sidebar_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Sidebar Text</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" name="sidebar_text_color" value="{{ business.sidebar_text_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
+                                    <input type="text" value="{{ business.sidebar_text_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Active Menu Item</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" name="sidebar_active_color" value="{{ business.sidebar_active_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
+                                    <input type="text" value="{{ business.sidebar_active_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Login Page -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
+                    <div class="p-6 border-b border-slate-100">
+                        <h2 class="text-lg font-semibold text-slate-900">Login Page</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Gradient Start Color</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" name="login_gradient_start" value="{{ business.login_bg_gradient_start }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
+                                    <input type="text" value="{{ business.login_bg_gradient_start }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Gradient End Color</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" name="login_gradient_end" value="{{ business.login_bg_gradient_end }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
+                                    <input type="text" value="{{ business.login_bg_gradient_end }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Welcome Message</label>
+                                <input type="text" name="login_welcome_text" value="{{ business.login_welcome_text }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Subtitle</label>
+                                <input type="text" name="login_subtitle" value="{{ business.login_subtitle }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            </div>
+                        </div>
+
+                        <!-- Preview -->
+                        <div class="mt-6 p-4 rounded-xl border-2 border-dashed border-slate-200">
+                            <p class="text-sm text-slate-500 mb-3">Login Page Preview:</p>
+                            <div class="h-32 rounded-lg flex items-center justify-center text-white" style="background: linear-gradient(135deg, {{ business.login_bg_gradient_start }} 0%, {{ business.secondary_color }} 50%, {{ business.login_bg_gradient_end }} 100%);">
+                                <div class="text-center">
+                                    <p class="text-xl font-bold">{{ business.login_welcome_text }}</p>
+                                    <p class="text-white/80 text-sm">{{ business.login_subtitle }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Theme Mode -->
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
+                    <div class="p-6 border-b border-slate-100">
+                        <h2 class="text-lg font-semibold text-slate-900">Default Theme Mode</h2>
+                    </div>
+                    <div class="p-6">
+                        <select name="default_theme" class="w-full max-w-xs px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            <option value="light" {% if business.default_theme == 'light' %}selected{% endif %}>Light Mode</option>
+                            <option value="dark" {% if business.default_theme == 'dark' %}selected{% endif %}>Dark Mode</option>
+                            <option value="system" {% if business.default_theme == 'system' %}selected{% endif %}>System Default</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full px-6 py-3 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Save Branding Settings
+                </button>
+            </form>
+        </div>
+
+        <!-- Business Settings -->
+        <div x-show="activeTab === 'business'" x-transition>
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
+                <div class="p-6 border-b border-slate-100">
+                    <h2 class="text-lg font-semibold text-slate-900">Business Information</h2>
+                </div>
+                <form method="post" class="p-6 space-y-6">
+                    {% csrf_token %}
+                    <input type="hidden" name="setting_type" value="business">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Phone</label>
+                            <input type="tel" name="phone" value="{{ business.phone }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="+91 98765 43210">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                            <input type="email" name="email" value="{{ business.email }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="contact@example.com">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Address</label>
+                        <textarea name="address" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="Full address...">{{ business.address }}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Website</label>
+                        <input type="url" name="website" value="{{ business.website }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="https://example.com">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">GST Number</label>
+                            <input type="text" name="gst_number" value="{{ business.gst_number }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="22AAAAA0000A1Z5">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">FSSAI Number</label>
+                            <input type="text" name="fssai_number" value="{{ business.fssai_number }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Currency</label>
+                            <select name="currency" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                                <option value="INR" {% if business.currency == 'INR' %}selected{% endif %}>INR - Indian Rupee</option>
+                                <option value="USD" {% if business.currency == 'USD' %}selected{% endif %}>USD - US Dollar</option>
+                                <option value="EUR" {% if business.currency == 'EUR' %}selected{% endif %}>EUR - Euro</option>
+                                <option value="GBP" {% if business.currency == 'GBP' %}selected{% endif %}>GBP - British Pound</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Currency Symbol</label>
+                            <input type="text" name="currency_symbol" value="{{ business.currency_symbol }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" maxlength="5">
+                        </div>
+                    </div>
+                    <button type="submit" class="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">Save Business Settings</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tax Settings -->
+        <div x-show="activeTab === 'tax'" x-transition>
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
+                <div class="p-6 border-b border-slate-100">
+                    <h2 class="text-lg font-semibold text-slate-900">Tax & Billing Settings</h2>
+                </div>
+                <form method="post" class="p-6 space-y-6">
+                    {% csrf_token %}
+                    <input type="hidden" name="setting_type" value="tax">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">CGST Rate (%)</label>
+                            <input type="number" name="cgst_rate" step="0.01" value="{{ tax.cgst_rate }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">SGST Rate (%)</label>
+                            <input type="number" name="sgst_rate" step="0.01" value="{{ tax.sgst_rate }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Service Charge Rate (%)</label>
+                        <input type="number" name="service_charge_rate" step="0.01" value="{{ tax.service_charge_rate }}" class="w-full max-w-xs px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                    </div>
+                    <div class="space-y-4">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" name="service_charge_enabled" {% if tax.service_charge_enabled %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                            <span class="text-sm text-slate-700">Enable Service Charge</span>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" name="tax_inclusive_pricing" {% if tax.tax_inclusive_pricing %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                            <span class="text-sm text-slate-700">Tax Inclusive Pricing (prices include tax)</span>
+                        </label>
+                    </div>
+                    <button type="submit" class="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">Save Tax Settings</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Order Settings -->
+        <div x-show="activeTab === 'orders'" x-transition>
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
+                <div class="p-6 border-b border-slate-100">
+                    <h2 class="text-lg font-semibold text-slate-900">Order Settings</h2>
+                </div>
+                <form method="post" class="p-6 space-y-6">
+                    {% csrf_token %}
+                    <input type="hidden" name="setting_type" value="orders">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Order Number Prefix</label>
+                            <input type="text" name="order_number_prefix" value="{{ order_settings.order_number_prefix }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Default Preparation Time (minutes)</label>
+                            <input type="number" name="default_preparation_time" value="{{ order_settings.default_preparation_time }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" name="allow_qr_ordering" {% if order_settings.allow_qr_ordering %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                            <div>
+                                <span class="text-sm text-slate-700">Allow QR Code Ordering</span>
+                                <p class="text-xs text-slate-500">Customers can scan table QR codes to place orders</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" name="require_customer_info_qr" {% if order_settings.require_customer_info_qr %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                            <div>
+                                <span class="text-sm text-slate-700">Require Customer Info for QR Orders</span>
+                                <p class="text-xs text-slate-500">Ask for name and phone number before placing order</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" name="auto_accept_orders" {% if order_settings.auto_accept_orders %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                            <div>
+                                <span class="text-sm text-slate-700">Auto-accept Orders</span>
+                                <p class="text-xs text-slate-500">Skip manual confirmation step</p>
+                            </div>
+                        </label>
+                    </div>
+                    <button type="submit" class="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">Save Order Settings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Update text input when color picker changes
+    document.querySelectorAll('input[type="color"]').forEach(colorInput => {
+        colorInput.addEventListener('input', function() {
+            const textInput = this.parentElement.querySelector('input[type="text"]');
+            if (textInput) {
+                textInput.value = this.value;
+            }
+        });
+    });
+</script>
+{% endblock %}

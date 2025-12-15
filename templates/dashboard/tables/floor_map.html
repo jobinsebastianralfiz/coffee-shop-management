@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+
+{% block title %}Floor Map{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Outlet Filter (Super Admin Only) -->
+    {% if outlets and user.role == 'super_admin' %}
+    <div class="flex items-center justify-between bg-white rounded-xl border border-slate-200 p-4">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            <span class="text-sm font-medium text-slate-700">Filter by Outlet:</span>
+        </div>
+        <select onchange="filterByOutlet(this.value)" class="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            <option value="">All Outlets</option>
+            {% for outlet in outlets %}
+            <option value="{{ outlet.pk }}" {% if selected_outlet == outlet.pk|stringformat:"i" %}selected{% endif %}>{{ outlet.name }} ({{ outlet.code }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Floor Map</h1>
+            <p class="text-slate-500 mt-1">Tap a table to take order</p>
+        </div>
+        {% if user.role == 'super_admin' %}
+        <a href="{% url 'dashboard:tables' %}?view=manage{% if selected_outlet %}&outlet={{ selected_outlet }}{% endif %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            Manage Tables
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Floor Map -->
+    {% if floors %}
+    <div x-data="{ activeFloor: '{{ floors.0.id }}' }" class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-visible">
+        <!-- Floor Tabs -->
+        <div class="flex items-center gap-2 p-4 border-b border-slate-100 bg-slate-50 overflow-x-auto">
+            {% for floor in floors %}
+            <button
+                class="px-5 py-2.5 rounded-xl font-semibold text-sm transition-all whitespace-nowrap"
+                :class="activeFloor === '{{ floor.id }}' ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
+                @click="activeFloor = '{{ floor.id }}'"
+            >
+                {{ floor.name }}{% if floor.outlet and outlets|length > 1 %} <span class="text-xs opacity-70">({{ floor.outlet.code }})</span>{% endif %}
+                <span class="ml-2 px-2 py-0.5 rounded-full text-xs" :class="activeFloor === '{{ floor.id }}' ? 'bg-white/20' : 'bg-slate-100'">{{ floor.tables.count }}</span>
+            </button>
+            {% endfor %}
+        </div>
+
+        <!-- Floor Content -->
+        {% for floor in floors %}
+        <div x-show="activeFloor === '{{ floor.id }}'" x-transition class="p-8 overflow-visible">
+            {% if floor.tables.all %}
+            <div class="flex flex-wrap gap-10 justify-center items-center min-h-[400px] pb-20" style="background: radial-gradient(circle, #f8fafc 1px, transparent 1px); background-size: 20px 20px;">
+                {% for table in floor.tables.all %}
+                {# Get order status - check both primary and combined orders #}
+                {% with primary_order=table.active_orders.0 combined_order=table.active_combined_orders.0 %}
+
+                {# Determine colors based on table/order status #}
+                {% if table.status == 'vacant' and not primary_order and not combined_order %}
+                    {% with chair_fill="#6ee7b7" chair_stroke="#10b981" table_fill="#10b981" status_text="Vacant" status_color="text-emerald-600" order_status="" is_combined=False %}
+                    {% include "dashboard/tables/_table_svg.html" %}
+                    {% endwith %}
+                {% elif primary_order.status == 'ready' or combined_order.status == 'ready' %}
+                    {% with chair_fill="#c4b5fd" chair_stroke="#8b5cf6" table_fill="#8b5cf6" status_text="Ready!" status_color="text-purple-600" is_ready=True order_status="ready" is_combined=primary_order.combined_tables.exists %}
+                    {% include "dashboard/tables/_table_svg.html" %}
+                    {% endwith %}
+                {% elif primary_order.status == 'served' or combined_order.status == 'served' %}
+                    {% with chair_fill="#fed7aa" chair_stroke="#f97316" table_fill="#f97316" status_text="Served" status_color="text-orange-600" order_status="served" is_combined=primary_order.combined_tables.exists %}
+                    {% include "dashboard/tables/_table_svg.html" %}
+                    {% endwith %}
+                {% elif primary_order.status == 'preparing' or primary_order.status == 'confirmed' or combined_order.status == 'preparing' or combined_order.status == 'confirmed' %}
+                    {% with chair_fill="#a5f3fc" chair_stroke="#06b6d4" table_fill="#06b6d4" status_text="Preparing" status_color="text-cyan-600" order_status="preparing" is_combined=primary_order.combined_tables.exists %}
+                    {% include "dashboard/tables/_table_svg.html" %}
+                    {% endwith %}
+                {% elif primary_order.status == 'pending' or combined_order.status == 'pending' %}
+                    {% with chair_fill="#fde68a" chair_stroke="#f59e0b" table_fill="#f59e0b" status_text="Ordering" status_color="text-amber-600" order_status="pending" is_combined=primary_order.combined_tables.exists %}
+                    {% include "dashboard/tables/_table_svg.html" %}
+                    {% endwith %}
+                {% elif table.status == 'reserved' %}
+                    {% with chair_fill="#93c5fd" chair_stroke="#3b82f6" table_fill="#3b82f6" status_text="Reserved" status_color="text-blue-600" order_status="" is_combined=False %}
+                    {% include "dashboard/tables/_table_svg.html" %}
+                    {% endwith %}
+                {% else %}
+                    {% with chair_fill="#cbd5e1" chair_stroke="#64748b" table_fill="#64748b" status_text="Unavailable" status_color="text-slate-500" order_status="" is_combined=False %}
+                    {% include "dashboard/tables/_table_svg.html" %}
+                    {% endwith %}
+                {% endif %}
+
+                {% endwith %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-16">
+                <p class="font-semibold text-slate-700">No tables on this floor</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-16 text-center">
+        <h3 class="text-xl font-bold text-slate-900">No Floors Configured</h3>
+        <p class="text-slate-500 mt-2">Contact your administrator to set up floors and tables.</p>
+    </div>
+    {% endif %}
+
+    <!-- Legend -->
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+        <div class="flex flex-wrap items-center justify-center gap-4">
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 rounded bg-emerald-500"></div>
+                <span class="text-sm text-slate-600">Vacant</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 rounded bg-amber-500"></div>
+                <span class="text-sm text-slate-600">Ordering</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 rounded bg-cyan-500"></div>
+                <span class="text-sm text-slate-600">Preparing</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 rounded bg-purple-500 animate-pulse"></div>
+                <span class="text-sm text-slate-600">Ready to Serve</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 rounded bg-orange-500"></div>
+                <span class="text-sm text-slate-600">Served (Unpaid)</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 rounded bg-blue-500"></div>
+                <span class="text-sm text-slate-600">Reserved</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center">
+                    <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                    </svg>
+                </div>
+                <span class="text-sm text-slate-600">Combined</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for outlet filtering -->
+<script>
+function filterByOutlet(outletId) {
+    const url = new URL(window.location.href);
+    if (outletId) {
+        url.searchParams.set('outlet', outletId);
+    } else {
+        url.searchParams.delete('outlet');
+    }
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}

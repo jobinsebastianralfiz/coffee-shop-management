@@ -1,0 +1,143 @@
+{% extends "waiter/base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="p-4 space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold text-slate-800">Hello, {{ request.user.first_name|default:request.user.username }}</h1>
+            <p class="text-sm text-slate-500">Welcome back</p>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">
+            {{ request.user.first_name|slice:":1"|default:request.user.username|slice:":1"|upper }}
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-3 gap-3">
+        <div class="bg-white rounded-2xl p-4 shadow-sm">
+            <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center mb-3">
+                <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-slate-800">{{ active_orders }}</p>
+            <p class="text-xs text-slate-500">Active</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-4 shadow-sm">
+            <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center mb-3">
+                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-slate-800">{{ today_orders }}</p>
+            <p class="text-xs text-slate-500">Today</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-4 shadow-sm">
+            <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center mb-3">
+                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path>
+                </svg>
+            </div>
+            <p class="text-2xl font-bold text-slate-800">{{ occupied_tables }}</p>
+            <p class="text-xs text-slate-500">Occupied</p>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div>
+        <h2 class="text-lg font-semibold text-slate-800 mb-3">Quick Actions</h2>
+        <div class="grid grid-cols-2 gap-3">
+            <a href="{% url 'waiter:tables' %}" class="flex items-center gap-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-4 text-white touch-active">
+                <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="font-semibold">New Order</p>
+                    <p class="text-xs text-white/80">Select table</p>
+                </div>
+            </a>
+
+            <a href="{% url 'waiter:orders' %}?status=active" class="flex items-center gap-3 bg-white rounded-2xl p-4 shadow-sm touch-active">
+                <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="font-semibold text-slate-800">Pending</p>
+                    <p class="text-xs text-slate-500">View orders</p>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Active Tables -->
+    {% if tables_with_orders %}
+    <div>
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-semibold text-slate-800">Active Tables</h2>
+            <a href="{% url 'waiter:tables' %}" class="text-sm text-indigo-600 font-medium">See all</a>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+            {% for table in tables_with_orders %}
+            <a href="{% url 'waiter:table_detail' table.pk %}" class="bg-white rounded-2xl p-4 shadow-sm text-center touch-active">
+                <div class="w-12 h-12 mx-auto rounded-xl bg-emerald-100 flex items-center justify-center mb-2">
+                    <span class="text-lg font-bold text-emerald-700">{{ table.number }}</span>
+                </div>
+                <p class="text-xs text-slate-500">{{ table.floor.name }}</p>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Orders -->
+    {% if recent_orders %}
+    <div>
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-semibold text-slate-800">Recent Orders</h2>
+            <a href="{% url 'waiter:orders' %}" class="text-sm text-indigo-600 font-medium">See all</a>
+        </div>
+        <div class="space-y-3">
+            {% for order in recent_orders %}
+            <a href="{% url 'waiter:order_detail' order.pk %}" class="block bg-white rounded-2xl p-4 shadow-sm touch-active">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl
+                            {% if order.status == 'ready' %}bg-emerald-100{% elif order.status == 'preparing' %}bg-blue-100{% else %}bg-slate-100{% endif %}
+                            flex items-center justify-center">
+                            <span class="text-sm font-bold
+                                {% if order.status == 'ready' %}text-emerald-700{% elif order.status == 'preparing' %}text-blue-700{% else %}text-slate-700{% endif %}">
+                                {% if order.table %}{{ order.table.number }}{% else %}#{% endif %}
+                            </span>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-800">{{ order.order_number }}</p>
+                            <p class="text-xs text-slate-500">{{ order.party_name|default:"No seat" }}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-lg
+                            {% if order.status == 'ready' %}bg-emerald-100 text-emerald-700
+                            {% elif order.status == 'preparing' %}bg-blue-100 text-blue-700
+                            {% elif order.status == 'confirmed' %}bg-amber-100 text-amber-700
+                            {% else %}bg-slate-100 text-slate-700{% endif %}">
+                            {{ order.get_status_display }}
+                        </span>
+                        <p class="text-xs text-slate-400 mt-1">{{ order.created_at|timesince }} ago</p>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

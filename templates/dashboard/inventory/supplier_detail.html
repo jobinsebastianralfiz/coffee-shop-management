@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ supplier.name }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'dashboard:suppliers' %}" class="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-600 transition-all shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl font-bold text-slate-800">{{ supplier.name }}</h1>
+                    <span class="px-2 py-1 rounded-lg text-xs font-medium {% if supplier.is_active %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+                        {% if supplier.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </div>
+                <p class="text-sm text-slate-500">Supplier Details</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'dashboard:purchase_order_create' %}?supplier={{ supplier.pk }}" class="btn-primary">
+                Create Order
+            </a>
+            <button onclick="document.getElementById('editModal').classList.remove('hidden')" class="btn-secondary">
+                Edit
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Info -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Contact Info -->
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200">
+                    <h2 class="font-bold text-slate-800">Contact Information</h2>
+                </div>
+                <div class="p-6 grid grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">Contact Person</p>
+                        <p class="font-medium text-slate-800">{{ supplier.contact_person|default:"-" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">Phone</p>
+                        <p class="font-medium text-slate-800">{{ supplier.phone|default:"-" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">Email</p>
+                        <p class="font-medium text-slate-800">{{ supplier.email|default:"-" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">GST Number</p>
+                        <p class="font-medium text-slate-800">{{ supplier.gst_number|default:"-" }}</p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="text-xs text-slate-400 uppercase mb-1">Address</p>
+                        <p class="font-medium text-slate-800">{{ supplier.address|default:"-"|linebreaks }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items from Supplier -->
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                    <h2 class="font-bold text-slate-800">Items from Supplier</h2>
+                    <span class="text-sm text-slate-500">{{ items|length }} items</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Item</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">SKU</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Current Stock</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for item in items %}
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-6 py-3">
+                                    <a href="{% url 'dashboard:inventory_item_detail' item.pk %}" class="font-medium text-slate-800 hover:text-blue-600">{{ item.name }}</a>
+                                </td>
+                                <td class="px-6 py-3 text-slate-500 text-sm font-mono">{{ item.sku }}</td>
+                                <td class="px-6 py-3">
+                                    <span class="{% if item.is_low_stock %}text-amber-600{% else %}text-slate-800{% endif %}">{{ item.current_stock }} {{ item.unit }}</span>
+                                </td>
+                                <td class="px-6 py-3 text-slate-600">{{ item.cost_price }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="px-6 py-8 text-center text-slate-400">No items from this supplier</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Orders -->
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                    <h2 class="font-bold text-slate-800">Recent Purchase Orders</h2>
+                    <a href="{% url 'dashboard:purchase_orders' %}?supplier={{ supplier.pk }}" class="text-sm text-blue-600 hover:text-blue-800">View All</a>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Order #</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Amount</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for order in orders %}
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-6 py-3">
+                                    <a href="{% url 'dashboard:purchase_order_detail' order.pk %}" class="font-medium text-slate-800 hover:text-blue-600">{{ order.order_number }}</a>
+                                </td>
+                                <td class="px-6 py-3 text-slate-500">{{ order.created_at|date:"M d, Y" }}</td>
+                                <td class="px-6 py-3 text-slate-600">{{ order.total_amount }}</td>
+                                <td class="px-6 py-3">
+                                    <span class="px-2 py-1 rounded-lg text-xs font-medium
+                                        {% if order.status == 'received' %}bg-emerald-100 text-emerald-700
+                                        {% elif order.status == 'ordered' %}bg-blue-100 text-blue-700
+                                        {% elif order.status == 'cancelled' %}bg-red-100 text-red-700
+                                        {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                        {{ order.get_status_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="px-6 py-8 text-center text-slate-400">No orders from this supplier</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200">
+                    <h2 class="font-bold text-slate-800">Business Details</h2>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">Payment Terms</p>
+                        <p class="font-medium text-slate-800">{{ supplier.payment_terms|default:"-" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">Credit Limit</p>
+                        <p class="font-medium text-slate-800">{{ supplier.credit_limit|floatformat:2 }}</p>
+                    </div>
+                    {% if supplier.notes %}
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase mb-1">Notes</p>
+                        <p class="text-slate-600">{{ supplier.notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <form method="POST" action="{% url 'dashboard:supplier_delete' supplier.pk %}" onsubmit="return confirm('Are you sure you want to delete this supplier?');">
+                {% csrf_token %}
+                <button type="submit" class="w-full px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-medium transition-colors">
+                    Delete Supplier
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Supplier Modal -->
+<div id="editModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <h3 class="text-lg font-bold text-slate-800">Edit Supplier</h3>
+            <button onclick="document.getElementById('editModal').classList.add('hidden')" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <form method="POST" action="{% url 'dashboard:supplier_edit' supplier.pk %}" class="p-6 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Supplier Name *</label>
+                <input type="text" name="name" value="{{ supplier.name }}" required class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Contact Person</label>
+                    <input type="text" name="contact_person" value="{{ supplier.contact_person }}" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Phone</label>
+                    <input type="text" name="phone" value="{{ supplier.phone }}" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                <input type="email" name="email" value="{{ supplier.email }}" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Address</label>
+                <textarea name="address" rows="2" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">{{ supplier.address }}</textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">GST Number</label>
+                    <input type="text" name="gst_number" value="{{ supplier.gst_number }}" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Payment Terms</label>
+                    <input type="text" name="payment_terms" value="{{ supplier.payment_terms }}" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+                <textarea name="notes" rows="2" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">{{ supplier.notes }}</textarea>
+            </div>
+            <div>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="is_active" {% if supplier.is_active %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <span class="text-sm text-slate-700">Active</span>
+                </label>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">Cancel</button>
+                <button type="submit" class="btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

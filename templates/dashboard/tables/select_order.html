@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Table {{ table.number }} - Select Order{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="fade-in max-w-2xl mx-auto" x-data="{ showForm: {% if is_new_order %}true{% else %}false{% endif %}, showCombine: false, selectedTables: [] }">
+    <!-- Header -->
+    <div class="flex items-center gap-4 mb-6">
+        <a href="{% url 'dashboard:tables' %}" class="p-2 rounded-xl hover:bg-slate-100 text-slate-500">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-xl font-bold text-slate-800">Table {{ table.number }}</h1>
+            {% if active_orders %}
+            <p class="text-sm text-slate-500">{{ active_orders|length }} active order{{ active_orders|length|pluralize }} at this table</p>
+            {% else %}
+            <p class="text-sm text-slate-500">Start a new order</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Active Orders -->
+    {% if active_orders %}
+    <div class="space-y-3 mb-6">
+        {% for order in active_orders %}
+        <a href="{% url 'dashboard:order_detail' pk=order.pk %}"
+           class="block bg-white rounded-2xl border-2 border-slate-200 p-4 hover:border-indigo-400 hover:shadow-lg transition-all group">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl
+                        {% if order.status == 'pending' %}bg-amber-100
+                        {% elif order.status == 'confirmed' or order.status == 'preparing' %}bg-blue-100
+                        {% elif order.status == 'ready' %}bg-green-100
+                        {% elif order.status == 'served' %}bg-purple-100
+                        {% else %}bg-slate-100{% endif %}">
+                        {% if order.party_name %}
+                            {{ order.party_name|slice:":1" }}
+                        {% else %}
+                            #
+                        {% endif %}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h3 class="font-bold text-slate-800 group-hover:text-indigo-600">
+                                {% if order.party_name %}{{ order.party_name }}{% else %}Order{% endif %}
+                            </h3>
+                            {% if order.combined_tables.exists %}
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                                Tables {{ order.all_table_numbers }}
+                            </span>
+                            {% endif %}
+                            <span class="text-xs px-2 py-0.5 rounded-full
+                                {% if order.status == 'pending' %}bg-amber-100 text-amber-700
+                                {% elif order.status == 'confirmed' %}bg-blue-100 text-blue-700
+                                {% elif order.status == 'preparing' %}bg-cyan-100 text-cyan-700
+                                {% elif order.status == 'ready' %}bg-green-100 text-green-700
+                                {% elif order.status == 'served' %}bg-purple-100 text-purple-700
+                                {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                {{ order.get_status_display }}
+                            </span>
+                        </div>
+                        <p class="text-sm text-slate-500">
+                            #{{ order.order_number }} &bull; {{ order.item_count }} item{{ order.item_count|pluralize }} &bull; {{ order.created_at|time:"g:i A" }}
+                        </p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-lg font-bold text-slate-800">₹{{ order.total_amount }}</p>
+                    <svg class="w-5 h-5 text-slate-400 group-hover:text-indigo-500 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Add New Party / Create Order -->
+    <div class="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-4">
+        <div x-show="!showForm">
+            <button @click="showForm = true" class="w-full flex items-center justify-center gap-3 py-4 text-slate-600 hover:text-indigo-600 transition-colors">
+                <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                </div>
+                <span class="font-semibold">{% if active_orders %}Add New Party / Separate Bill{% else %}Start New Order{% endif %}</span>
+            </button>
+        </div>
+
+        <form x-show="showForm" x-transition method="POST" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="new_party">
+
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2">Party Name (Optional)</label>
+                <input type="text" name="party_name" placeholder="e.g., Window Side, Birthday Group"
+                       class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+            </div>
+
+            <!-- Combine Tables Option -->
+            {% if available_tables %}
+            <div class="border-t border-slate-200 pt-4">
+                <button type="button" @click="showCombine = !showCombine" class="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800">
+                    <svg class="w-4 h-4" :class="showCombine && 'rotate-90'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                    <span class="font-semibold">Combine with other tables (large party)</span>
+                </button>
+
+                <div x-show="showCombine" x-transition class="mt-3">
+                    <p class="text-xs text-slate-500 mb-2">Select additional tables to combine:</p>
+                    <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                        {% for t in available_tables %}
+                        <label class="relative cursor-pointer">
+                            <input type="checkbox" name="combine_tables" value="{{ t.pk }}"
+                                   x-model="selectedTables"
+                                   class="peer sr-only">
+                            <div class="p-3 rounded-xl border-2 border-slate-200 text-center peer-checked:border-indigo-500 peer-checked:bg-indigo-50 transition-all hover:border-slate-300">
+                                <span class="text-lg font-bold text-slate-700 peer-checked:text-indigo-700">{{ t.number }}</span>
+                                <p class="text-xs text-slate-400">{{ t.capacity }}p</p>
+                            </div>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p x-show="selectedTables.length > 0" class="text-sm text-indigo-600 mt-2">
+                        <span x-text="selectedTables.length"></span> table(s) will be combined with Table {{ table.number }}
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="flex gap-3 pt-2">
+                {% if not is_new_order %}
+                <button type="button" @click="showForm = false; showCombine = false; selectedTables = []" class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50">
+                    Cancel
+                </button>
+                {% endif %}
+                <button type="submit" class="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold shadow-lg hover:shadow-xl">
+                    <span x-show="selectedTables.length === 0">Create Order</span>
+                    <span x-show="selectedTables.length > 0">Create Combined Order</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="mt-6 flex justify-center">
+        <a href="{% url 'dashboard:tables' %}" class="text-slate-500 hover:text-slate-700 text-sm">
+            ← Back to Floor Map
+        </a>
+    </div>
+</div>
+{% endblock %}

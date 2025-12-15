@@ -1,0 +1,517 @@
+{% extends 'base.html' %}
+
+{% block title %}Menu Management{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Menu Management</h1>
+            <p class="text-slate-500 mt-1">Manage your menu categories and items</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="document.getElementById('categoryModal').classList.remove('hidden')" class="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Add Category
+            </button>
+            <button onclick="document.getElementById('itemModal').classList.remove('hidden')" class="px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Add Item
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-5 text-white shadow-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Total Categories</p>
+                    <p class="text-3xl font-bold mt-1">{{ categories.count }}</p>
+                </div>
+                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        <div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 text-white shadow-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Total Items</p>
+                    <p class="text-3xl font-bold mt-1">{{ total_items }}</p>
+                </div>
+                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        <div class="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-white/80 text-sm">Available Items</p>
+                    <p class="text-3xl font-bold mt-1">{{ available_items }}</p>
+                </div>
+                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Categories Grid -->
+    {% if categories %}
+    <div class="space-y-8">
+        {% for category in categories %}
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
+            <!-- Category Header -->
+            <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    {% if category.image %}
+                    <img src="{{ category.image.url }}" alt="{{ category.name }}" class="w-16 h-16 rounded-xl object-cover">
+                    {% else %}
+                    <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                        <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                        </svg>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">{{ category.name }}</h2>
+                        <p class="text-slate-500 text-sm">{{ category.items.count }} items{% if category.description %} &bull; {{ category.description|truncatechars:50 }}{% endif %}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2" x-data="{ open: false }">
+                    {% if not category.is_active %}
+                    <span class="px-2 py-1 text-xs font-medium bg-slate-100 text-slate-600 rounded-lg">Inactive</span>
+                    {% endif %}
+                    <div class="relative">
+                        <button @click="open = !open" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                            </svg>
+                        </button>
+                        <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
+                            <button onclick="openEditCategoryModal({{ category.id }}, '{{ category.name|escapejs }}', '{{ category.description|escapejs }}', {{ category.display_order }}, {{ category.is_active|yesno:'true,false' }})" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                </svg>
+                                Edit Category
+                            </button>
+                            {% if not category.items.exists %}
+                            <form action="{% url 'dashboard:category_delete' category.pk %}" method="POST" onsubmit="return confirm('Delete this category?')">
+                                {% csrf_token %}
+                                <button type="submit" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                    Delete
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items Grid -->
+            {% if category.items.all %}
+            <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {% for item in category.items.all %}
+                <div class="group relative bg-slate-50 rounded-xl overflow-hidden hover:shadow-md transition-all" x-data="{ menuOpen: false }">
+                    <!-- Item Image -->
+                    <div class="aspect-[4/3] relative">
+                        {% if item.image %}
+                        <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-full h-full object-cover">
+                        {% else %}
+                        <div class="w-full h-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                            <svg class="w-12 h-12 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        {% endif %}
+
+                        {% if not item.is_available %}
+                        <div class="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <span class="px-3 py-1 bg-red-500 text-white text-xs font-medium rounded-full">Unavailable</span>
+                        </div>
+                        {% endif %}
+
+                        <!-- Food Type Badge -->
+                        <div class="absolute top-2 left-2">
+                            {% if item.food_type == 'veg' %}
+                            <span class="w-5 h-5 rounded border-2 border-green-600 bg-white flex items-center justify-center">
+                                <span class="w-2 h-2 rounded-full bg-green-600"></span>
+                            </span>
+                            {% elif item.food_type == 'non_veg' %}
+                            <span class="w-5 h-5 rounded border-2 border-red-600 bg-white flex items-center justify-center">
+                                <span class="w-2 h-2 rounded-full bg-red-600"></span>
+                            </span>
+                            {% else %}
+                            <span class="w-5 h-5 rounded border-2 border-green-600 bg-white flex items-center justify-center">
+                                <span class="text-green-600 text-xs font-bold">V</span>
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="absolute top-2 right-2">
+                            <button @click="menuOpen = !menuOpen" class="w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                                </svg>
+                            </button>
+                            <div x-show="menuOpen" @click.away="menuOpen = false" x-transition class="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
+                                <button onclick="openEditItemModal({{ item.id }}, '{{ item.name|escapejs }}', '{{ item.description|escapejs }}', '{{ item.base_price }}', '{{ item.food_type }}', {{ item.category.id }}, {{ item.preparation_time }}, {{ item.is_available|yesno:'true,false' }}, {{ item.is_featured|yesno:'true,false' }})" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                    </svg>
+                                    Edit
+                                </button>
+                                <form action="{% url 'dashboard:menu_item_toggle_availability' item.pk %}" method="POST">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                        {% if item.is_available %}
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                                        </svg>
+                                        Mark Unavailable
+                                        {% else %}
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        Mark Available
+                                        {% endif %}
+                                    </button>
+                                </form>
+                                <div class="border-t border-slate-100 my-1"></div>
+                                <form action="{% url 'dashboard:menu_item_delete' item.pk %}" method="POST" onsubmit="return confirm('Delete {{ item.name }}?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Item Details -->
+                    <div class="p-4">
+                        <h3 class="font-semibold text-slate-900 truncate">{{ item.name }}</h3>
+                        {% if item.description %}
+                        <p class="text-slate-500 text-sm mt-1 line-clamp-2">{{ item.description|truncatechars:60 }}</p>
+                        {% endif %}
+                        <div class="flex items-center justify-between mt-3">
+                            <span class="text-lg font-bold text-slate-900">&#8377;{{ item.base_price }}</span>
+                            <div class="flex items-center gap-2">
+                                {% if item.is_featured %}
+                                <span class="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">Featured</span>
+                                {% endif %}
+                                {% if item.is_available %}
+                                <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                                {% else %}
+                                <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-12 text-center">
+                <svg class="w-16 h-16 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                </svg>
+                <p class="text-slate-500 mt-4">No items in this category</p>
+                <button onclick="document.getElementById('itemModal').classList.remove('hidden')" class="mt-4 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800">Add Item</button>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center">
+        <svg class="w-20 h-20 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+        </svg>
+        <h3 class="text-xl font-bold text-slate-900 mt-6">No Menu Categories Yet</h3>
+        <p class="text-slate-500 mt-2 max-w-md mx-auto">Get started by creating your first category to organize your menu items.</p>
+        <button onclick="document.getElementById('categoryModal').classList.remove('hidden')" class="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+            Create First Category
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Category Modal -->
+<div id="categoryModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('categoryModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold text-slate-900 mb-1">Add New Category</h3>
+            <p class="text-slate-500 text-sm mb-6">Create a new menu category to organize your items.</p>
+
+            <form action="{% url 'dashboard:category_create' %}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Category Name</label>
+                    <input type="text" name="name" placeholder="e.g. Hot Beverages" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Description (Optional)</label>
+                    <textarea name="description" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="Describe this category..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Category Image (Optional)</label>
+                    <input type="file" name="image" accept="image/*" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Display Order</label>
+                    <input type="number" name="display_order" value="0" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="document.getElementById('categoryModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                        Create Category
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Category Modal -->
+<div id="editCategoryModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('editCategoryModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold text-slate-900 mb-1">Edit Category</h3>
+            <p class="text-slate-500 text-sm mb-6">Update category details.</p>
+
+            <form id="editCategoryForm" method="POST" enctype="multipart/form-data" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Category Name</label>
+                    <input type="text" name="name" id="editCategoryName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <textarea name="description" id="editCategoryDescription" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">New Image (Optional)</label>
+                    <input type="file" name="image" accept="image/*" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Display Order</label>
+                    <input type="number" name="display_order" id="editCategoryOrder" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" name="is_active" id="editCategoryActive" class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                    <label for="editCategoryActive" class="text-sm font-medium text-slate-700">Active</label>
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="document.getElementById('editCategoryModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Item Modal -->
+<div id="itemModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('itemModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
+            <h3 class="text-xl font-bold text-slate-900 mb-1">Add New Menu Item</h3>
+            <p class="text-slate-500 text-sm mb-6">Add a new item to your menu.</p>
+
+            <form action="{% url 'dashboard:menu_item_create' %}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                {% csrf_token %}
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Item Name</label>
+                        <input type="text" name="name" placeholder="e.g. Cappuccino" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                        <select name="category" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                            <option value="">Select category</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <textarea name="description" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="Describe this item..."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Base Price (&#8377;)</label>
+                        <input type="number" name="base_price" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Prep Time (mins)</label>
+                        <input type="number" name="preparation_time" value="10" min="1" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Food Type</label>
+                        <select name="food_type" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            {% for value, label in food_types %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Item Image</label>
+                        <input type="file" name="image" accept="image/*" class="w-full text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700">
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="is_available" checked class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                        <span class="text-sm text-slate-700">Available</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="is_featured" class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                        <span class="text-sm text-slate-700">Featured</span>
+                    </label>
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="document.getElementById('itemModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                        Add Item
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div id="editItemModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('editItemModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
+            <h3 class="text-xl font-bold text-slate-900 mb-1">Edit Menu Item</h3>
+            <p class="text-slate-500 text-sm mb-6">Update item details.</p>
+
+            <form id="editItemForm" method="POST" enctype="multipart/form-data" class="space-y-4">
+                {% csrf_token %}
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Item Name</label>
+                        <input type="text" name="name" id="editItemName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                        <select name="category" id="editItemCategory" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <textarea name="description" id="editItemDescription" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Base Price (&#8377;)</label>
+                        <input type="number" name="base_price" id="editItemPrice" step="0.01" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Prep Time (mins)</label>
+                        <input type="number" name="preparation_time" id="editItemPrepTime" min="1" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Food Type</label>
+                        <select name="food_type" id="editItemFoodType" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            {% for value, label in food_types %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">New Image</label>
+                        <input type="file" name="image" accept="image/*" class="w-full text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700">
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="is_available" id="editItemAvailable" class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                        <span class="text-sm text-slate-700">Available</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="is_featured" id="editItemFeatured" class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                        <span class="text-sm text-slate-700">Featured</span>
+                    </label>
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="document.getElementById('editItemModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openEditCategoryModal(id, name, description, order, isActive) {
+    document.getElementById('editCategoryForm').action = '/dashboard/menu/category/' + id + '/edit/';
+    document.getElementById('editCategoryName').value = name;
+    document.getElementById('editCategoryDescription').value = description || '';
+    document.getElementById('editCategoryOrder').value = order;
+    document.getElementById('editCategoryActive').checked = isActive;
+    document.getElementById('editCategoryModal').classList.remove('hidden');
+}
+
+function openEditItemModal(id, name, description, price, foodType, categoryId, prepTime, isAvailable, isFeatured) {
+    document.getElementById('editItemForm').action = '/dashboard/menu/item/' + id + '/edit/';
+    document.getElementById('editItemName').value = name;
+    document.getElementById('editItemDescription').value = description || '';
+    document.getElementById('editItemPrice').value = price;
+    document.getElementById('editItemFoodType').value = foodType;
+    document.getElementById('editItemCategory').value = categoryId;
+    document.getElementById('editItemPrepTime').value = prepTime;
+    document.getElementById('editItemAvailable').checked = isAvailable;
+    document.getElementById('editItemFeatured').checked = isFeatured;
+    document.getElementById('editItemModal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

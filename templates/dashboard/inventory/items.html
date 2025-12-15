@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+
+{% block title %}Inventory Items{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-6">
+    <!-- Header with Actions -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'dashboard:inventory' %}" class="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-600 transition-all shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">Inventory Items</h1>
+                <p class="text-slate-500 text-sm">Manage your inventory items and stock levels</p>
+            </div>
+        </div>
+        <button onclick="document.getElementById('addItemModal').classList.remove('hidden')" class="btn-primary">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            Add Item
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-4">
+        <form method="GET" class="flex flex-wrap items-center gap-4">
+            <div class="flex-1 min-w-48">
+                <input type="text" name="search" value="{{ search }}" placeholder="Search items..."
+                    class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            </div>
+            {% if outlets %}
+            <select name="outlet" class="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                <option value="">All Outlets</option>
+                {% for outlet in outlets %}
+                <option value="{{ outlet.pk }}" {% if selected_outlet == outlet.pk|stringformat:"i" %}selected{% endif %}>{{ outlet.name }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            <select name="category" class="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                <option value="{{ cat.pk }}" {% if current_category == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+            <select name="status" class="px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                <option value="">All Status</option>
+                <option value="low" {% if current_status == "low" %}selected{% endif %}>Low Stock</option>
+                <option value="out" {% if current_status == "out" %}selected{% endif %}>Out of Stock</option>
+            </select>
+            <button type="submit" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors">
+                Filter
+            </button>
+            {% if search or current_category or current_status or selected_outlet %}
+            <a href="{% url 'dashboard:inventory_items' %}" class="px-4 py-2 rounded-xl text-slate-500 hover:text-slate-700 font-medium">
+                Clear
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Items Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Item</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">SKU</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Category</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Stock</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Status</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Cost</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase">Supplier</th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for item in items %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-6 py-4">
+                            <a href="{% url 'dashboard:inventory_item_detail' item.pk %}" class="font-medium text-slate-800 hover:text-blue-600">
+                                {{ item.name }}
+                            </a>
+                            {% if item.is_perishable %}
+                            <span class="ml-2 px-1.5 py-0.5 rounded text-xs bg-orange-100 text-orange-600">Perishable</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-slate-500 text-sm font-mono">{{ item.sku }}</td>
+                        <td class="px-6 py-4 text-slate-500">{{ item.category.name|default:"-" }}</td>
+                        <td class="px-6 py-4">
+                            <span class="font-semibold {% if item.current_stock <= 0 %}text-red-600{% elif item.is_low_stock %}text-amber-600{% else %}text-slate-800{% endif %}">
+                                {{ item.current_stock }} {{ item.unit }}
+                            </span>
+                            <p class="text-xs text-slate-400">Min: {{ item.minimum_stock }}</p>
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if item.stock_status == 'out_of_stock' %}
+                            <span class="px-2 py-1 rounded-lg text-xs font-medium bg-red-100 text-red-700">Out of Stock</span>
+                            {% elif item.stock_status == 'low_stock' %}
+                            <span class="px-2 py-1 rounded-lg text-xs font-medium bg-amber-100 text-amber-700">Low Stock</span>
+                            {% elif item.stock_status == 'overstocked' %}
+                            <span class="px-2 py-1 rounded-lg text-xs font-medium bg-purple-100 text-purple-700">Overstocked</span>
+                            {% else %}
+                            <span class="px-2 py-1 rounded-lg text-xs font-medium bg-emerald-100 text-emerald-700">In Stock</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-slate-600">{{ item.cost_price }}</td>
+                        <td class="px-6 py-4 text-slate-500">{{ item.supplier.name|default:"-" }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <a href="{% url 'dashboard:inventory_item_detail' item.pk %}" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-blue-600">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-slate-400">
+                            <svg class="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                            </svg>
+                            <p class="font-medium">No inventory items found</p>
+                            <p class="text-sm">Add your first item to get started</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Item Modal -->
+<div id="addItemModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <h3 class="text-lg font-bold text-slate-800">Add Inventory Item</h3>
+            <button onclick="document.getElementById('addItemModal').classList.add('hidden')" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <form method="POST" action="{% url 'dashboard:inventory_item_create' %}" class="p-6 space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Item Name *</label>
+                <input type="text" name="name" required class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                    <select name="category" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                        <option value="">Select Category</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.pk }}">{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Unit</label>
+                    <select name="unit" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                        {% for value, label in units %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Current Stock</label>
+                    <input type="number" name="current_stock" step="0.01" value="0" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Minimum</label>
+                    <input type="number" name="minimum_stock" step="0.01" value="0" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Maximum</label>
+                    <input type="number" name="maximum_stock" step="0.01" value="0" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Cost Price</label>
+                    <input type="number" name="cost_price" step="0.01" value="0" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Supplier</label>
+                    <select name="supplier" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                        <option value="">Select Supplier</option>
+                        {% for sup in suppliers %}
+                        <option value="{{ sup.pk }}">{{ sup.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea name="description" rows="2" class="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"></textarea>
+            </div>
+            <div class="flex items-center gap-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="is_perishable" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <span class="text-sm text-slate-700">Perishable Item</span>
+                </label>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <button type="button" onclick="document.getElementById('addItemModal').classList.add('hidden')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">
+                    Cancel
+                </button>
+                <button type="submit" class="btn-primary">
+                    Add Item
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

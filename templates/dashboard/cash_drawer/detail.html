@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Cash Drawer - {{ cash_drawer.date|date:"M d, Y" }}{% endblock %}
+{% block page_title %}Cash Drawer Details{% endblock %}
+
+{% block content %}
+<div class="space-y-6 fade-in">
+    <!-- Header -->
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <a href="{% url 'dashboard:cash_drawer_history' %}" class="p-2 rounded-xl hover:bg-slate-100 transition-colors">
+                <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
+                </svg>
+            </a>
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">{{ cash_drawer.date|date:"F d, Y" }}</h1>
+                <p class="text-slate-500 mt-1">{{ cash_drawer.date|date:"l" }} - Cash Drawer Record</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            {% if cash_drawer.is_closed %}
+            <span class="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-medium">
+                <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+                Closed
+            </span>
+            {% else %}
+            <span class="px-4 py-2 rounded-xl bg-emerald-100 text-emerald-700 font-medium">
+                <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+                </svg>
+                Open
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="premium-card bg-white rounded-2xl p-5">
+            <p class="text-sm text-slate-500">Opening Balance</p>
+            <p class="text-xl font-bold text-slate-800 mt-1">{{ currency_symbol }}{{ cash_drawer.opening_balance|floatformat:2 }}</p>
+        </div>
+        <div class="premium-card bg-white rounded-2xl p-5">
+            <p class="text-sm text-emerald-600">Cash Sales</p>
+            <p class="text-xl font-bold text-emerald-700 mt-1">+{{ currency_symbol }}{{ cash_drawer.total_cash_sales|floatformat:2 }}</p>
+        </div>
+        <div class="premium-card bg-white rounded-2xl p-5">
+            <p class="text-sm text-slate-500">Expected Balance</p>
+            <p class="text-xl font-bold text-slate-800 mt-1">{{ currency_symbol }}{{ cash_drawer.expected_balance|floatformat:2 }}</p>
+        </div>
+        <div class="premium-card bg-white rounded-2xl p-5">
+            <p class="text-sm text-slate-500">Variance</p>
+            <p class="text-xl font-bold {% if cash_drawer.variance >= 0 %}text-emerald-600{% else %}text-red-600{% endif %} mt-1">
+                {% if cash_drawer.variance >= 0 %}+{% endif %}{{ currency_symbol }}{{ cash_drawer.variance|floatformat:2 }}
+            </p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Transactions -->
+        <div class="lg:col-span-2 premium-card bg-white rounded-2xl p-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-6">Transactions</h2>
+
+            {% if transactions %}
+            <div class="space-y-3">
+                {% for txn in transactions %}
+                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                    <div class="flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center
+                            {% if txn.transaction_type == 'sale' %}bg-emerald-100
+                            {% elif txn.transaction_type == 'cash_in' %}bg-blue-100
+                            {% elif txn.transaction_type == 'cash_out' or txn.transaction_type == 'expense' %}bg-red-100
+                            {% else %}bg-amber-100{% endif %}">
+                            {% if txn.transaction_type == 'sale' %}
+                            <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                            </svg>
+                            {% elif txn.transaction_type == 'cash_in' %}
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                            {% else %}
+                            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                            </svg>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-800">{{ txn.get_transaction_type_display }}</p>
+                            <p class="text-sm text-slate-500">{{ txn.description|truncatechars:50 }}</p>
+                            {% if txn.created_by %}
+                            <p class="text-xs text-slate-400">by {{ txn.created_by.get_full_name|default:txn.created_by.username }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold {% if txn.transaction_type == 'sale' or txn.transaction_type == 'cash_in' %}text-emerald-600{% else %}text-red-600{% endif %}">
+                            {% if txn.transaction_type == 'sale' or txn.transaction_type == 'cash_in' %}+{% else %}-{% endif %}{{ currency_symbol }}{{ txn.amount|floatformat:2 }}
+                        </p>
+                        <p class="text-xs text-slate-400">{{ txn.created_at|time:"h:i A" }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                </div>
+                <p class="text-slate-500">No transactions recorded</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Cash Flow Summary -->
+            <div class="premium-card bg-white rounded-2xl p-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Cash Flow</h2>
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between py-3 border-b border-slate-100">
+                        <span class="text-slate-500">Opening</span>
+                        <span class="font-semibold text-slate-800">{{ currency_symbol }}{{ cash_drawer.opening_balance|floatformat:2 }}</span>
+                    </div>
+                    <div class="flex items-center justify-between py-3 border-b border-slate-100">
+                        <span class="text-emerald-600">+ Cash Sales</span>
+                        <span class="font-semibold text-emerald-600">{{ currency_symbol }}{{ cash_drawer.total_cash_sales|floatformat:2 }}</span>
+                    </div>
+                    <div class="flex items-center justify-between py-3 border-b border-slate-100">
+                        <span class="text-blue-600">+ Cash In</span>
+                        <span class="font-semibold text-blue-600">{{ currency_symbol }}{{ cash_drawer.total_cash_in|floatformat:2 }}</span>
+                    </div>
+                    <div class="flex items-center justify-between py-3 border-b border-slate-100">
+                        <span class="text-red-600">- Cash Out</span>
+                        <span class="font-semibold text-red-600">{{ currency_symbol }}{{ cash_drawer.total_cash_out|floatformat:2 }}</span>
+                    </div>
+                    <div class="flex items-center justify-between py-3 border-b border-slate-100">
+                        <span class="font-semibold text-slate-700">= Expected</span>
+                        <span class="font-bold text-slate-800">{{ currency_symbol }}{{ cash_drawer.expected_balance|floatformat:2 }}</span>
+                    </div>
+                    {% if cash_drawer.is_closed %}
+                    <div class="flex items-center justify-between py-3 border-b border-slate-100">
+                        <span class="text-slate-500">Actual Count</span>
+                        <span class="font-semibold text-slate-800">{{ currency_symbol }}{{ cash_drawer.actual_balance|floatformat:2 }}</span>
+                    </div>
+                    <div class="flex items-center justify-between py-3">
+                        <span class="font-semibold text-slate-700">Variance</span>
+                        <span class="font-bold {% if cash_drawer.variance >= 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
+                            {% if cash_drawer.variance >= 0 %}+{% endif %}{{ currency_symbol }}{{ cash_drawer.variance|floatformat:2 }}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Details -->
+            <div class="premium-card bg-white rounded-2xl p-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Details</h2>
+                <div class="space-y-3 text-sm">
+                    {% if cash_drawer.opened_by %}
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500">Opened by</span>
+                        <span class="font-medium text-slate-800">{{ cash_drawer.opened_by.get_full_name }}</span>
+                    </div>
+                    {% endif %}
+                    {% if cash_drawer.opened_at %}
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500">Opened at</span>
+                        <span class="font-medium text-slate-800">{{ cash_drawer.opened_at|time:"h:i A" }}</span>
+                    </div>
+                    {% endif %}
+                    {% if cash_drawer.closed_by %}
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500">Closed by</span>
+                        <span class="font-medium text-slate-800">{{ cash_drawer.closed_by.get_full_name }}</span>
+                    </div>
+                    {% endif %}
+                    {% if cash_drawer.closed_at %}
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500">Closed at</span>
+                        <span class="font-medium text-slate-800">{{ cash_drawer.closed_at|time:"h:i A" }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if cash_drawer.notes %}
+                <div class="mt-4 pt-4 border-t border-slate-200">
+                    <p class="text-sm text-slate-500 mb-2">Notes</p>
+                    <p class="text-slate-700">{{ cash_drawer.notes }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Shifts -->
+            {% if shifts %}
+            <div class="premium-card bg-white rounded-2xl p-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4">Shifts</h2>
+                <div class="space-y-3">
+                    {% for shift in shifts %}
+                    <div class="p-3 bg-slate-50 rounded-xl">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
+                                {{ shift.cashier.first_name|slice:":1"|upper }}{{ shift.cashier.last_name|slice:":1"|upper }}
+                            </div>
+                            <div>
+                                <p class="font-semibold text-slate-800 text-sm">{{ shift.cashier.get_full_name }}</p>
+                                <p class="text-xs text-slate-500">{{ shift.shift_start|time:"h:i A" }} - {{ shift.shift_end|time:"h:i A"|default:"ongoing" }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-slate-500">Sales</span>
+                            <span class="font-semibold text-emerald-600">{{ currency_symbol }}{{ shift.cash_sales|floatformat:2 }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

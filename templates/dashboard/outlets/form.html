@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex items-center gap-4">
+        <a href="{% url 'dashboard:outlets' %}" class="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+            <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">{{ page_title }}</h1>
+            <p class="text-slate-500 mt-1">{% if outlet %}Update outlet details{% else %}Add a new business location{% endif %}</p>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <form method="post" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        {% csrf_token %}
+
+        <!-- Basic Info -->
+        <div class="p-6 border-b border-slate-200">
+            <h2 class="text-lg font-semibold text-slate-900 mb-4">Basic Information</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet Name *</label>
+                    <input type="text" name="name" value="{{ outlet.name|default:'' }}" required
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="e.g., Downtown Branch">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet Code *</label>
+                    <input type="text" name="code" value="{{ outlet.code|default:'' }}" required maxlength="10"
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 uppercase"
+                        placeholder="e.g., DT01">
+                    <p class="text-xs text-slate-500 mt-1">Unique code (max 10 chars, will be uppercased)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Location -->
+        <div class="p-6 border-b border-slate-200">
+            <h2 class="text-lg font-semibold text-slate-900 mb-4">Location</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Address</label>
+                    <textarea name="address" rows="2"
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="Street address">{{ outlet.address|default:'' }}</textarea>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">City</label>
+                        <input type="text" name="city" value="{{ outlet.city|default:'' }}"
+                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="City">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">State</label>
+                        <input type="text" name="state" value="{{ outlet.state|default:'' }}"
+                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="State">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Postal Code</label>
+                        <input type="text" name="postal_code" value="{{ outlet.postal_code|default:'' }}"
+                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Postal code">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Country</label>
+                    <input type="text" name="country" value="{{ outlet.country|default:'India' }}"
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact -->
+        <div class="p-6 border-b border-slate-200">
+            <h2 class="text-lg font-semibold text-slate-900 mb-4">Contact</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Phone</label>
+                    <input type="tel" name="phone" value="{{ outlet.phone|default:'' }}"
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="+91 9876543210">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                    <input type="email" name="email" value="{{ outlet.email|default:'' }}"
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="outlet@example.com">
+                </div>
+            </div>
+        </div>
+
+        <!-- Currency -->
+        <div class="p-6 border-b border-slate-200">
+            <h2 class="text-lg font-semibold text-slate-900 mb-4">Currency</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Currency Code</label>
+                    <select name="currency_code"
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="INR" {% if outlet.currency_code == 'INR' or not outlet %}selected{% endif %}>INR - Indian Rupee</option>
+                        <option value="USD" {% if outlet.currency_code == 'USD' %}selected{% endif %}>USD - US Dollar</option>
+                        <option value="EUR" {% if outlet.currency_code == 'EUR' %}selected{% endif %}>EUR - Euro</option>
+                        <option value="GBP" {% if outlet.currency_code == 'GBP' %}selected{% endif %}>GBP - British Pound</option>
+                        <option value="AED" {% if outlet.currency_code == 'AED' %}selected{% endif %}>AED - UAE Dirham</option>
+                        <option value="SAR" {% if outlet.currency_code == 'SAR' %}selected{% endif %}>SAR - Saudi Riyal</option>
+                        <option value="SGD" {% if outlet.currency_code == 'SGD' %}selected{% endif %}>SGD - Singapore Dollar</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Currency Symbol</label>
+                    <input type="text" name="currency_symbol" value="{{ outlet.currency_symbol|default:'₹' }}" maxlength="5"
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="₹">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Symbol Position</label>
+                    <select name="currency_position"
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="before" {% if outlet.currency_position == 'before' or not outlet %}selected{% endif %}>Before (e.g., $100)</option>
+                        <option value="after" {% if outlet.currency_position == 'after' %}selected{% endif %}>After (e.g., 100€)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tax Settings -->
+        <div class="p-6 border-b border-slate-200">
+            <h2 class="text-lg font-semibold text-slate-900 mb-4">Tax Configuration</h2>
+            <div class="space-y-4">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="tax_enabled" {% if outlet.tax_enabled or not outlet %}checked{% endif %}
+                        class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                    <span class="text-slate-700">Enable tax calculation</span>
+                </label>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">CGST Rate (%)</label>
+                        <input type="number" name="cgst_rate" value="{{ outlet.cgst_rate|default:'2.50' }}" step="0.01" min="0" max="50"
+                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="2.50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">SGST Rate (%)</label>
+                        <input type="number" name="sgst_rate" value="{{ outlet.sgst_rate|default:'2.50' }}" step="0.01" min="0" max="50"
+                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="2.50">
+                    </div>
+                </div>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="service_charge_enabled" {% if outlet.service_charge_enabled %}checked{% endif %}
+                        class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                    <span class="text-slate-700">Enable service charge</span>
+                </label>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Service Charge Rate (%)</label>
+                    <input type="number" name="service_charge_rate" value="{{ outlet.service_charge_rate|default:'0' }}" step="0.01" min="0" max="50"
+                        class="w-full md:w-1/2 px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="5.00">
+                </div>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="tax_inclusive_pricing" {% if outlet.tax_inclusive_pricing %}checked{% endif %}
+                        class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                    <span class="text-slate-700">Menu prices include tax (tax inclusive)</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Order Settings -->
+        <div class="p-6 border-b border-slate-200">
+            <h2 class="text-lg font-semibold text-slate-900 mb-4">Order Settings</h2>
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Order Number Prefix</label>
+                        <input type="text" name="order_prefix" value="{{ outlet.order_prefix|default:'ORD' }}" maxlength="10"
+                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="ORD">
+                        <p class="text-xs text-slate-500 mt-1">Used in order numbers (e.g., ORD-241214-001)</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Default Prep Time (minutes)</label>
+                        <input type="number" name="default_prep_time" value="{{ outlet.default_prep_time|default:'10' }}" min="1" max="120"
+                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="10">
+                    </div>
+                </div>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="auto_accept_orders" {% if outlet.auto_accept_orders %}checked{% endif %}
+                        class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                    <span class="text-slate-700">Auto-accept incoming orders</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="allow_qr_ordering" {% if outlet.allow_qr_ordering or not outlet %}checked{% endif %}
+                        class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                    <span class="text-slate-700">Allow QR code ordering</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Receipt Branding -->
+        <div class="p-6 border-b border-slate-200">
+            <h2 class="text-lg font-semibold text-slate-900 mb-4">Receipt Branding</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Receipt Header</label>
+                    <textarea name="receipt_header" rows="2"
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="Text shown at top of receipts (e.g., Thank you for visiting!)">{{ outlet.receipt_header|default:'' }}</textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Receipt Footer</label>
+                    <textarea name="receipt_footer" rows="2"
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="Text shown at bottom of receipts (e.g., Visit again!)">{{ outlet.receipt_footer|default:'' }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        {% if outlet %}
+        <!-- Status (only for edit) -->
+        <div class="p-6 border-b border-slate-200">
+            <h2 class="text-lg font-semibold text-slate-900 mb-4">Status</h2>
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="is_active" {% if outlet.is_active %}checked{% endif %}
+                    class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                <span class="text-slate-700">Outlet is active</span>
+            </label>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="p-6 bg-slate-50 flex items-center justify-end gap-3">
+            <a href="{% url 'dashboard:outlets' %}" class="px-5 py-2.5 text-slate-700 font-medium hover:bg-slate-200 rounded-lg transition-colors">
+                Cancel
+            </a>
+            <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+                {% if outlet %}Update Outlet{% else %}Create Outlet{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

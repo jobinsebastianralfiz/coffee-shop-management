@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Start Shift{% endblock %}
+{% block page_title %}Start Shift{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto space-y-6 fade-in">
+    <!-- Header -->
+    <div class="flex items-center gap-4">
+        <a href="{% url 'dashboard:cash_drawer' %}" class="p-2 rounded-xl hover:bg-slate-100 transition-colors">
+            <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Start Shift</h1>
+            <p class="text-slate-500 mt-1">Begin your cashier shift for today</p>
+        </div>
+    </div>
+
+    {% if not cash_drawer or cash_drawer.is_closed %}
+    <!-- Cash Drawer Not Open -->
+    <div class="premium-card bg-white rounded-2xl p-8 text-center">
+        <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-amber-100 flex items-center justify-center">
+            <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+        </div>
+        <h2 class="text-xl font-bold text-slate-800 mb-2">Cash Drawer Not Open</h2>
+        <p class="text-slate-500 mb-6">The cash drawer must be opened before you can start a shift</p>
+        {% if user.role == 'super_admin' %}
+        <a href="{% url 'dashboard:cash_drawer_open' %}" class="btn-primary inline-flex">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>
+            </svg>
+            Open Cash Drawer
+        </a>
+        {% else %}
+        <p class="text-slate-500">Please ask an administrator to open the cash drawer.</p>
+        {% endif %}
+    </div>
+    {% elif active_shift %}
+    <!-- Already Has Active Shift -->
+    <div class="premium-card bg-white rounded-2xl p-8 text-center">
+        <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-emerald-100 flex items-center justify-center">
+            <svg class="w-10 h-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+        <h2 class="text-xl font-bold text-slate-800 mb-2">Shift Already Active</h2>
+        <p class="text-slate-500 mb-4">You already have an active shift started at {{ active_shift.shift_start|time:"h:i A" }}</p>
+        <div class="p-4 bg-slate-50 rounded-xl mb-6">
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-slate-500">Current Cash Sales</span>
+                <span class="font-bold text-emerald-600">{{ currency_symbol }}{{ active_shift.cash_sales|floatformat:2 }}</span>
+            </div>
+        </div>
+        <a href="{% url 'dashboard:shift_end' %}" class="btn-danger inline-flex">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+            </svg>
+            End Shift
+        </a>
+    </div>
+    {% else %}
+    <!-- Start Shift Form -->
+    <form method="post" class="premium-card bg-white rounded-2xl p-6 space-y-6">
+        {% csrf_token %}
+
+        <div class="text-center mb-6">
+            <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <p class="text-slate-600">Starting shift for <span class="font-semibold">{{ user.get_full_name }}</span></p>
+            <p class="text-sm text-slate-500">{{ today|date:"F d, Y" }} at {% now "h:i A" %}</p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Opening Balance *</label>
+            <div class="relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg">{{ currency_symbol }}</span>
+                <input type="number" name="opening_balance" step="0.01" min="0" required autofocus
+                    class="w-full pl-12 pr-4 py-4 text-2xl font-bold text-center rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
+                    placeholder="0.00">
+            </div>
+            <p class="mt-2 text-sm text-slate-500">Count the cash in your drawer at the start of your shift</p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Notes (Optional)</label>
+            <textarea name="notes" rows="3" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors resize-none" placeholder="Any notes about your shift..."></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-4 pt-4 border-t border-slate-200">
+            <a href="{% url 'dashboard:cash_drawer' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Start Shift
+            </button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Cash {% if transaction_type == 'in' %}In{% else %}Out{% endif %}{% endblock %}
+{% block page_title %}Cash {% if transaction_type == 'in' %}In{% else %}Out{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto space-y-6 fade-in">
+    <!-- Header -->
+    <div class="flex items-center gap-4">
+        <a href="{% url 'dashboard:cash_drawer' %}" class="p-2 rounded-xl hover:bg-slate-100 transition-colors">
+            <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Cash {% if transaction_type == 'in' %}In{% else %}Out{% endif %}</h1>
+            <p class="text-slate-500 mt-1">{% if transaction_type == 'in' %}Add cash to the drawer{% else %}Remove cash from the drawer{% endif %}</p>
+        </div>
+    </div>
+
+    <!-- Current Balance -->
+    <div class="premium-card bg-white rounded-2xl p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-slate-500">Current Expected Balance</p>
+                <p class="text-2xl font-bold text-slate-800">{{ currency_symbol }}{{ cash_drawer.expected_balance|floatformat:2 }}</p>
+            </div>
+            <div class="w-14 h-14 rounded-2xl {% if transaction_type == 'in' %}bg-gradient-to-br from-emerald-500 to-teal-600{% else %}bg-gradient-to-br from-red-500 to-pink-600{% endif %} flex items-center justify-center">
+                {% if transaction_type == 'in' %}
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                {% else %}
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                </svg>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <form method="post" class="premium-card bg-white rounded-2xl p-6 space-y-6">
+        {% csrf_token %}
+        <input type="hidden" name="type" value="{{ transaction_type }}">
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Amount *</label>
+            <div class="relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg">{{ currency_symbol }}</span>
+                <input type="number" name="amount" step="0.01" min="0.01" required autofocus
+                    class="w-full pl-12 pr-4 py-4 text-2xl font-bold text-center rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
+                    placeholder="0.00">
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Description *</label>
+            <input type="text" name="description" required
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
+                placeholder="{% if transaction_type == 'in' %}e.g., Cash from safe, Change refill{% else %}e.g., Bank deposit, Petty cash{% endif %}">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Reference (Optional)</label>
+            <input type="text" name="reference"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors"
+                placeholder="Receipt number, voucher, etc.">
+        </div>
+
+        <div class="flex items-center justify-end gap-4 pt-4 border-t border-slate-200">
+            <a href="{% url 'dashboard:cash_drawer' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="{% if transaction_type == 'in' %}btn-primary{% else %}btn-danger{% endif %}">
+                {% if transaction_type == 'in' %}
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Add Cash
+                {% else %}
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                </svg>
+                Remove Cash
+                {% endif %}
+            </button>
+        </div>
+    </form>
+
+    <!-- Type Toggle -->
+    <div class="flex gap-4">
+        <a href="{% url 'dashboard:cash_in_out' %}?type=in" class="flex-1 p-4 rounded-xl border-2 transition-colors {% if transaction_type == 'in' %}border-emerald-500 bg-emerald-50{% else %}border-slate-200 hover:border-slate-300{% endif %}">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl {% if transaction_type == 'in' %}bg-emerald-500{% else %}bg-slate-200{% endif %} flex items-center justify-center">
+                    <svg class="w-5 h-5 {% if transaction_type == 'in' %}text-white{% else %}text-slate-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="font-semibold {% if transaction_type == 'in' %}text-emerald-700{% else %}text-slate-700{% endif %}">Cash In</p>
+                    <p class="text-xs {% if transaction_type == 'in' %}text-emerald-600{% else %}text-slate-500{% endif %}">Add to drawer</p>
+                </div>
+            </div>
+        </a>
+
+        <a href="{% url 'dashboard:cash_in_out' %}?type=out" class="flex-1 p-4 rounded-xl border-2 transition-colors {% if transaction_type == 'out' %}border-red-500 bg-red-50{% else %}border-slate-200 hover:border-slate-300{% endif %}">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl {% if transaction_type == 'out' %}bg-red-500{% else %}bg-slate-200{% endif %} flex items-center justify-center">
+                    <svg class="w-5 h-5 {% if transaction_type == 'out' %}text-white{% else %}text-slate-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="font-semibold {% if transaction_type == 'out' %}text-red-700{% else %}text-slate-700{% endif %}">Cash Out</p>
+                    <p class="text-xs {% if transaction_type == 'out' %}text-red-600{% else %}text-slate-500{% endif %}">Remove from drawer</p>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}
