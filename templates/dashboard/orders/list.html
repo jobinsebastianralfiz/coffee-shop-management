@@ -5,6 +5,24 @@
 
 {% block content %}
 <div class="fade-in space-y-6">
+    <!-- Outlet Filter (Super Admin Only) -->
+    {% if outlets and user.role == 'super_admin' %}
+    <div class="flex items-center justify-between bg-white rounded-xl border border-slate-200 p-4">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            <span class="text-sm font-medium text-slate-700">Filter by Outlet:</span>
+        </div>
+        <select onchange="filterByOutlet(this.value)" class="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            <option value="">All Outlets</option>
+            {% for outlet in outlets %}
+            <option value="{{ outlet.pk }}" {% if selected_outlet == outlet.pk|stringformat:"i" %}selected{% endif %}>{{ outlet.name }} ({{ outlet.code }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <!-- Total Today -->
@@ -105,13 +123,15 @@
                 </select>
             </div>
 
-            <!-- Actions -->
+            <!-- Actions (not for super admin - they only view orders) -->
+            {% if user.role != 'super_admin' %}
             <a href="{% url 'dashboard:pos' %}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-sm shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/40 transition-all">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                 </svg>
                 New Order
             </a>
+            {% endif %}
         </div>
     </div>
 
@@ -123,6 +143,9 @@
                 <thead class="bg-slate-50 border-b border-slate-200">
                     <tr>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Order #</th>
+                        {% if user.role == 'super_admin' %}
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Outlet</th>
+                        {% endif %}
                         <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Table</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Items</th>
@@ -140,6 +163,21 @@
                                 #{{ order.order_number }}
                             </a>
                         </td>
+                        {% if user.role == 'super_admin' %}
+                        <td class="px-6 py-4">
+                            {% if order.table and order.table.floor.outlet %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700">
+                                {{ order.table.floor.outlet.code }}
+                            </span>
+                            {% elif order.created_by and order.created_by.outlet %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700">
+                                {{ order.created_by.outlet.code }}
+                            </span>
+                            {% else %}
+                            <span class="text-slate-400">-</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
                         <td class="px-6 py-4">
                             {% if order.table %}
                             <span class="font-medium text-slate-800">Table {{ order.table.number }}</span>
@@ -201,14 +239,29 @@
             </div>
             <h3 class="text-lg font-semibold text-slate-800 mb-2">No orders found</h3>
             <p class="text-slate-500 mb-6">No orders match your current filters.</p>
+            {% if user.role != 'super_admin' %}
             <a href="{% url 'dashboard:pos' %}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                 </svg>
                 Create New Order
             </a>
+            {% endif %}
         </div>
         {% endif %}
     </div>
 </div>
+
+<!-- JavaScript for outlet filtering -->
+<script>
+function filterByOutlet(outletId) {
+    const url = new URL(window.location.href);
+    if (outletId) {
+        url.searchParams.set('outlet', outletId);
+    } else {
+        url.searchParams.delete('outlet');
+    }
+    window.location.href = url.toString();
+}
+</script>
 {% endblock %}

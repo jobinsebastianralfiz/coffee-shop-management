@@ -36,16 +36,31 @@ class KitchenWebSocket {
     }
 
     initAudio() {
-        // Create audio context for notification sounds
-        try {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        } catch (e) {
-            console.warn('Audio context not available:', e);
+        // Use shared notification sound module if available
+        if (window.notificationSound) {
+            this.soundModule = window.notificationSound;
+            this.soundModule.setEnabled(this.audioEnabled);
+        } else {
+            // Fallback: Create audio context for notification sounds
+            try {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.warn('Audio context not available:', e);
+            }
         }
     }
 
-    playNotificationSound() {
-        if (!this.audioEnabled || !this.audioContext) return;
+    playNotificationSound(soundType = 'newOrder') {
+        if (!this.audioEnabled) return;
+
+        // Use shared sound module if available
+        if (this.soundModule) {
+            this.soundModule.playSound(soundType);
+            return;
+        }
+
+        // Fallback to inline audio
+        if (!this.audioContext) return;
 
         try {
             // Create a simple beep sound
@@ -66,6 +81,10 @@ class KitchenWebSocket {
         } catch (e) {
             console.warn('Could not play notification sound:', e);
         }
+    }
+
+    playRushOrderSound() {
+        this.playNotificationSound('rushOrder');
     }
 
     connect() {
@@ -173,7 +192,12 @@ class KitchenWebSocket {
                     break;
 
                 case 'new_order':
-                    this.playNotificationSound();
+                    // Play different sound for rush orders
+                    if (data.is_rush || data.priority === 'rush') {
+                        this.playNotificationSound('rushOrder');
+                    } else {
+                        this.playNotificationSound('newOrder');
+                    }
                     this.onNewOrder(data);
                     break;
 
@@ -190,6 +214,10 @@ class KitchenWebSocket {
                     break;
 
                 case 'priority_changed':
+                    // Play rush sound when order is marked as rush
+                    if (data.is_rush || data.priority === 'rush') {
+                        this.playNotificationSound('rushOrder');
+                    }
                     this.onPriorityChanged(data);
                     break;
 

@@ -89,3 +89,41 @@ def app_settings(request):
         "DEBUG": django_settings.DEBUG,
         "MEDIA_URL": django_settings.MEDIA_URL,
     }
+
+
+def notifications_context(request):
+    """
+    Add unread notification count to template context.
+    This makes the notification badge count available in all templates.
+    """
+    if not request.user.is_authenticated:
+        return {"unread_notifications_count": 0}
+
+    try:
+        from django.db.models import Q
+
+        from apps.notifications.models import Notification, NotificationRead
+
+        user = request.user
+
+        # Build query for notifications relevant to this user
+        query = Q(is_broadcast=True)
+        query |= Q(recipient=user)
+        query |= Q(target_role=user.role)
+
+        if user.outlet_id:
+            query |= Q(target_outlet_id=user.outlet_id)
+
+        # Count notifications not read by this user
+        read_ids = NotificationRead.objects.filter(
+            user=user
+        ).values_list("notification_id", flat=True)
+
+        unread_count = Notification.objects.filter(query).exclude(
+            pk__in=read_ids
+        ).count()
+
+        return {"unread_notifications_count": unread_count}
+    except Exception:
+        # Return 0 if database not ready or any error
+        return {"unread_notifications_count": 0}

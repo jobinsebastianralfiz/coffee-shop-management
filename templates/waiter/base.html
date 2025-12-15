@@ -305,6 +305,37 @@
         }
     </script>
 
+    <!-- Notification Sound Module -->
+    <script src="{% static 'js/notification-sound.js' %}"></script>
+
+    <!-- Waiter Notifications WebSocket -->
+    <script src="{% static 'js/waiter-notifications.js' %}"></script>
+    <script>
+        // Initialize waiter notifications if user is authenticated
+        {% if user.is_authenticated %}
+        document.addEventListener('DOMContentLoaded', function() {
+            window.waiterNotifications = new WaiterNotifications({{ user.id }}, {
+                onConnect: () => console.log('Waiter notifications connected'),
+                onDisconnect: () => console.log('Waiter notifications disconnected'),
+                onOrderReady: (data) => {
+                    console.log('Order ready:', data);
+                    // Optionally refresh the page or update UI
+                },
+                onTableAssigned: (data) => {
+                    console.log('Table assigned:', data);
+                }
+            });
+            window.waiterNotifications.connect();
+
+            // Request notification permission on first interaction
+            document.body.addEventListener('click', function requestPermission() {
+                window.waiterNotifications.requestNotificationPermission();
+                document.body.removeEventListener('click', requestPermission);
+            }, { once: true });
+        });
+        {% endif %}
+    </script>
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

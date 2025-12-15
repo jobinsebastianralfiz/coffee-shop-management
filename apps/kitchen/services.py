@@ -132,6 +132,36 @@ def broadcast_priority_changed(order, old_priority, new_priority, user=None):
     broadcast_to_kitchen("priority_changed", order, extra_data)
 
 
+def notify_waiter_order_ready(order):
+    """
+    Send notification to waiter when their order is ready for pickup.
+    """
+    # Only notify if order has a creator (the waiter who placed it)
+    if not order.created_by:
+        return
+
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+
+    # Get table info
+    table_info = "Takeaway"
+    if order.table:
+        table_info = f"Table {order.table.number}"
+
+    # Send to waiter's personal channel
+    async_to_sync(channel_layer.group_send)(
+        f"waiter_{order.created_by.id}",
+        {
+            "type": "order_ready",
+            "order_id": order.id,
+            "order_number": order.order_number,
+            "table": table_info,
+            "message": f"Order #{order.order_number} for {table_info} is ready!",
+        }
+    )
+
+
 def get_kitchen_orders():
     """
     Get all active orders for kitchen display, organized by status.
@@ -172,6 +202,9 @@ def bump_order(order, user=None):
 
     # Broadcast the bump
     broadcast_order_bumped(order, user)
+
+    # Notify the waiter who placed the order
+    notify_waiter_order_ready(order)
 
     return True, "Order bumped to ready"
 

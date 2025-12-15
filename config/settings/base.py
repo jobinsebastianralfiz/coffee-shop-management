@@ -117,6 +117,7 @@ TEMPLATES = [
                 # Custom context processors
                 "apps.core.context_processors.business_settings",
                 "apps.core.context_processors.app_settings",
+                "apps.core.context_processors.notifications_context",
             ],
         },
     },

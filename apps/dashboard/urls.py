@@ -156,4 +156,12 @@ urlpatterns = [
     path("outlets/create/", views.outlet_create, name="outlet_create"),
     path("outlets/<int:pk>/edit/", views.outlet_edit, name="outlet_edit"),
     path("outlets/<int:pk>/delete/", views.outlet_delete, name="outlet_delete"),
+
+    # Notifications
+    path("notifications/", views.notifications_list, name="notifications"),
+    path("notifications/<int:pk>/read/", views.notification_mark_read, name="notification_mark_read"),
+    path("notifications/mark-all-read/", views.notifications_mark_all_read, name="notifications_mark_all_read"),
+    path("notifications/send/", views.notification_send, name="notification_send"),
+    path("api/notifications/count/", views.api_notification_count, name="api_notification_count"),
+    path("api/notifications/recent/", views.api_notifications_recent, name="api_notifications_recent"),
 ]

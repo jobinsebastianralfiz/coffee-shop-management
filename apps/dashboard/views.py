@@ -542,12 +542,21 @@ def table_list(request):
     from django.db.models import Prefetch
     from apps.core.models import Outlet
 
-    # Get outlets for filter (super admin only)
+    user = request.user
+    view_mode = request.GET.get("view", "")
+
+    # Outlet filtering based on role
     outlets = None
     selected_outlet = ""
-    if request.user.role == User.Role.SUPER_ADMIN:
+
+    if user.role == User.Role.SUPER_ADMIN:
+        # Super admin can filter by outlet
         outlets = Outlet.objects.filter(is_active=True).order_by("name")
         selected_outlet = request.GET.get("outlet", "")
+    elif user.role == User.Role.OUTLET_MANAGER:
+        # Outlet manager auto-filters to their outlet
+        if user.outlet:
+            selected_outlet = str(user.outlet_id)
 
     # Prefetch active orders for each table (as primary table)
     active_order_prefetch = Prefetch(
@@ -571,7 +580,7 @@ def table_list(request):
         Prefetch("tables", queryset=Table.objects.prefetch_related(active_order_prefetch, combined_order_prefetch))
     ).order_by("display_order")
 
-    # Filter by outlet if selected (super admin)
+    # Filter by outlet
     tables_qs = Table.objects.filter(is_active=True)
     if selected_outlet:
         floors = floors.filter(outlet_id=selected_outlet)
@@ -591,11 +600,17 @@ def table_list(request):
     }
 
     # Route to different templates based on role
-    user = request.user
-    view_mode = request.GET.get("view", "")
-
-    # Super Admin: Can switch between management and floor map view
+    # Super Admin: Can switch between floor map and management view
     if user.role == User.Role.SUPER_ADMIN:
+        if view_mode == "manage":
+            context["page_title"] = "Table Management"
+            return render(request, "dashboard/tables/list.html", context)
+        else:
+            context["page_title"] = "Floor Map"
+            return render(request, "dashboard/tables/floor_map.html", context)
+
+    # Outlet Manager: Can switch between floor map and management view
+    elif user.role == User.Role.OUTLET_MANAGER:
         if view_mode == "manage":
             context["page_title"] = "Table Management"
             return render(request, "dashboard/tables/list.html", context)
@@ -1058,7 +1073,7 @@ def floor_create(request):
     """Create a new floor."""
     from apps.core.models import Outlet
 
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:tables")
 
@@ -1066,12 +1081,12 @@ def floor_create(request):
         name = request.POST.get("name", "").strip()
         description = request.POST.get("description", "").strip()
         display_order = request.POST.get("display_order", 0)
-        outlet_id = request.POST.get("outlet", "").strip()
 
-        if not name:
-            messages.error(request, "Floor name is required.")
+        # For outlet managers, always use their outlet
+        if request.user.role == User.Role.OUTLET_MANAGER:
+            outlet = request.user.outlet
         else:
-            # Get outlet
+            outlet_id = request.POST.get("outlet", "").strip()
             outlet = None
             if outlet_id:
                 try:
@@ -1079,6 +1094,9 @@ def floor_create(request):
                 except Outlet.DoesNotExist:
                     pass
 
+        if not name:
+            messages.error(request, "Floor name is required.")
+        else:
             # Check for duplicate name within same outlet
             existing = Floor.objects.filter(name=name, outlet=outlet)
             if existing.exists():
@@ -1100,12 +1118,18 @@ def floor_edit(request, pk):
     """Edit a floor."""
     from apps.core.models import Outlet
 
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:tables")
 
     try:
         floor = Floor.objects.get(pk=pk)
+
+        # Outlet manager can only edit floors in their outlet
+        if request.user.role == User.Role.OUTLET_MANAGER:
+            if floor.outlet_id != request.user.outlet_id:
+                messages.error(request, "You can only edit floors in your outlet.")
+                return redirect("dashboard:tables")
     except Floor.DoesNotExist:
         messages.error(request, "Floor not found.")
         return redirect("dashboard:tables")
@@ -1115,15 +1139,18 @@ def floor_edit(request, pk):
         description = request.POST.get("description", "").strip()
         display_order = request.POST.get("display_order", 0)
         is_active = request.POST.get("is_active") == "on"
-        outlet_id = request.POST.get("outlet", "").strip()
 
-        # Get outlet
-        outlet = None
-        if outlet_id:
-            try:
-                outlet = Outlet.objects.get(pk=outlet_id)
-            except Outlet.DoesNotExist:
-                pass
+        # For outlet managers, keep the existing outlet
+        if request.user.role == User.Role.OUTLET_MANAGER:
+            outlet = floor.outlet
+        else:
+            outlet_id = request.POST.get("outlet", "").strip()
+            outlet = None
+            if outlet_id:
+                try:
+                    outlet = Outlet.objects.get(pk=outlet_id)
+                except Outlet.DoesNotExist:
+                    pass
 
         if not name:
             messages.error(request, "Floor name is required.")
@@ -1145,12 +1172,19 @@ def floor_edit(request, pk):
 @require_http_methods(["POST"])
 def floor_delete(request, pk):
     """Delete a floor."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:tables")
 
     try:
         floor = Floor.objects.get(pk=pk)
+
+        # Outlet manager can only delete floors in their outlet
+        if request.user.role == User.Role.OUTLET_MANAGER:
+            if floor.outlet_id != request.user.outlet_id:
+                messages.error(request, "You can only delete floors in your outlet.")
+                return redirect("dashboard:tables")
+
         if floor.tables.exists():
             messages.error(request, f"Cannot delete floor '{floor.name}' - it has tables. Delete or move the tables first.")
         else:
@@ -1171,7 +1205,7 @@ def floor_delete(request, pk):
 @login_required
 def table_create(request):
     """Create a new table with QR code generation."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:tables")
 
@@ -1188,7 +1222,13 @@ def table_create(request):
             messages.error(request, "Table number is required.")
         else:
             try:
-                floor = Floor.objects.get(pk=floor_id)
+                floor = Floor.objects.select_related("outlet").get(pk=floor_id)
+
+                # Outlet manager can only create tables in their outlet
+                if request.user.role == User.Role.OUTLET_MANAGER:
+                    if floor.outlet_id != request.user.outlet_id:
+                        messages.error(request, "You can only create tables in your outlet.")
+                        return HttpResponseRedirect(reverse("dashboard:tables") + "?view=manage")
 
                 # Check table limit for the outlet
                 if floor.outlet and not Table.can_create_table(floor.outlet):
@@ -1230,12 +1270,18 @@ def table_create(request):
 @login_required
 def table_edit(request, pk):
     """Edit a table."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:tables")
 
     try:
-        table = Table.objects.select_related("floor").get(pk=pk)
+        table = Table.objects.select_related("floor__outlet").get(pk=pk)
+
+        # Outlet manager can only edit tables in their outlet
+        if request.user.role == User.Role.OUTLET_MANAGER:
+            if table.floor.outlet_id != request.user.outlet_id:
+                messages.error(request, "You can only edit tables in your outlet.")
+                return redirect("dashboard:tables")
     except Table.DoesNotExist:
         messages.error(request, "Table not found.")
         return redirect("dashboard:tables")
@@ -1276,12 +1322,19 @@ def table_edit(request, pk):
 @require_http_methods(["POST"])
 def table_delete(request, pk):
     """Delete a table."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:tables")
 
     try:
-        table = Table.objects.get(pk=pk)
+        table = Table.objects.select_related("floor__outlet").get(pk=pk)
+
+        # Outlet manager can only delete tables in their outlet
+        if request.user.role == User.Role.OUTLET_MANAGER:
+            if table.floor.outlet_id != request.user.outlet_id:
+                messages.error(request, "You can only delete tables in your outlet.")
+                return redirect("dashboard:tables")
+
         if table.status == Table.Status.OCCUPIED:
             messages.error(request, f"Cannot delete table '{table.number}' - it is currently occupied.")
         elif table.sessions.filter(is_active=True).exists():
@@ -1325,12 +1378,19 @@ def table_update_status(request, pk):
 @require_http_methods(["POST"])
 def table_regenerate_qr(request, pk):
     """Regenerate QR code for a table."""
-    if request.user.role != User.Role.SUPER_ADMIN:
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
         messages.error(request, "You do not have permission.")
         return redirect("dashboard:tables")
 
     try:
-        table = Table.objects.get(pk=pk)
+        table = Table.objects.select_related("floor__outlet").get(pk=pk)
+
+        # Outlet manager can only regenerate QR for their outlet's tables
+        if request.user.role == User.Role.OUTLET_MANAGER:
+            if table.floor.outlet_id != request.user.outlet_id:
+                messages.error(request, "You can only manage tables in your outlet.")
+                return redirect("dashboard:tables")
+
         from apps.tables.utils import regenerate_table_qr_code
         regenerate_table_qr_code(table)
         messages.success(request, f"QR code regenerated for table '{table.number}'.")
@@ -1652,10 +1712,35 @@ def settings_view(request):
 @login_required
 def order_list(request):
     """List all orders with filtering."""
+    user = request.user
     status_filter = request.GET.get("status", "")
     date_filter = request.GET.get("date", "today")
+    selected_outlet = request.GET.get("outlet", "")
 
-    orders = Order.objects.select_related("table", "created_by", "served_by").order_by("-created_at")
+    # Get outlets for filter dropdown (super admin only)
+    outlets = None
+    if user.role == User.Role.SUPER_ADMIN:
+        outlets = Outlet.objects.filter(is_active=True).order_by("name")
+
+    orders = Order.objects.select_related(
+        "table", "table__floor__outlet", "created_by", "created_by__outlet", "served_by"
+    ).order_by("-created_at")
+
+    # Filter by outlet based on role
+    if user.role == User.Role.OUTLET_MANAGER:
+        # Outlet manager only sees their outlet's orders
+        if user.outlet:
+            orders = orders.filter(
+                models.Q(table__floor__outlet=user.outlet) |
+                models.Q(table__isnull=True, created_by__outlet=user.outlet)
+            )
+    elif user.role == User.Role.SUPER_ADMIN:
+        # Super admin can filter by outlet
+        if selected_outlet:
+            orders = orders.filter(
+                models.Q(table__floor__outlet_id=selected_outlet) |
+                models.Q(table__isnull=True, created_by__outlet_id=selected_outlet)
+            )
 
     # Filter by status
     if status_filter:
@@ -1672,8 +1757,19 @@ def order_list(request):
     elif date_filter == "month":
         orders = orders.filter(created_at__year=today.year, created_at__month=today.month)
 
-    # Calculate stats
+    # Calculate stats (filtered by outlet for outlet manager)
     today_orders = Order.objects.filter(created_at__date=today)
+    if user.role == User.Role.OUTLET_MANAGER and user.outlet:
+        today_orders = today_orders.filter(
+            models.Q(table__floor__outlet=user.outlet) |
+            models.Q(table__isnull=True, created_by__outlet=user.outlet)
+        )
+    elif user.role == User.Role.SUPER_ADMIN and selected_outlet:
+        today_orders = today_orders.filter(
+            models.Q(table__floor__outlet_id=selected_outlet) |
+            models.Q(table__isnull=True, created_by__outlet_id=selected_outlet)
+        )
+
     stats = {
         "total_today": today_orders.count(),
         "pending": today_orders.filter(status=Order.Status.PENDING).count(),
@@ -1691,6 +1787,8 @@ def order_list(request):
         "status_choices": Order.Status.choices,
         "current_status": status_filter,
         "current_date": date_filter,
+        "outlets": outlets,
+        "selected_outlet": selected_outlet,
     }
     return render(request, "dashboard/orders/list.html", context)
 
@@ -4271,3 +4369,299 @@ def outlet_delete(request, pk):
         messages.error(request, "Outlet not found.")
 
     return redirect("dashboard:outlets")
+
+
+# ============================================================================
+# Notification Views
+# ============================================================================
+
+
+@login_required
+def notifications_list(request):
+    """Display all notifications for the current user."""
+    from django.db.models import Q, Exists, OuterRef
+
+    from apps.notifications.models import Notification, NotificationRead
+
+    user = request.user
+
+    # Build query for notifications relevant to this user
+    query = Q(is_broadcast=True)
+    query |= Q(recipient=user)
+    query |= Q(target_role=user.role)
+
+    if user.outlet_id:
+        query |= Q(target_outlet_id=user.outlet_id)
+
+    notifications = Notification.objects.filter(query).annotate(
+        is_read=Exists(
+            NotificationRead.objects.filter(
+                notification=OuterRef("pk"),
+                user=user,
+            )
+        )
+    ).order_by("-created_at")[:100]
+
+    context = {
+        "page_title": "Notifications",
+        "notifications": notifications,
+    }
+    return render(request, "dashboard/notifications/list.html", context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def notification_mark_read(request, pk):
+    """Mark a single notification as read."""
+    from apps.notifications.models import Notification, NotificationRead
+
+    try:
+        notification = Notification.objects.get(pk=pk)
+        if notification.is_for_user(request.user):
+            NotificationRead.objects.get_or_create(
+                notification=notification,
+                user=request.user,
+            )
+    except Notification.DoesNotExist:
+        pass
+
+    # Return to referrer or notifications list
+    next_url = request.POST.get("next", request.META.get("HTTP_REFERER", ""))
+    if next_url:
+        return redirect(next_url)
+    return redirect("dashboard:notifications")
+
+
+@login_required
+@require_http_methods(["POST"])
+def notifications_mark_all_read(request):
+    """Mark all notifications as read for the current user."""
+    from django.db.models import Q
+
+    from apps.notifications.models import Notification, NotificationRead
+
+    user = request.user
+
+    # Build query for notifications relevant to this user
+    query = Q(is_broadcast=True)
+    query |= Q(recipient=user)
+    query |= Q(target_role=user.role)
+
+    if user.outlet_id:
+        query |= Q(target_outlet_id=user.outlet_id)
+
+    notifications = Notification.objects.filter(query)
+
+    # Create read records for all unread notifications
+    existing_reads = NotificationRead.objects.filter(
+        user=user
+    ).values_list("notification_id", flat=True)
+
+    new_reads = [
+        NotificationRead(notification=n, user=user)
+        for n in notifications.exclude(pk__in=existing_reads)
+    ]
+    NotificationRead.objects.bulk_create(new_reads, ignore_conflicts=True)
+
+    messages.success(request, "All notifications marked as read.")
+
+    next_url = request.POST.get("next", request.META.get("HTTP_REFERER", ""))
+    if next_url:
+        return redirect(next_url)
+    return redirect("dashboard:notifications")
+
+
+@login_required
+def notification_send(request):
+    """Admin page to send notifications to users."""
+    from apps.core.models import Outlet
+    from apps.notifications.models import Notification
+
+    # Only super admin and outlet managers can send notifications
+    if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
+        messages.error(request, "You don't have permission to send notifications.")
+        return redirect("dashboard:home")
+
+    # For outlet managers, limit scope to their outlet
+    is_super_admin = request.user.role == User.Role.SUPER_ADMIN
+
+    if request.method == "POST":
+        target_type = request.POST.get("target_type", "broadcast")
+        title = request.POST.get("title", "").strip()
+        message_text = request.POST.get("message", "").strip()
+        notification_type = request.POST.get("notification_type", "info")
+        priority = request.POST.get("priority", "normal")
+
+        if not title or not message_text:
+            messages.error(request, "Title and message are required.")
+        else:
+            notification = Notification(
+                title=title,
+                message=message_text,
+                notification_type=notification_type,
+                priority=priority,
+                created_by=request.user,
+            )
+
+            if target_type == "broadcast":
+                if is_super_admin:
+                    notification.is_broadcast = True
+                else:
+                    # Outlet managers can only broadcast to their outlet
+                    notification.target_outlet = request.user.outlet
+            elif target_type == "role":
+                role = request.POST.get("target_role")
+                if role:
+                    notification.target_role = role
+                    if not is_super_admin:
+                        notification.target_outlet = request.user.outlet
+            elif target_type == "outlet":
+                outlet_id = request.POST.get("target_outlet")
+                if outlet_id and is_super_admin:
+                    try:
+                        notification.target_outlet = Outlet.objects.get(pk=outlet_id)
+                    except Outlet.DoesNotExist:
+                        messages.error(request, "Selected outlet not found.")
+                        return redirect("dashboard:notification_send")
+            elif target_type == "individual":
+                user_id = request.POST.get("target_user")
+                if user_id:
+                    try:
+                        target_user = User.objects.get(pk=user_id)
+                        # Outlet managers can only message their own outlet's users
+                        if not is_super_admin and target_user.outlet_id != request.user.outlet_id:
+                            messages.error(request, "You can only send to users in your outlet.")
+                            return redirect("dashboard:notification_send")
+                        notification.recipient = target_user
+                    except User.DoesNotExist:
+                        messages.error(request, "Selected user not found.")
+                        return redirect("dashboard:notification_send")
+
+            notification.save()
+            messages.success(request, "Notification sent successfully!")
+            return redirect("dashboard:notification_send")
+
+    # Get data for form
+    if is_super_admin:
+        outlets = Outlet.objects.filter(is_active=True).order_by("name")
+        users = User.objects.filter(is_active=True).order_by("first_name", "last_name")
+    else:
+        outlets = Outlet.objects.none()
+        users = User.objects.filter(
+            is_active=True,
+            outlet=request.user.outlet,
+        ).order_by("first_name", "last_name")
+
+    # Role choices
+    roles = [
+        ("waiter", "Waiter"),
+        ("staff_kitchen", "Kitchen Staff"),
+        ("staff_cashier", "Cashier"),
+        ("outlet_manager", "Outlet Manager"),
+    ]
+    if is_super_admin:
+        roles.append(("super_admin", "Super Admin"))
+
+    context = {
+        "page_title": "Send Notification",
+        "is_super_admin": is_super_admin,
+        "outlets": outlets,
+        "users": users,
+        "roles": roles,
+        "notification_types": Notification.NotificationType.choices,
+        "priorities": Notification.Priority.choices,
+    }
+    return render(request, "dashboard/notifications/send.html", context)
+
+
+@login_required
+def api_notification_count(request):
+    """API endpoint to get unread notification count."""
+    from django.http import JsonResponse
+    from django.db.models import Q
+
+    from apps.notifications.models import Notification, NotificationRead
+
+    user = request.user
+
+    # Build query for notifications relevant to this user
+    query = Q(is_broadcast=True)
+    query |= Q(recipient=user)
+    query |= Q(target_role=user.role)
+
+    if user.outlet_id:
+        query |= Q(target_outlet_id=user.outlet_id)
+
+    # Count notifications not read by this user
+    read_ids = NotificationRead.objects.filter(
+        user=user
+    ).values_list("notification_id", flat=True)
+
+    unread_count = Notification.objects.filter(query).exclude(
+        pk__in=read_ids
+    ).count()
+
+    return JsonResponse({"unread_count": unread_count})
+
+
+@login_required
+def api_notifications_recent(request):
+    """API endpoint to get recent notifications for dropdown."""
+    from django.http import JsonResponse
+    from django.db.models import Q, Exists, OuterRef
+
+    from apps.notifications.models import Notification, NotificationRead
+
+    user = request.user
+
+    # Build query for notifications relevant to this user
+    query = Q(is_broadcast=True)
+    query |= Q(recipient=user)
+    query |= Q(target_role=user.role)
+
+    if user.outlet_id:
+        query |= Q(target_outlet_id=user.outlet_id)
+
+    notifications = Notification.objects.filter(query).annotate(
+        is_read=Exists(
+            NotificationRead.objects.filter(
+                notification=OuterRef("pk"),
+                user=user,
+            )
+        )
+    ).order_by("-created_at")[:10]
+
+    data = [
+        {
+            "id": n.id,
+            "title": n.title,
+            "message": n.message[:100] + ("..." if len(n.message) > 100 else ""),
+            "type": n.notification_type,
+            "priority": n.priority,
+            "is_read": n.is_read,
+            "created_at": n.created_at.isoformat(),
+            "time_ago": _get_time_ago(n.created_at),
+        }
+        for n in notifications
+    ]
+
+    return JsonResponse({"notifications": data})
+
+
+def _get_time_ago(dt):
+    """Get a human-readable time ago string."""
+    now = timezone.now()
+    diff = now - dt
+
+    if diff.days > 7:
+        return dt.strftime("%b %d")
+    elif diff.days > 0:
+        return f"{diff.days}d ago"
+    elif diff.seconds >= 3600:
+        hours = diff.seconds // 3600
+        return f"{hours}h ago"
+    elif diff.seconds >= 60:
+        minutes = diff.seconds // 60
+        return f"{minutes}m ago"
+    else:
+        return "Just now"
