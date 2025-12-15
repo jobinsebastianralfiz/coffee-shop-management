@@ -22,10 +22,15 @@ from apps.tables.models import Floor, Table
 
 def waiter_required(view_func):
     """Decorator to check if user is a waiter or admin."""
+    from functools import wraps
+    @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect("dashboard:login")
-        if not (request.user.is_superuser or request.user.role in ["admin", "waiter"]):
+            from django.contrib.auth.views import redirect_to_login
+            return redirect_to_login(request.get_full_path(), "dashboard:login")
+        # Allow super_admin, outlet_manager, and waiter roles
+        allowed_roles = ["super_admin", "outlet_manager", "waiter"]
+        if not (request.user.is_superuser or request.user.role in allowed_roles):
             messages.error(request, "Access denied. Waiter access required.")
             return redirect("dashboard:home")
         return view_func(request, *args, **kwargs)
