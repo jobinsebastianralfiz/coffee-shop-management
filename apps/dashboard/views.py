@@ -94,14 +94,27 @@ def pin_login_view(request):
     if request.method == "POST":
         pin = request.POST.get("pin")
 
-        try:
-            user = User.objects.get(pin=pin, is_active=True)
-            login(request, user)
-            request.session.set_expiry(0)  # Session expires on browser close
-            messages.success(request, f"Welcome, {user.get_full_name() or user.username}!")
-            return redirect("dashboard:home")
-        except User.DoesNotExist:
-            messages.error(request, "Invalid PIN.")
+        if not pin:
+            messages.error(request, "Please enter your PIN.")
+        else:
+            # Find users with this PIN
+            users_with_pin = User.objects.filter(pin=pin, is_active=True)
+            user_count = users_with_pin.count()
+
+            if user_count == 0:
+                messages.error(request, "Invalid PIN.")
+            elif user_count == 1:
+                user = users_with_pin.first()
+                login(request, user)
+                request.session.set_expiry(0)  # Session expires on browser close
+                messages.success(request, f"Welcome, {user.get_full_name() or user.username}!")
+                return redirect("dashboard:home")
+            else:
+                # Multiple users with same PIN - this shouldn't happen but handle gracefully
+                messages.error(
+                    request,
+                    "Multiple users found with this PIN. Please contact your administrator to resolve this issue."
+                )
 
     return render(request, "auth/pin_login.html")
 
@@ -993,21 +1006,30 @@ def user_list(request):
         outlet_id = request.POST.get("outlet", "").strip()
 
         # Outlet managers can only create staff roles
+        # Validation
+        validation_error = None
+
         if is_outlet_mgr and role in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
-            messages.error(request, "You cannot create admin users.")
+            validation_error = "You cannot create admin users."
         elif not username:
-            messages.error(request, "Username is required.")
+            validation_error = "Username is required."
         elif User.objects.filter(username=username).exists():
-            messages.error(request, "Username already exists.")
+            validation_error = "Username already exists."
+        elif phone and User.objects.filter(phone=phone).exists():
+            validation_error = "A user with this phone number already exists."
+        elif pin and User.objects.filter(pin=pin).exists():
+            validation_error = "This PIN is already in use by another user. Please choose a different PIN."
         # Check user limit (only for non-super_admin users)
         elif role != User.Role.SUPER_ADMIN and not User.can_create_user():
             max_users = User.get_max_users()
             plan_name = getattr(settings, "PLAN_NAME", "current")
-            messages.error(
-                request,
+            validation_error = (
                 f"Cannot create more users. Your {plan_name} plan allows maximum {max_users} user(s). "
                 f"Contact your vendor to upgrade."
             )
+
+        if validation_error:
+            messages.error(request, validation_error)
         else:
             # Get outlet - for outlet managers, force their outlet
             outlet = None
@@ -1025,7 +1047,7 @@ def user_list(request):
                 email=email,
                 first_name=first_name,
                 last_name=last_name,
-                phone=phone,
+                phone=phone if phone else None,
                 role=role,
                 pin=pin if pin else None,
                 outlet=outlet,
@@ -1100,17 +1122,37 @@ def user_detail(request, pk):
         available_roles = User.Role.choices
 
     if request.method == "POST":
-        user.first_name = request.POST.get("first_name", "")
-        user.last_name = request.POST.get("last_name", "")
-        user.email = request.POST.get("email", "")
-        user.phone = request.POST.get("phone", "")
+        new_first_name = request.POST.get("first_name", "")
+        new_last_name = request.POST.get("last_name", "")
+        new_email = request.POST.get("email", "")
+        new_phone = request.POST.get("phone", "").strip()
+        new_pin = request.POST.get("pin", "").strip()
 
         new_role = request.POST.get("role", user.role)
+
+        # Validation
+        validation_error = None
+
         # Outlet managers cannot change role to admin roles
         if is_outlet_mgr and new_role in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
-            messages.error(request, "You cannot assign admin roles.")
+            validation_error = "You cannot assign admin roles."
+        # Check phone uniqueness (exclude current user)
+        elif new_phone and User.objects.filter(phone=new_phone).exclude(pk=pk).exists():
+            validation_error = "A user with this phone number already exists."
+        # Check PIN uniqueness (exclude current user)
+        elif new_pin and User.objects.filter(pin=new_pin).exclude(pk=pk).exists():
+            validation_error = "This PIN is already in use by another user."
+
+        if validation_error:
+            messages.error(request, validation_error)
             return redirect("dashboard:user_detail", pk=pk)
 
+        # Update user fields
+        user.first_name = new_first_name
+        user.last_name = new_last_name
+        user.email = new_email
+        user.phone = new_phone if new_phone else None
+        user.pin = new_pin if new_pin else user.pin  # Only update PIN if provided
         user.role = new_role
         user.is_active = request.POST.get("is_active") == "on"
 
@@ -1179,12 +1221,16 @@ def user_reset_pin(request, pk):
             return redirect("dashboard:users")
 
         new_pin = request.POST.get("new_pin", "").strip()
-        if len(new_pin) == 6 and new_pin.isdigit():
+        if not new_pin:
+            messages.error(request, "Please enter a PIN.")
+        elif len(new_pin) < 4 or len(new_pin) > 6 or not new_pin.isdigit():
+            messages.error(request, "PIN must be 4-6 digits.")
+        elif User.objects.filter(pin=new_pin).exclude(pk=pk).exists():
+            messages.error(request, "This PIN is already in use by another user. Please choose a different PIN.")
+        else:
             user.pin = new_pin
             user.save(update_fields=["pin"])
             messages.success(request, f"PIN updated for '{user.username}'.")
-        else:
-            messages.error(request, "PIN must be 6 digits.")
     except User.DoesNotExist:
         messages.error(request, "User not found.")
 
@@ -1823,12 +1869,17 @@ def settings_view(request):
         current_outlet = request.user.outlet
 
     if request.method == "POST":
-        # Only super admin can modify settings
-        if request.user.role != User.Role.SUPER_ADMIN:
-            messages.error(request, "Only super admin can modify settings.")
+        setting_type = request.POST.get("setting_type")
+
+        # Outlet managers can only modify outlet settings
+        if request.user.role == User.Role.OUTLET_MANAGER and setting_type != "outlet":
+            messages.error(request, "Only super admin can modify global settings.")
             return redirect("dashboard:settings")
 
-        setting_type = request.POST.get("setting_type")
+        # Non-admin roles cannot modify any settings
+        if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER]:
+            messages.error(request, "You do not have permission to modify settings.")
+            return redirect("dashboard:settings")
 
         if setting_type == "branding":
             # Update branding settings
@@ -1890,6 +1941,47 @@ def settings_view(request):
             order_settings.save()
             messages.success(request, "Order settings updated successfully.")
 
+        elif setting_type == "outlet":
+            # Update outlet-specific settings
+            from decimal import Decimal
+            outlet_id = request.POST.get("outlet_id")
+
+            # Check permissions - outlet managers can only edit their own outlet
+            if request.user.role == User.Role.OUTLET_MANAGER:
+                outlet_to_edit = request.user.outlet
+            else:
+                outlet_to_edit = Outlet.objects.filter(id=outlet_id).first()
+
+            if outlet_to_edit:
+                # Tax Settings
+                outlet_to_edit.tax_enabled = request.POST.get("tax_enabled") == "on"
+                outlet_to_edit.cgst_rate = Decimal(request.POST.get("cgst_rate", "2.50") or "0")
+                outlet_to_edit.sgst_rate = Decimal(request.POST.get("sgst_rate", "2.50") or "0")
+                outlet_to_edit.service_charge_enabled = request.POST.get("service_charge_enabled") == "on"
+                outlet_to_edit.service_charge_rate = Decimal(request.POST.get("service_charge_rate", "0") or "0")
+                outlet_to_edit.tax_inclusive_pricing = request.POST.get("tax_inclusive_pricing") == "on"
+
+                # Order Settings
+                outlet_to_edit.order_prefix = request.POST.get("order_prefix", outlet_to_edit.order_prefix)
+                outlet_to_edit.default_prep_time = int(request.POST.get("default_prep_time", "10") or "10")
+                outlet_to_edit.auto_accept_orders = request.POST.get("auto_accept_orders") == "on"
+                outlet_to_edit.allow_qr_ordering = request.POST.get("allow_qr_ordering") == "on"
+
+                # Currency Settings
+                outlet_to_edit.currency_code = request.POST.get("currency_code", outlet_to_edit.currency_code)
+                outlet_to_edit.currency_symbol = request.POST.get("currency_symbol", outlet_to_edit.currency_symbol)
+                outlet_to_edit.currency_position = request.POST.get("currency_position", outlet_to_edit.currency_position)
+
+                # Receipt Branding
+                outlet_to_edit.receipt_header = request.POST.get("receipt_header", "")
+                outlet_to_edit.receipt_footer = request.POST.get("receipt_footer", "")
+
+                outlet_to_edit.save()
+                messages.success(request, f"Settings for {outlet_to_edit.name} updated successfully.")
+                return redirect(f"{request.path}?outlet={outlet_to_edit.id}")
+            else:
+                messages.error(request, "Outlet not found.")
+
         return redirect("dashboard:settings")
 
     context = {
@@ -1901,6 +1993,7 @@ def settings_view(request):
         "selected_outlet": selected_outlet,
         "current_outlet": current_outlet,
         "can_edit": request.user.role == User.Role.SUPER_ADMIN,
+        "can_edit_outlet": request.user.role in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER],
     }
     return render(request, "dashboard/settings/index.html", context)
 
