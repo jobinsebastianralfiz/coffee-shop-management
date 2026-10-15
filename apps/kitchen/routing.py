@@ -139,7 +139,7 @@ def dispatch_kitchen_tickets(order):
 
     with transaction.atomic():
         items = list(
-            order.items.select_for_update()
+            order.items.select_for_update(of=("self",))
             .filter(kot_sent_at__isnull=True)
             .exclude(status=OrderItem.Status.CANCELLED)
             .select_related("menu_item__kitchen_station", "menu_item__category__kitchen_station")

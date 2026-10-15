@@ -94,7 +94,7 @@ def record_razorpay_payment(rzp_order, payment_id, method="upi", signature="", p
         return record_retail_payment(rzp_order, payment_id, method=method, signature=signature)
 
     with transaction.atomic():
-        rzp = RazorpayOrder.objects.select_for_update().select_related("order").get(pk=rzp_order.pk)
+        rzp = RazorpayOrder.objects.select_for_update(of=("self",)).select_related("order").get(pk=rzp_order.pk)
         if rzp.status == RazorpayOrder.Status.PAID:
             existing = Payment.objects.filter(order=rzp.order, reference_number=rzp.razorpay_order_id).first()
             return existing, False
