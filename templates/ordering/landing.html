@@ -34,7 +34,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
                 </span>
                 <div class="min-w-0 flex-1">
-                    <p class="text-sm text-slate-900">Your bill · Seat {{ current_seat }}</p>
+                    <p class="text-sm text-slate-900">Your bill · {{ party_label }}</p>
                     <p class="text-xs text-slate-600 tabular">#{{ current_order.order_number }} · {{ current_order.total_amount }}</p>
                 </div>
                 <a href="{% url 'ordering:order_detail' table_uuid=table.uuid order_uuid=current_order.uuid %}" class="btn-secondary !h-10 !px-4 !text-[13px]">Track</a>
@@ -51,7 +51,7 @@
                     <span><span class="block text-[17px] text-slate-900">View menu</span><span class="block text-xs text-slate-600">Dishes, prices, photos</span></span>
                 </a>
                 {% if ordering_enabled %}
-                <a href="{% if current_seat %}{% url 'ordering:menu' table_uuid=table.uuid %}{% else %}{% url 'ordering:select_seat' table_uuid=table.uuid %}{% endif %}" class="kf-dcard p-4 flex flex-col gap-6 active:scale-[0.98] transition-transform">
+                <a href="{% url 'ordering:order_here' table_uuid=table.uuid %}" class="kf-dcard p-4 flex flex-col gap-6 active:scale-[0.98] transition-transform">
                     <span class="w-12 h-12 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></span>
                     <span><span class="block text-[17px] text-white">Order now</span><span class="block text-xs text-slate-400">From your phone</span></span>
                 </a>
@@ -65,11 +65,17 @@
                 {% endif %}
             </nav>
 
+            {% if ordering_enabled %}
+            <a href="{% url 'ordering:select_seat' table_uuid=table.uuid %}" class="block text-center text-[13px] text-slate-700">
+                Sharing the table with others? <span class="underline">Get a separate bill</span>
+            </a>
+            {% endif %}
+
             <!-- How it works -->
             {% if ordering_enabled %}
             <section class="kf-card p-4">
                 <ol class="grid grid-cols-3 gap-2 text-center text-xs text-slate-600">
-                    <li><span class="block text-[20px] font-light text-slate-900">1</span>Pick your seat</li>
+                    <li><span class="block text-[20px] font-light text-slate-900">1</span>Scan the code</li>
                     <li><span class="block text-[20px] font-light text-slate-900">2</span>Add dishes</li>
                     <li><span class="block text-[20px] font-light text-slate-900">3</span>Pay from your phone</li>
                 </ol>

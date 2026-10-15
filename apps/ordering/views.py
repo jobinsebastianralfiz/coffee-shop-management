@@ -1,8 +1,13 @@
 """
 Customer-facing ordering views for QR code self-ordering.
+
+By default everyone at a table orders onto one table bill. Guests sharing a
+table with others can choose "Separate bill" and pick a seat; each seat is
+then its own bill.
 """
 
 from django.contrib import messages
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -16,38 +21,103 @@ from apps.tables.models import Table
 from apps.kitchen.routing import OPEN_STATUSES, send_order_to_kitchen
 from apps.ordering import guard
 
+TABLE_BILL = "table"
+TABLE_PARTY = "Table"
+
 
 def _qr_disabled(table):
     outlet = guard.outlet_of(table)
     return not OrderSettings.load().allow_qr_ordering or (outlet is not None and not outlet.allow_qr_ordering)
 
 
-def _seat_order(request, table):
-    """This phone's open bill at the table, if it has one."""
-    seat = request.session.get(f"table_{table.uuid}_seat")
-    order_id = request.session.get(f"table_{table.uuid}_seat_{seat}_order") if seat else None
-    if not order_id:
+# --- Which bill this phone orders on ----------------------------------------
+
+def _party_key(table):
+    return f"table_{table.uuid}_party"
+
+
+def _order_key(table):
+    return f"table_{table.uuid}_order"
+
+
+def _party(request, table):
+    """'table' (one bill for the table), a seat number, or None (just browsing)."""
+    return request.session.get(_party_key(table))
+
+
+def _set_party(request, table, party):
+    if request.session.get(_party_key(table)) != party:
+        request.session[_party_key(table)] = party
+        request.session.pop(_order_key(table), None)
+
+
+def party_label(party):
+    if party == TABLE_BILL:
+        return "Table bill"
+    return f"Seat {party}" if party else ""
+
+
+def _open_bills(table):
+    """Open bills on this table, including a bill for tables merged with it."""
+    return Order.objects.filter(Q(table=table) | Q(combined_tables=table), status__in=OPEN_STATUSES).distinct()
+
+
+def _find_bill(table, party):
+    """The existing bill this party should add to, if any."""
+    bills = _open_bills(table).order_by("-created_at")
+    if party == TABLE_BILL:
+        shared = [o for o in bills if not (o.party_name or "").startswith("Seat ")]
+        if len(shared) == 1:
+            return shared[0]  # the table's bill, even if staff opened it
+        return next((o for o in shared if o.party_name == TABLE_PARTY), None)
+    return bills.filter(party_name=f"Seat {party}").first()
+
+
+def _session_order(request, table):
+    """This phone's open bill at the table (joins the existing one when there is one)."""
+    party = _party(request, table)
+    if not party:
         return None
-    return Order.objects.filter(pk=order_id, table=table, status__in=OPEN_STATUSES).first()
+    order_id = request.session.get(_order_key(table))
+    order = _open_bills(table).filter(pk=order_id).first() if order_id else None
+    if order is None:
+        order = _find_bill(table, party)
+        if order is not None:
+            request.session[_order_key(table)] = order.pk
+        else:
+            request.session.pop(_order_key(table), None)
+    return order
 
 
 def landing(request, table_uuid):
     """What a guest sees after scanning the table QR: menu, order, call waiter, pay."""
     table = get_object_or_404(Table.objects.select_related("floor__outlet"), uuid=table_uuid, is_active=True)
-    order = _seat_order(request, table)
+    party = _party(request, table)
     return render(request, "ordering/landing.html", {
         "table": table,
         "outlet": guard.outlet_of(table),
         "business": BusinessSettings.load(),
         "ordering_enabled": not _qr_disabled(table),
-        "current_order": order,
-        "current_seat": request.session.get(f"table_{table.uuid}_seat"),
+        "current_order": _session_order(request, table),
+        "current_party": party,
+        "party_label": party_label(party),
     })
+
+
+def order_here(request, table_uuid):
+    """'Order now': order on the table's shared bill (unless this phone chose a seat)."""
+    table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
+    if _qr_disabled(table):
+        return redirect("ordering:select_seat", table_uuid=table_uuid)  # shows the "paused" page
+    if not _party(request, table):
+        _set_party(request, table, TABLE_BILL)
+    return redirect("ordering:menu", table_uuid=table_uuid)
 
 
 def select_seat(request, table_uuid):
     """
-    Seat selection page - customer chooses their seat number.
+    Bill choice: one bill for the whole table (default), or a separate bill per
+    seat for guests sharing a table.
     """
     table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
 
@@ -59,32 +129,26 @@ def select_seat(request, table_uuid):
         })
 
     if request.method == "POST":
+        if request.POST.get("bill") == TABLE_BILL:
+            _set_party(request, table, TABLE_BILL)
+            return redirect("ordering:menu", table_uuid=table_uuid)
         seat_number = request.POST.get("seat_number")
         if seat_number:
             try:
                 seat_number = int(seat_number)
                 if 1 <= seat_number <= table.capacity:
-                    # Store seat in session
-                    request.session[f"table_{table.uuid}_seat"] = seat_number
+                    _set_party(request, table, seat_number)
                     return redirect("ordering:menu", table_uuid=table_uuid)
             except (ValueError, TypeError):
                 pass
         messages.error(request, "Please select a valid seat.")
 
-    # Get existing orders for this table to show which seats have orders
-    # A seat stays taken until its order is paid or cancelled
-    active_orders = Order.objects.filter(
-        table=table,
-        status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING, Order.Status.READY, Order.Status.SERVED]
-    )
-
-    # Extract seat numbers from party_name (format: "Seat X")
+    # A seat stays taken until its bill is paid or cancelled
     occupied_seats = []
-    for order in active_orders:
+    for order in _open_bills(table):
         if order.party_name and order.party_name.startswith("Seat "):
             try:
-                seat_num = int(order.party_name.split(" ")[1])
-                occupied_seats.append(seat_num)
+                occupied_seats.append(int(order.party_name.split(" ")[1]))
             except (ValueError, IndexError):
                 pass
 
@@ -92,6 +156,7 @@ def select_seat(request, table_uuid):
         "table": table,
         "seat_range": range(1, table.capacity + 1),
         "occupied_seats": occupied_seats,
+        "current_party": _party(request, table),
         "business": BusinessSettings.load(),
     }
     return render(request, "ordering/select_seat.html", context)
@@ -104,34 +169,16 @@ def table_menu(request, table_uuid):
     table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
     order_settings = OrderSettings.load()
 
-    # Without a seat (or with ordering off) the menu is browse-only
-    seat_key = f"table_{table.uuid}_seat"
-    current_seat = request.session.get(seat_key)
+    # Without a bill choice (or with ordering off) the menu is browse-only
     ordering_enabled = not _qr_disabled(table)
-    if not ordering_enabled:
-        current_seat = None
+    party = _party(request, table) if ordering_enabled else None
 
     # Get active categories and items
     categories = Category.objects.filter(is_active=True).prefetch_related(
         "items"
     ).order_by("display_order")
 
-    # Get or create session for this table and seat
-    session_key = f"table_{table.uuid}_seat_{current_seat}_order"
-    current_order_id = request.session.get(session_key) if current_seat else None
-    current_order = None
-
-    if current_order_id:
-        try:
-            current_order = Order.objects.get(
-                pk=current_order_id,
-                table=table,
-                party_name=f"Seat {current_seat}",
-                status__in=OPEN_STATUSES
-            )
-        except Order.DoesNotExist:
-            # Clear invalid session
-            del request.session[session_key]
+    current_order = _session_order(request, table) if party else None
 
     # Split the bill into this round's new items and what was already ordered
     new_items, ordered_items = [], []
@@ -146,10 +193,12 @@ def table_menu(request, table_uuid):
         "new_items": new_items,
         "ordered_items": ordered_items,
         "new_items_total": sum((i.total_price for i in new_items), 0),
-        "current_seat": current_seat,
+        "current_party": party,
+        "party_label": party_label(party),
+        "is_table_bill": party == TABLE_BILL,
         "require_customer_info": order_settings.require_customer_info_qr,
         "business": BusinessSettings.load(),
-        "browse_only": not current_seat,
+        "browse_only": not party,
         "ordering_enabled": ordering_enabled,
         "guest_waiting": guard.is_waiting(guard.guest(request, table, create=False)),
         "location_enabled": guard.location_enabled(table),
@@ -159,8 +208,7 @@ def table_menu(request, table_uuid):
 
 def create_order(request, table_uuid):
     """
-    Create a new order for a table via QR code.
-    Each seat gets its own separate order for split billing.
+    Start this phone's bill: join the table's (or seat's) open bill, or open a new one.
     """
     if request.method != "POST":
         return redirect("ordering:menu", table_uuid=table_uuid)
@@ -176,55 +224,63 @@ def create_order(request, table_uuid):
         messages.error(request, "Too many tries. Please wait a few minutes or ask a staff member.")
         return redirect("ordering:menu", table_uuid=table_uuid)
 
-    # Get current seat
-    seat_key = f"table_{table.uuid}_seat"
-    current_seat = request.session.get(seat_key)
+    party = _party(request, table)
+    if not party:
+        _set_party(request, table, TABLE_BILL)
+        party = TABLE_BILL
 
-    if not current_seat:
-        return redirect("ordering:select_seat", table_uuid=table_uuid)
+    # A table (or seat) keeps one open bill: later rounds add to it until it is paid
+    order = _session_order(request, table)
+    if order is not None:
+        return redirect("ordering:menu", table_uuid=table_uuid)
 
-    # Get customer info if required
-    customer_name = request.POST.get("customer_name", "").strip()
-    customer_phone = request.POST.get("customer_phone", "").strip()
+    # Get customer info if required (only when opening a new bill)
+    customer_name = request.POST.get("customer_name", "").strip()[:100]
+    customer_phone = request.POST.get("customer_phone", "").strip()[:20]
 
     if order_settings.require_customer_info_qr:
         if not customer_name or not customer_phone:
             messages.error(request, "Please provide your name and phone number.")
             return redirect("ordering:menu", table_uuid=table_uuid)
 
-    session_key = f"table_{table.uuid}_seat_{current_seat}_order"
+    _open_bill(request, table, party, customer_name, customer_phone)
+    messages.success(request, "Order started. Tap a dish to add it.")
+    return redirect("ordering:menu", table_uuid=table_uuid)
 
-    # A seat keeps one open bill: later rounds add to it until it is paid
-    order = Order.objects.filter(
-        table=table, party_name=f"Seat {current_seat}", status__in=OPEN_STATUSES
-    ).order_by("-created_at").first()
-    if order is not None:
-        request.session[session_key] = order.pk
-        return redirect("ordering:menu", table_uuid=table_uuid)
 
-    # Create the order with seat-specific party_name. It stays pending until the
-    # guest submits it (auto-accept applies at submit).
+def _open_bill(request, table, party, customer_name="", customer_phone=""):
+    """Open a new bill for the table (or seat). It stays pending until the guest submits it."""
     order = Order.objects.create(
         table=table,
         order_type=Order.OrderType.DINE_IN,
         order_source=Order.OrderSource.QR_CODE,
         customer_name=customer_name,
         customer_phone=customer_phone,
-        party_name=f"Seat {current_seat}",
+        party_name=TABLE_PARTY if party == TABLE_BILL else f"Seat {party}",
         status=Order.Status.PENDING,
     )
-
-    # Create kitchen ticket
     KitchenOrderTicket.objects.create(order=order)
-
     # The table is marked occupied when the first round is sent (after the
     # guest is confirmed to be at the table), so a stray scan can't block it
+    request.session[_order_key(table)] = order.pk
+    return order
 
-    # Store order in session (seat-specific key)
-    request.session[session_key] = order.pk
 
-    messages.success(request, f"Order started for Seat {current_seat}. Tap a dish to add it.")
-    return redirect("ordering:menu", table_uuid=table_uuid)
+def _require_order(request, table, open_if_missing=False):
+    """This phone's bill, or a redirect telling the guest what to do."""
+    if not _party(request, table):
+        return None, redirect("ordering:order_here", table_uuid=table.uuid)
+    order = _session_order(request, table)
+    if order is None and open_if_missing and not _qr_disabled(table) and not OrderSettings.load().require_customer_info_qr:
+        # No details to ask for: the first dish opens the bill
+        if guard.throttle(f"create:{request.session.session_key or guard._client_ip(request)}", 6, 600):
+            messages.error(request, "Too many tries. Please wait a few minutes or ask a staff member.")
+            return None, redirect("ordering:menu", table_uuid=table.uuid)
+        order = _open_bill(request, table, _party(request, table))
+    if order is None:
+        messages.error(request, "Please start an order first.")
+        return None, redirect("ordering:menu", table_uuid=table.uuid)
+    return order, None
 
 
 def add_item(request, table_uuid):
@@ -235,33 +291,9 @@ def add_item(request, table_uuid):
         return redirect("ordering:menu", table_uuid=table_uuid)
 
     table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
-
-    # Get current seat
-    seat_key = f"table_{table.uuid}_seat"
-    current_seat = request.session.get(seat_key)
-
-    if not current_seat:
-        return redirect("ordering:select_seat", table_uuid=table_uuid)
-
-    # Get current order from session (seat-specific)
-    session_key = f"table_{table.uuid}_seat_{current_seat}_order"
-    order_id = request.session.get(session_key)
-
-    if not order_id:
-        messages.error(request, "Please start an order first.")
-        return redirect("ordering:menu", table_uuid=table_uuid)
-
-    try:
-        order = Order.objects.get(
-            pk=order_id,
-            table=table,
-            party_name=f"Seat {current_seat}",
-            status__in=OPEN_STATUSES
-        )
-    except Order.DoesNotExist:
-        messages.error(request, "Order not found or already completed.")
-        del request.session[session_key]
-        return redirect("ordering:menu", table_uuid=table_uuid)
+    order, stop = _require_order(request, table, open_if_missing=True)
+    if stop:
+        return stop
 
     menu_item_id = request.POST.get("menu_item")
     try:
@@ -317,9 +349,8 @@ def order_detail(request, table_uuid, order_uuid):
     """
     table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
     order = get_object_or_404(
-        Order.objects.prefetch_related("items"),
+        Order.objects.prefetch_related("items").filter(Q(table=table) | Q(combined_tables=table)).distinct(),
         uuid=order_uuid,
-        table=table
     )
 
     g = guard.guest(request, table, create=False)
@@ -345,29 +376,9 @@ def update_item_quantity(request, table_uuid):
         return redirect("ordering:menu", table_uuid=table_uuid)
 
     table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
-
-    # Get current seat
-    seat_key = f"table_{table.uuid}_seat"
-    current_seat = request.session.get(seat_key)
-
-    if not current_seat:
-        return redirect("ordering:select_seat", table_uuid=table_uuid)
-
-    session_key = f"table_{table.uuid}_seat_{current_seat}_order"
-    order_id = request.session.get(session_key)
-
-    if not order_id:
-        return redirect("ordering:menu", table_uuid=table_uuid)
-
-    try:
-        order = Order.objects.get(
-            pk=order_id,
-            table=table,
-            party_name=f"Seat {current_seat}",
-            status__in=OPEN_STATUSES
-        )
-    except Order.DoesNotExist:
-        return redirect("ordering:menu", table_uuid=table_uuid)
+    order, stop = _require_order(request, table)
+    if stop:
+        return stop
 
     item_id = request.POST.get("item_id")
     action = request.POST.get("action")
@@ -409,59 +420,35 @@ def submit_order(request, table_uuid):
 
     table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
     order_settings = OrderSettings.load()
+    order, stop = _require_order(request, table)
+    if stop:
+        return stop
 
-    # Get current seat
-    seat_key = f"table_{table.uuid}_seat"
-    current_seat = request.session.get(seat_key)
-
-    if not current_seat:
-        return redirect("ordering:select_seat", table_uuid=table_uuid)
-
-    session_key = f"table_{table.uuid}_seat_{current_seat}_order"
-    order_id = request.session.get(session_key)
-
-    if not order_id:
-        messages.error(request, "No order found.")
+    if not order.items.filter(kot_sent_at__isnull=True).exclude(status="cancelled").exists():
+        messages.error(request, "Please add items to your order first.")
         return redirect("ordering:menu", table_uuid=table_uuid)
 
-    try:
-        order = Order.objects.get(
-            pk=order_id,
-            table=table,
-            party_name=f"Seat {current_seat}",
-            status__in=OPEN_STATUSES
-        )
-
-        if not order.items.filter(kot_sent_at__isnull=True).exclude(status="cancelled").exists():
-            messages.error(request, "Please add items to your order first.")
-            return redirect("ordering:menu", table_uuid=table_uuid)
-
-        if _qr_disabled(table):
-            messages.error(request, "QR ordering is currently disabled. Please ask a staff member.")
-            return redirect("ordering:menu", table_uuid=table_uuid)
-
-        # Is this phone really at the table? (not a photo of the QR used elsewhere)
-        g = guard.guest(request, table)
-        if not guard.is_confirmed(g, table):
-            lat, lng = request.POST.get("lat"), request.POST.get("lng")
-            if not (lat and lng and guard.check_location(g, table, lat, lng, request.POST.get("accuracy"))):
-                if not guard.is_waiting(g) and guard.waiting_count(table, exclude=g) >= guard.MAX_WAITING_PER_TABLE:
-                    messages.error(request, "Please ask a staff member to take your order.")
-                    return redirect("ordering:menu", table_uuid=table_uuid)
-                guard.request_staff(g, order)
-                return redirect("ordering:order_detail", table_uuid=table_uuid, order_uuid=order.uuid)
-
-        send_round(order, order_settings)
-
-        messages.success(request, f"Your order (Seat {current_seat}) has been submitted! We'll start preparing it shortly.")
-
-        # The session keeps pointing at this bill so the guest can order more later
-
-        return redirect("ordering:order_detail", table_uuid=table_uuid, order_uuid=order.uuid)
-
-    except Order.DoesNotExist:
-        messages.error(request, "Order not found.")
+    if _qr_disabled(table):
+        messages.error(request, "QR ordering is currently disabled. Please ask a staff member.")
         return redirect("ordering:menu", table_uuid=table_uuid)
+
+    # Is this phone really at the table? (not a photo of the QR used elsewhere)
+    g = guard.guest(request, table)
+    if not guard.is_confirmed(g, table):
+        lat, lng = request.POST.get("lat"), request.POST.get("lng")
+        if not (lat and lng and guard.check_location(g, table, lat, lng, request.POST.get("accuracy"))):
+            if not guard.is_waiting(g) and guard.waiting_count(table, exclude=g) >= guard.MAX_WAITING_PER_TABLE:
+                messages.error(request, "Please ask a staff member to take your order.")
+                return redirect("ordering:menu", table_uuid=table_uuid)
+            guard.request_staff(g, order)
+            return redirect("ordering:order_detail", table_uuid=table_uuid, order_uuid=order.uuid)
+
+    send_round(order, order_settings)
+
+    messages.success(request, "Your order has been sent to the kitchen! We'll start preparing it shortly.")
+
+    # The session keeps pointing at this bill so the guest can order more later
+    return redirect("ordering:order_detail", table_uuid=table_uuid, order_uuid=order.uuid)
 
 
 def call_waiter(request, table_uuid):
@@ -489,11 +476,8 @@ def change_seat(request, table_uuid):
     """
     table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
 
-    # Clear current seat selection
-    seat_key = f"table_{table.uuid}_seat"
-    if seat_key in request.session:
-        del request.session[seat_key]
-
+    # Back to the bill choice (the table bill or a seat); the choice itself
+    # only changes when the guest picks something there
     return redirect("ordering:select_seat", table_uuid=table_uuid)
 
 
@@ -536,7 +520,7 @@ def guest_code(request, table_uuid):
         return JsonResponse({"ok": False, "error": "Too many wrong codes. A staff member will confirm your order."}, status=429)
     if guard.is_confirmed(g, table) or guard.check_code(g, table, request.POST.get("code")):
         order = g.pending_order
-        if order is not None and order.status in OPEN_STATUSES and order.table_id == table.pk:
+        if order is not None and _open_bills(table).filter(pk=order.pk).exists():
             send_round(order)
         g.requested_at = None
         g.save(update_fields=["requested_at"])
@@ -557,7 +541,7 @@ def guest_locate(request, table_uuid):
         g, table, request.POST.get("lat"), request.POST.get("lng"), request.POST.get("accuracy")
     ):
         order = g.pending_order
-        if order is not None and order.status in OPEN_STATUSES and order.table_id == table.pk:
+        if order is not None and _open_bills(table).filter(pk=order.pk).exists():
             send_round(order)
         g.requested_at = None
         g.save(update_fields=["requested_at"])

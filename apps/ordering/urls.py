@@ -12,7 +12,8 @@ urlpatterns = [
     # QR code landing page
     path("t/<uuid:table_uuid>/", views.landing, name="landing"),
 
-    # Seat selection
+    # Order on the table's shared bill (default) / choose a separate seat bill
+    path("t/<uuid:table_uuid>/order-here/", views.order_here, name="order_here"),
     path("t/<uuid:table_uuid>/seat/", views.select_seat, name="select_seat"),
 
     # Table presence check (see apps.ordering.guard)

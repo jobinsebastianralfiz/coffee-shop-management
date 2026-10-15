@@ -1,6 +1,6 @@
 {% extends "ordering/base.html" %}
 
-{% block title %}Select Your Seat - Table {{ table.number }}{% endblock %}
+{% block title %}How would you like to pay? - Table {{ table.number }}{% endblock %}
 
 {% block content %}
 <div class="min-h-screen flex flex-col">
@@ -11,79 +11,71 @@
                 <p class="text-[15px] text-slate-900 truncate">{{ business.business_name }}</p>
                 <p class="text-[13px] text-slate-600">Table {{ table.number }}{% if table.name %} - {{ table.name }}{% endif %}</p>
             </div>
-            <span class="kf-ic is-lg flex-none">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                </svg>
-            </span>
+            <a href="{% url 'ordering:landing' table_uuid=table.uuid %}" class="kf-tag w flex-none !py-1.5">Home</a>
         </div>
     </header>
 
-    <!-- Main Content -->
     <main class="flex-1 px-4 py-4 flex flex-col">
         <div class="w-full max-w-md mx-auto space-y-4">
-            <!-- Title -->
             <div>
-                <h1 class="kf-hello !text-[28px]">Select Your Seat</h1>
-                <p class="text-sm text-slate-600 mt-1">Choose your seat number to start ordering</p>
+                <h1 class="kf-hello !text-[28px]">Your bill</h1>
+                <p class="text-sm text-slate-600 mt-1">Everyone at the table orders on one bill, unless you're sharing the table with others.</p>
             </div>
 
-            <!-- Seat Grid -->
+            <!-- One bill for the table (default) -->
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="bill" value="table">
+                <button type="submit" class="w-full kf-dcard kf-glow-dark p-5 flex items-center gap-4 text-left active:scale-[0.98] transition-transform">
+                    <span class="w-12 h-12 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center flex-none">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-[18px] text-white">One bill for the table</span>
+                        <span class="block text-[13px] text-slate-400">Everyone's orders together. Recommended.</span>
+                    </span>
+                    {% if current_party == 'table' %}<span class="kf-tag ys flex-none">Current</span>{% endif %}
+                </button>
+            </form>
+
+            <!-- Separate bill per seat -->
             <form method="POST" class="kf-card p-4 space-y-4">
                 {% csrf_token %}
+                <div>
+                    <h2 class="text-[17px] text-slate-900">Sharing the table with others?</h2>
+                    <p class="text-xs text-slate-600 mt-0.5">Pick your seat to get your own bill. Pay only for what you order.</p>
+                </div>
 
-                <div class="grid grid-cols-3 gap-2">
+                <div class="grid grid-cols-4 gap-2">
                     {% for seat in seat_range %}
                     <button
                         type="submit"
                         name="seat_number"
                         value="{{ seat }}"
-                        class="relative aspect-square rounded-[24px] text-[26px] font-light tabular transition-colors
-                            {% if seat in occupied_seats %}
-                                bg-amber-400 text-slate-900 hover:bg-amber-300
-                            {% else %}
-                                bg-white text-slate-900 hover:bg-slate-800 hover:text-white
-                            {% endif %}
-                            active:scale-95"
+                        aria-label="Seat {{ seat }}{% if seat in occupied_seats %}, has an open bill{% endif %}"
+                        class="relative aspect-square rounded-[20px] text-[22px] font-light tabular transition-colors active:scale-95
+                            {% if current_party == seat %}bg-slate-800 text-white
+                            {% elif seat in occupied_seats %}bg-amber-400 text-slate-900 hover:bg-amber-300
+                            {% else %}bg-white text-slate-900 hover:bg-slate-800 hover:text-white{% endif %}"
                     >
-                        <span class="absolute inset-0 flex flex-col items-center justify-center">
-                            <svg class="w-5 h-5 mb-1 {% if seat in occupied_seats %}text-yellow-800{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-                            </svg>
-                            {{ seat }}
-                        </span>
+                        <span class="absolute inset-0 flex items-center justify-center">{{ seat }}</span>
                         {% if seat in occupied_seats %}
-                        <span class="absolute bottom-2 left-0 right-0 text-[11px] text-yellow-800">Has order</span>
+                        <span class="absolute bottom-1.5 left-0 right-0 text-[10px] {% if current_party == seat %}text-amber-300{% else %}text-yellow-800{% endif %}">Has bill</span>
                         {% endif %}
                     </button>
                     {% endfor %}
                 </div>
 
-                <!-- Legend -->
                 <div class="flex flex-wrap items-center justify-center gap-1.5">
-                    <span class="kf-tag w"><i class="kf-dot !bg-slate-300"></i>Available</span>
-                    <span class="kf-tag w"><i class="kf-dot !bg-amber-400"></i>Has active order</span>
+                    <span class="kf-tag w"><i class="kf-dot !bg-slate-300"></i>Free</span>
+                    <span class="kf-tag w"><i class="kf-dot !bg-amber-400"></i>Has an open bill (you'll join it)</span>
                 </div>
             </form>
-
-            <!-- Info Card -->
-            <div class="kf-card !rounded-[22px] p-3 flex items-center gap-3">
-                <span class="kf-ic is-light">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </span>
-                <div class="min-w-0">
-                    <p class="text-sm text-slate-900">Each seat gets a separate order</p>
-                    <p class="text-xs text-slate-600 mt-0.5">This allows for easy split billing when paying</p>
-                </div>
-            </div>
         </div>
     </main>
 
-    <!-- Footer -->
     <footer class="p-4 text-center text-xs text-slate-500">
-        Powered by {{ business.business_name }}
+        {{ business.business_name }}
     </footer>
 </div>
 {% endblock %}

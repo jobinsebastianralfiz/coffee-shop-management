@@ -12,12 +12,12 @@
                     <h1 class="kf-hello !text-[24px] truncate">{{ business.business_name }}</h1>
                     <div class="flex items-center gap-1.5 mt-1 text-[13px] text-slate-600 min-w-0">
                         <span class="truncate">Table {{ table.number }}{% if table.name %} - {{ table.name }}{% endif %}</span>
-                        {% if current_seat %}
-                        <a href="{% url 'ordering:change_seat' table_uuid=table.uuid %}" class="kf-tag w flex-none !py-1">
+                        {% if current_party %}
+                        <a href="{% url 'ordering:change_seat' table_uuid=table.uuid %}" class="kf-tag w flex-none !py-1" title="Change: one table bill or a separate seat bill">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                             </svg>
-                            Seat {{ current_seat }}
+                            {{ party_label }}
                         </a>
                         {% else %}
                         <a href="{% url 'ordering:landing' table_uuid=table.uuid %}" class="kf-tag w flex-none !py-1">Home</a>
@@ -183,7 +183,7 @@
             <div class="px-5 pt-3 pb-5 bg-white">
                 {% if browse_only %}
                 {% if ordering_enabled %}
-                <a href="{% url 'ordering:select_seat' table_uuid=table.uuid %}" class="btn-yellow w-full !h-14 !text-base">Choose your seat to order</a>
+                <a href="{% url 'ordering:order_here' table_uuid=table.uuid %}" class="btn-yellow w-full !h-14 !text-base">Order from this table</a>
                 {% else %}
                 <p class="text-center text-sm text-slate-600">Please order with a staff member.</p>
                 {% endif %}
@@ -206,7 +206,7 @@
     </div>
 
     <!-- Start Order Modal (if no current order) -->
-    {% if not current_order and not browse_only %}
+    {% if not current_order and not browse_only and require_customer_info %}
     <div
         x-show="showStartOrderModal"
         x-cloak
@@ -289,10 +289,10 @@
     {% elif browse_only %}
     {% if ordering_enabled %}
     <div class="fixed bottom-0 left-0 right-0 px-3 z-40" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
-        <a href="{% url 'ordering:select_seat' table_uuid=table.uuid %}" class="btn-yellow w-full max-w-md mx-auto flex !h-14 !text-base shadow-[0_18px_40px_rgba(30,30,40,0.22)]">Start ordering</a>
+        <a href="{% url 'ordering:order_here' table_uuid=table.uuid %}" class="btn-yellow w-full max-w-md mx-auto flex !h-14 !text-base shadow-[0_18px_40px_rgba(30,30,40,0.22)]">Start ordering</a>
     </div>
     {% endif %}
-    {% elif not current_order %}
+    {% elif not current_order and require_customer_info %}
     <div class="fixed bottom-0 left-0 right-0 px-3 z-40" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
         <button
             @click="showStartOrderModal = true"
@@ -321,7 +321,7 @@ function orderingApp() {
         specialInstructions: '',
 
         showItemDetail(id, name, price, description, food_type, image) {
-            {% if current_order or browse_only %}
+            {% if current_order or browse_only or not require_customer_info %}
             this.selectedItem = { id, name, price, description, food_type, image };
             this.quantity = 1;
             this.specialInstructions = '';
