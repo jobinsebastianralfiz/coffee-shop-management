@@ -68,10 +68,29 @@ def table_qr_cards(request):
     })
 
 
+VIEW_ROLES = ("super_admin", "outlet_manager", "staff_cashier", "waiter")
+
+
+@login_required
+def table_qr_card_png(request, pk):
+    """Branded table card (A6, 300 dpi PNG) with the table's QR, for download or a print shop."""
+    from apps.tables.qr_card import render_table_card
+
+    if request.user.role not in VIEW_ROLES:
+        return HttpResponse(status=403)
+    table = get_object_or_404(_tables_for(request.user), pk=pk)
+    png = render_table_card(table, public_url(request, table.qr_url), BusinessSettings.load())
+    resp = HttpResponse(png, content_type="image/png")
+    resp["Cache-Control"] = "private, no-cache"
+    if request.GET.get("download"):
+        resp["Content-Disposition"] = f'attachment; filename="table-{table.number}-qr-card.png"'
+    return resp
+
+
 @login_required
 def table_qr_svg(request, pk):
     """The styled QR on its own, for downloading or sending to a print shop."""
-    if request.user.role not in MANAGER_ROLES:
+    if request.user.role not in VIEW_ROLES:
         return HttpResponse(status=403)
     table = get_object_or_404(_tables_for(request.user), pk=pk)
     resp = HttpResponse(qr_svg(public_url(request, table.qr_url), logo_hole=False), content_type="image/svg+xml")

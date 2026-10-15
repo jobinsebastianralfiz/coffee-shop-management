@@ -228,7 +228,7 @@
                 <div id="qrCodeSection" class="text-center">
                     <p class="kf-label mb-2">QR Code</p>
                     <div class="bg-white border border-slate-100 p-3 rounded-2xl inline-block">
-                        <img id="modalQRCode" src="" alt="QR Code" class="w-40 h-40 mx-auto">
+                        <img id="modalQRCode" src="" alt="QR card" class="w-44 h-auto mx-auto rounded-xl">
                     </div>
                     <p class="text-xs text-slate-500 mt-2">Scan to order from this table</p>
                     <a id="modalQRDownload" href="" download class="btn-secondary !h-9 !px-4 !text-[13px] mt-3 !bg-slate-100 hover:!bg-slate-200">
@@ -299,7 +299,7 @@ function showTableDetails(tableNumber, capacity, status, qrUrl, floorName, outle
 
     if (qrUrl) {
         document.getElementById('modalQRCode').src = qrUrl;
-        document.getElementById('modalQRDownload').href = qrUrl;
+        document.getElementById('modalQRDownload').href = qrUrl + '?download=1';
         qrSection.classList.remove('hidden');
         noQRSection.classList.add('hidden');
     } else {

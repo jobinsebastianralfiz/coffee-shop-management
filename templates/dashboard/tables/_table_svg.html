@@ -3,7 +3,7 @@
 
 {% if user.role == 'super_admin' %}
 <div class="relative cursor-pointer block group {% if is_ready %}animate-pulse{% endif %}"
-     onclick="showTableDetails('{{ table.number }}', '{{ table.capacity }}', '{{ status_text }}', '{% if table.qr_code %}{{ table.qr_code.url }}{% endif %}', '{{ table.floor.name }}', '{% if table.floor.outlet %}{{ table.floor.outlet.name }}{% endif %}')">
+     onclick="showTableDetails('{{ table.number }}', '{{ table.capacity }}', '{{ status_text }}', '{% url 'dashboard:table_qr_card' table.pk %}', '{{ table.floor.name }}', '{% if table.floor.outlet %}{{ table.floor.outlet.name }}{% endif %}')">
 {% else %}
 <a href="{% url 'dashboard:table_take_order' table.pk %}" class="relative cursor-pointer block group {% if is_ready %}animate-pulse{% endif %}">
 {% endif %}

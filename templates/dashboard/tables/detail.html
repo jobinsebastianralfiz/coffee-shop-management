@@ -224,46 +224,23 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
                     </a>
                 </div>
+                <a href="{% url 'dashboard:table_qr_card' table.pk %}" target="_blank" rel="noopener" class="block">
+                    <img src="{% url 'dashboard:table_qr_card' table.pk %}" alt="QR card for table {{ table.number }}" class="w-full max-w-[240px] h-auto mx-auto rounded-2xl shadow-sm">
+                </a>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <a href="{% url 'dashboard:table_qr_card' table.pk %}?download=1" class="btn-yellow !h-9 !px-4 !text-[13px] flex-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Download card
+                    </a>
+                    {% if user.role == 'super_admin' or user.role == 'outlet_manager' %}
+                    <a href="{% url 'dashboard:table_qr_cards' %}?t={{ table.pk }}" target="_blank" rel="noopener" class="btn-secondary !h-9 !px-4 !text-[13px] flex-1">Print</a>
+                    <a href="{% url 'dashboard:table_qr_svg' table.pk %}?download=1" class="btn-secondary !h-9 !px-4 !text-[13px]" title="QR only, as SVG for a print shop">SVG</a>
+                    {% endif %}
+                </div>
                 {% if user.role == 'super_admin' or user.role == 'outlet_manager' %}
-                <div class="p-3 bg-white rounded-2xl">
-                    <img src="{% url 'dashboard:table_qr_svg' table.pk %}" alt="QR code for table {{ table.number }}" class="w-full max-w-[220px] h-auto mx-auto">
-                </div>
-                <div class="flex flex-wrap gap-2 mt-3">
-                    <a href="{% url 'dashboard:table_qr_cards' %}?t={{ table.pk }}" target="_blank" rel="noopener" class="btn-yellow !h-9 !px-4 !text-[13px] flex-1">Print table card</a>
-                    <a href="{% url 'dashboard:table_qr_svg' table.pk %}?download=1" class="btn-secondary !h-9 !px-4 !text-[13px] flex-1">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                        </svg>
-                        SVG
-                    </a>
-                </div>
                 <p class="text-xs text-slate-500 mt-2">Regenerating gives the table a new code: cards already printed stop working. Use it if a photo of the QR is being misused.</p>
-                {% else %}
-                {% if table.qr_code %}
-                <div class="p-3 bg-white rounded-2xl">
-                    <img src="{{ table.qr_code.url }}" alt="QR code for table {{ table.number }}" class="w-full max-w-[220px] h-auto mx-auto">
-                </div>
-                <p class="text-xs text-slate-500 text-center mt-2 break-all">{{ table.qr_url }}</p>
-                <div class="flex flex-wrap gap-2 mt-3">
-                    <a href="{{ table.qr_code.url }}" download class="btn-secondary !h-9 !px-4 !text-[13px] flex-1">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                        </svg>
-                        Download
-                    </a>
-                    <a href="{{ table.qr_code.url }}" target="_blank" rel="noopener" class="btn-secondary !h-9 !px-4 !text-[13px] flex-1">Open</a>
-                </div>
-                {% else %}
-                <div class="kf-empty !py-5">
-                    <span class="kf-ic is-soft is-lg">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
-                        </svg>
-                    </span>
-                    <b>No QR code yet</b>
-                    <span>Generate one so guests can order from the table</span>
-                </div>
-                {% endif %}
                 {% endif %}
                 {% if user.role == 'super_admin' or user.role == 'outlet_manager' %}
                 <form action="{% url 'dashboard:table_regenerate_qr' table.pk %}" method="POST" class="mt-2">

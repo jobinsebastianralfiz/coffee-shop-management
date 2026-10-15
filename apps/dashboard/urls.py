@@ -67,6 +67,7 @@ urlpatterns = [
     path("tables/qr-cards/", qr_cards.table_qr_cards, name="table_qr_cards"),
     path("outlets/<int:pk>/qr-ordering/", views.qr_ordering_toggle, name="qr_ordering_toggle"),
     path("tables/<int:pk>/qr.svg", qr_cards.table_qr_svg, name="table_qr_svg"),
+    path("tables/<int:pk>/qr-card.png", qr_cards.table_qr_card_png, name="table_qr_card"),
     path("tables/<int:pk>/unmerge/", views.table_unmerge, name="table_unmerge"),
 
     # Floor Management
