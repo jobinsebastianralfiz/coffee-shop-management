@@ -3,7 +3,7 @@ Order management models for the Coffee Shop Management System.
 """
 
 import uuid
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.db import models
@@ -125,6 +125,9 @@ class Order(models.Model):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
+    # Billing counter: set when the waiter prints the bill for the guests
+    bill_printed_at = models.DateTimeField(null=True, blank=True)
+
     # Notes
     customer_notes = models.TextField(blank=True, help_text="Special requests from customer")
     kitchen_notes = models.TextField(blank=True, help_text="Notes for kitchen staff")
@@ -172,18 +175,25 @@ class Order(models.Model):
         today = timezone.now().date()
         date_str = today.strftime("%y%m%d")
 
-        # Count today's orders for this outlet
-        if self.outlet:
-            today_count = Order.objects.filter(
-                created_at__date=today,
-                outlet=self.outlet
-            ).count() + 1
-        else:
-            today_count = Order.objects.filter(
-                created_at__date=today
-            ).count() + 1
-
-        return f"{prefix}{date_str}{today_count:04d}"
+        # Next number after the highest one already issued with this prefix today.
+        # (Counting today's orders reused numbers once an empty order was deleted,
+        # and clashed when outlets shared a prefix.)
+        stem = f"{prefix}{date_str}"
+        last = (
+            Order.objects.filter(order_number__startswith=stem)
+            .order_by("-order_number")
+            .values_list("order_number", flat=True)
+            .first()
+        )
+        seq = 1
+        if last:
+            tail = last[len(stem):]
+            seq = int(tail) + 1 if tail.isdigit() else Order.objects.filter(order_number__startswith=stem).count() + 1
+        number = f"{stem}{seq:04d}"
+        while Order.objects.filter(order_number=number).exists():
+            seq += 1
+            number = f"{stem}{seq:04d}"
+        return number
 
     def calculate_totals(self):
         """Recalculate order totals based on items using outlet or global tax settings."""
@@ -202,25 +212,33 @@ class Order(models.Model):
             service_charge_rate = tax_settings.service_charge_rate
 
         # Calculate subtotal from items
+        # Voided (cancelled) items stay on the order for the record but are not billed
         self.subtotal = sum(
-            item.total_price for item in self.items.all()
+            item.total_price for item in self.items.all() if item.status != OrderItem.Status.CANCELLED
         )
+
+        # Every amount is rounded to paise before it is added up, so the printed
+        # lines (subtotal, CGST, SGST, service) always add up to the total
+        def paise(value):
+            return Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        self.subtotal = paise(self.subtotal)
 
         # Apply discount
         if self.discount_percentage > 0:
-            self.discount_amount = (self.subtotal * self.discount_percentage) / 100
+            self.discount_amount = paise((self.subtotal * self.discount_percentage) / 100)
 
-        taxable_amount = self.subtotal - self.discount_amount
+        taxable_amount = self.subtotal - paise(self.discount_amount)
 
         # Calculate taxes
-        self.cgst_amount = (taxable_amount * cgst_rate) / 100
-        self.sgst_amount = (taxable_amount * sgst_rate) / 100
+        self.cgst_amount = paise((taxable_amount * cgst_rate) / 100)
+        self.sgst_amount = paise((taxable_amount * sgst_rate) / 100)
 
         # Service charge
         if service_charge_enabled:
-            self.service_charge = (taxable_amount * service_charge_rate) / 100
+            self.service_charge = paise((taxable_amount * service_charge_rate) / 100)
         else:
-            self.service_charge = 0
+            self.service_charge = Decimal("0")
 
         # Total
         self.total_amount = (
@@ -247,12 +265,26 @@ class Order(models.Model):
             self.served_at = now
             if user:
                 self.served_by = user
+
+        # Keep item statuses in step with the order, so a later round can tell
+        # which items the kitchen has already finished
+        if self.pk and new_status in (self.Status.READY, self.Status.SERVED):
+            done = OrderItem.Status.READY if new_status == self.Status.READY else OrderItem.Status.SERVED
+            open_states = [OrderItem.Status.PENDING, OrderItem.Status.PREPARING]
+            if new_status == self.Status.SERVED:
+                open_states.append(OrderItem.Status.READY)
+            self.items.filter(kot_sent_at__isnull=False, status__in=open_states).update(status=done)
         elif new_status == self.Status.COMPLETED:
             self.completed_at = now
         elif new_status == self.Status.CANCELLED:
             self.cancelled_at = now
 
         self.save()
+
+    @property
+    def tax_amount(self):
+        """Total GST on the order (CGST + SGST)."""
+        return (self.cgst_amount or 0) + (self.sgst_amount or 0)
 
     @property
     def is_paid(self):
@@ -347,6 +379,16 @@ class OrderItem(models.Model):
 
     # Notes
     special_instructions = models.TextField(blank=True)
+
+    # Kitchen routing: set when the item is sent to the kitchen
+    station = models.ForeignKey(
+        "kitchen.KitchenStation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_items",
+    )
+    kot_sent_at = models.DateTimeField(null=True, blank=True)
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -443,6 +485,17 @@ class Payment(models.Model):
         related_name="payments_processed",
     )
 
+    # Tip left by the guest on top of the bill (not part of the bill or GST)
+    tip_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tip_for = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tips_received",
+        help_text="Waiter credited with the tip",
+    )
+
     notes = models.TextField(blank=True)
 
     # Timestamps
@@ -533,3 +586,25 @@ class KitchenOrderTicket(models.Model):
             ).count() + 1
             self.ticket_number = f"K{today_count:03d}"
         super().save(*args, **kwargs)
+
+
+class CounterDisplay(models.Model):
+    """
+    What the customer-facing screen at a billing counter is showing. One row per
+    outlet (or per super-admin user, who has no outlet). Stored in the database
+    so it works across server processes; the screen polls it.
+    """
+
+    class Mode(models.TextChoices):
+        IDLE = "idle", "Idle"
+        BILL = "bill", "Showing a bill"
+        PAID = "paid", "Paid"
+
+    key = models.CharField(max_length=40, unique=True)
+    mode = models.CharField(max_length=10, choices=Mode.choices, default=Mode.IDLE)
+    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    retail_sale = models.ForeignKey("retail.RetailSale", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.key}: {self.mode}"

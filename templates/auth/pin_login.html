@@ -2,11 +2,14 @@
 
 {% block title %}PIN Login{% endblock %}
 
+{% block page_title %}PIN Login{% endblock %}
+
 {% block auth_content %}
-<div class="min-h-screen flex" style="background: linear-gradient(135deg, var(--login-gradient-start) 0%, var(--login-gradient-end) 100%);">
+<div class="min-h-screen p-3 lg:p-5">
+<div class="kf-frame kf-frame-bg min-h-[calc(100vh-1.5rem)] lg:min-h-[calc(100vh-2.5rem)] flex overflow-hidden lg:p-4 lg:gap-4">
 
     <!-- Left Panel - Branding (Hidden on mobile) -->
-    <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+    <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden kf-glow-dark rounded-[28px]">
         <!-- Animated Background Elements -->
         <div class="absolute inset-0">
             <div class="absolute inset-0 opacity-10">
@@ -60,7 +63,7 @@
     </div>
 
     <!-- Right Panel - PIN Entry -->
-    <div class="w-full lg:w-1/2 flex items-center justify-center p-6 bg-white">
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-6">
         <div class="w-full max-w-sm" x-data="pinLogin()">
             <!-- Mobile Header -->
             <div class="lg:hidden text-center mb-8">
@@ -119,7 +122,7 @@
                     <template x-for="num in [1,2,3,4,5,6,7,8,9]" :key="num">
                         <button
                             type="button"
-                            class="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-2xl font-semibold text-slate-700 transition-all duration-150 active:scale-95 select-none"
+                            class="h-16 rounded-full bg-white/70 hover:bg-white active:bg-amber-400 text-2xl font-semibold text-slate-700 transition-all duration-150 active:scale-95 select-none"
                             @click="addDigit(num)"
                         >
                             <span x-text="num"></span>
@@ -129,7 +132,7 @@
                     <!-- Empty / Back to Login -->
                     <a
                         href="{% url 'dashboard:login' %}"
-                        class="h-16 rounded-2xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-all"
+                        class="h-16 rounded-full bg-white/70 hover:bg-white flex items-center justify-center text-slate-500 hover:text-slate-800 transition-all"
                     >
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
@@ -139,7 +142,7 @@
                     <!-- Zero -->
                     <button
                         type="button"
-                        class="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-2xl font-semibold text-slate-700 transition-all duration-150 active:scale-95 select-none"
+                        class="h-16 rounded-full bg-white/70 hover:bg-white active:bg-amber-400 text-2xl font-semibold text-slate-700 transition-all duration-150 active:scale-95 select-none"
                         @click="addDigit(0)"
                     >
                         0
@@ -148,7 +151,7 @@
                     <!-- Backspace -->
                     <button
                         type="button"
-                        class="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 flex items-center justify-center text-slate-600 transition-all duration-150 active:scale-95"
+                        class="h-16 rounded-full bg-white/70 hover:bg-white active:bg-amber-400 flex items-center justify-center text-slate-600 transition-all duration-150 active:scale-95"
                         @click="removeDigit"
                     >
                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -189,6 +192,7 @@
             </p>
         </div>
     </div>
+</div>
 </div>
 
 <script>

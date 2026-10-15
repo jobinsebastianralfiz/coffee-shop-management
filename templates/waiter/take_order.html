@@ -14,25 +14,25 @@
         50% { opacity: 0.5; }
     }
     .pending-sync {
-        border-left: 3px solid #f59e0b;
+        border-left: 3px solid #F5C842;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div x-data="takeOrderApp()" x-init="init()" class="min-h-screen pb-32">
+<div x-data="takeOrderApp()" x-init="init()" class="min-h-screen pb-40">
     <!-- Header -->
-    <header class="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
-        <div class="px-4 py-3">
-            <div class="flex items-center gap-4">
-                <a href="{% url 'waiter:table_detail' table.pk %}" class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <header class="sticky top-0 z-40 bg-[#F3F3F1]/85 backdrop-blur-md">
+        <div class="px-4 pt-4 pb-2 max-w-md mx-auto">
+            <div class="flex items-center gap-3">
+                <a href="{% url 'waiter:table_detail' table.pk %}" class="w-11 h-11 rounded-full bg-white/80 flex items-center justify-center flex-none" aria-label="Back to table">
+                    <svg class="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
                 </a>
-                <div class="flex-1">
-                    <h1 class="text-lg font-bold text-slate-800">Table {{ table.number }} - Seat {{ seat }}</h1>
-                    <p class="text-sm text-slate-500">
+                <div class="flex-1 min-w-0">
+                    <h1 class="kf-hello !text-[22px] truncate">Table {{ table.number }} - Seat {{ seat }}</h1>
+                    <p class="text-sm text-slate-600 truncate">
                         <span x-show="!isOffline">
                             {% if current_order %}
                             Order: {{ current_order.order_number }}
@@ -40,38 +40,38 @@
                             New Order
                             {% endif %}
                         </span>
-                        <span x-show="isOffline" x-cloak class="text-amber-600 font-medium">
+                        <span x-show="isOffline" x-cloak class="kf-tag ys offline-badge !py-0">
                             Offline Mode
                         </span>
                     </p>
                 </div>
                 <!-- Pending orders indicator -->
-                <div x-show="pendingOrdersCount > 0" x-cloak class="relative">
-                    <button @click="showPendingModal = true" class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div x-show="pendingOrdersCount > 0" x-cloak class="relative flex-none">
+                    <button @click="showPendingModal = true" class="w-11 h-11 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center" aria-label="Pending offline orders">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                     </button>
-                    <span class="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center font-bold" x-text="pendingOrdersCount"></span>
+                    <span class="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-slate-800 text-white text-[11px] rounded-full flex items-center justify-center border-2 border-white" x-text="pendingOrdersCount"></span>
                 </div>
             </div>
         </div>
 
         <!-- Category Tabs -->
-        <div class="px-4 pb-3 overflow-x-auto hide-scrollbar">
-            <div class="flex gap-2">
+        <div class="px-4 pb-3 max-w-md mx-auto">
+            <div class="kf-seg hide-scrollbar !flex !flex-nowrap w-full">
                 <button
                     @click="selectedCategory = null"
-                    :class="selectedCategory === null ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700'"
-                    class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                    :class="selectedCategory === null ? 'active' : ''"
+                    class="!py-2.5 transition-colors"
                 >
                     All
                 </button>
                 <template x-for="category in menuCategories" :key="category.id">
                     <button
                         @click="selectedCategory = category.id"
-                        :class="selectedCategory === category.id ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700'"
-                        class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                        :class="selectedCategory === category.id ? 'active' : ''"
+                        class="!py-2.5 transition-colors"
                         x-text="category.name"
                     ></button>
                 </template>
@@ -80,24 +80,24 @@
     </header>
 
     <!-- Loading State -->
-    <div x-show="loading" class="p-8 text-center">
-        <svg class="animate-spin h-8 w-8 mx-auto text-indigo-600" fill="none" viewBox="0 0 24 24">
+    <div x-show="loading" class="kf-empty">
+        <svg class="animate-spin h-7 w-7 mx-auto text-slate-800" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <p class="mt-2 text-slate-500">Loading menu...</p>
+        <span>Loading menu...</span>
     </div>
 
     <!-- Menu Items -->
-    <main x-show="!loading" class="p-4 space-y-6">
+    <main x-show="!loading" class="px-4 pt-1 space-y-4 max-w-md mx-auto">
         <template x-for="category in filteredCategories" :key="category.id">
             <div>
-                <h2 class="text-lg font-bold text-slate-800 mb-3" x-text="category.name"></h2>
-                <div class="grid grid-cols-1 gap-3">
+                <h2 class="kf-h mb-2 px-1" x-text="category.name"></h2>
+                <div class="grid grid-cols-1 gap-2">
                     <template x-for="item in category.items" :key="item.id">
-                        <div class="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4">
+                        <div class="kf-card !rounded-[24px] p-2 pr-3 flex items-center gap-3">
                             <!-- Item Image/Icon -->
-                            <div class="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                            <div class="w-14 h-14 rounded-[18px] bg-white flex-shrink-0 flex items-center justify-center overflow-hidden">
                                 <template x-if="item.image_url">
                                     <img :src="item.image_url" :alt="item.name" class="w-full h-full object-cover">
                                 </template>
@@ -110,21 +110,21 @@
 
                             <!-- Item Info -->
                             <div class="flex-1 min-w-0">
-                                <h3 class="font-semibold text-slate-800" x-text="item.name"></h3>
-                                <p class="text-lg font-bold text-indigo-600" x-text="'₹' + item.base_price"></p>
+                                <h3 class="text-[15px] leading-tight text-slate-900 line-clamp-2" x-text="item.name"></h3>
+                                <p class="text-sm text-slate-600 mt-0.5 tabular" x-text="'₹' + item.base_price"></p>
                             </div>
 
                             <!-- Quantity controls or Add button -->
                             <div class="flex-shrink-0">
                                 <template x-if="getCartItemQuantity(item.id) > 0">
-                                    <div class="flex items-center gap-2 bg-indigo-50 rounded-xl p-1">
-                                        <button @click="removeFromCart(item.id)" class="w-8 h-8 rounded-lg bg-white text-indigo-600 flex items-center justify-center shadow-sm touch-active">
+                                    <div class="flex items-center gap-1 bg-slate-800 rounded-full p-1">
+                                        <button @click="removeFromCart(item.id)" class="w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center touch-active" aria-label="Remove one">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
                                             </svg>
                                         </button>
-                                        <span class="w-8 text-center font-bold text-indigo-600" x-text="getCartItemQuantity(item.id)"></span>
-                                        <button @click="addToCart(item)" class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-sm touch-active">
+                                        <span class="w-6 text-center text-white tabular" x-text="getCartItemQuantity(item.id)"></span>
+                                        <button @click="addToCart(item)" class="w-9 h-9 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center touch-active" aria-label="Add one">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                             </svg>
@@ -132,7 +132,7 @@
                                     </div>
                                 </template>
                                 <template x-if="getCartItemQuantity(item.id) === 0">
-                                    <button @click="addToCart(item)" class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center touch-active">
+                                    <button @click="addToCart(item)" class="w-11 h-11 rounded-full bg-slate-800 text-amber-300 flex items-center justify-center touch-active" aria-label="Add to order">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                         </svg>
@@ -146,83 +146,89 @@
         </template>
 
         <!-- Empty State -->
-        <div x-show="menuCategories.length === 0 && !loading" class="text-center py-12">
-            <svg class="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-            </svg>
-            <p class="text-slate-500">No menu items available</p>
-            <p class="text-slate-400 text-sm mt-1" x-show="isOffline">Menu will load when you're back online</p>
+        <div x-show="menuCategories.length === 0 && !loading" class="kf-card">
+            <div class="kf-empty">
+                <span class="kf-ic is-soft is-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                </span>
+                <b>No menu items available</b>
+                <span x-show="isOffline">Menu will load when you're back online</span>
+            </div>
         </div>
     </main>
 
     <!-- Bottom Cart Bar -->
-    <div class="fixed bottom-20 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40 shadow-lg" x-show="cart.length > 0" x-cloak>
-        <div class="flex items-center justify-between mb-3">
-            <div>
-                <p class="text-sm text-slate-500"><span x-text="cartItemCount"></span> items</p>
-                <p class="text-xl font-bold text-slate-800">₹<span x-text="cartTotal.toFixed(2)"></span></p>
-            </div>
-            <button
-                @click="submitOrder()"
-                :disabled="submitting"
-                class="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-lg touch-active disabled:opacity-50"
-            >
-                <span x-show="!submitting">
-                    <span x-show="isOffline">Save Order</span>
-                    <span x-show="!isOffline">Send to Kitchen</span>
-                </span>
-                <span x-show="submitting" class="flex items-center gap-2">
-                    <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    Sending...
-                </span>
-            </button>
-        </div>
-
-        <!-- Cart Items Preview -->
-        <div class="space-y-2 max-h-32 overflow-y-auto">
-            <template x-for="item in cart" :key="item.menu_item_id">
-                <div class="flex items-center justify-between text-sm">
-                    <span class="text-slate-600"><span x-text="item.quantity"></span>x <span x-text="item.name"></span></span>
-                    <span class="font-medium text-slate-800">₹<span x-text="(item.price * item.quantity).toFixed(2)"></span></span>
+    <div class="fixed bottom-[88px] left-0 right-0 px-4 z-40" x-show="cart.length > 0" x-cloak>
+        <div class="kf-dcard kf-glow-dark max-w-md mx-auto p-3 pl-5 shadow-[0_18px_40px_rgba(30,30,40,0.28)]">
+            <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-xs text-slate-400"><span x-text="cartItemCount"></span> items</p>
+                    <p class="text-[22px] font-light leading-tight tabular">₹<span x-text="cartTotal.toFixed(2)"></span></p>
                 </div>
-            </template>
+                <button
+                    @click="submitOrder()"
+                    :disabled="submitting"
+                    class="btn-yellow !h-12 !px-5 touch-active disabled:opacity-50"
+                >
+                    <span x-show="!submitting">
+                        <span x-show="isOffline">Save Order</span>
+                        <span x-show="!isOffline">Send to Kitchen</span>
+                    </span>
+                    <span x-show="submitting" class="flex items-center gap-2">
+                        <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        Sending...
+                    </span>
+                </button>
+            </div>
+
+            <!-- Cart Items Preview -->
+            <div class="space-y-1 max-h-28 overflow-y-auto mt-2 pt-2 pr-2 border-t border-white/10">
+                <template x-for="item in cart" :key="item.menu_item_id">
+                    <div class="flex items-center justify-between gap-2 text-[13px]">
+                        <span class="text-slate-300 truncate"><span x-text="item.quantity"></span>x <span x-text="item.name"></span></span>
+                        <span class="tabular">₹<span x-text="(item.price * item.quantity).toFixed(2)"></span></span>
+                    </div>
+                </template>
+            </div>
         </div>
     </div>
 
     <!-- Empty Cart Message -->
-    <div class="fixed bottom-20 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40" x-show="cart.length === 0">
-        <p class="text-center text-slate-500 text-sm">Tap + to add items to this order</p>
+    <div class="fixed bottom-[88px] left-0 right-0 px-4 z-40" x-show="cart.length === 0">
+        <p class="max-w-md mx-auto text-center text-slate-700 text-[13px] bg-white/85 backdrop-blur rounded-full py-2.5 px-4">Tap + to add items to this order</p>
     </div>
 
     <!-- Pending Orders Modal -->
     <div x-show="showPendingModal" x-cloak class="fixed inset-0 bg-black/50 z-50 flex items-end">
-        <div class="bg-white w-full rounded-t-3xl p-6 max-h-[70vh] overflow-y-auto" @click.outside="showPendingModal = false">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold">Pending Orders</h3>
-                <button @click="showPendingModal = false" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+        <div class="bg-white w-full rounded-t-[28px] p-5 max-h-[70vh] overflow-y-auto" @click.outside="showPendingModal = false">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="kf-h !text-[20px] !font-light">Pending Orders</h3>
+                <button @click="showPendingModal = false" class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center" aria-label="Close">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                 </button>
             </div>
 
-            <p class="text-sm text-amber-600 mb-4 bg-amber-50 p-3 rounded-xl">
+            <p class="text-[13px] text-yellow-800 mb-3 bg-amber-50 px-4 py-3 rounded-[18px]">
                 These orders were created offline and will sync automatically when you're back online.
             </p>
 
-            <div class="space-y-3">
+            <div class="space-y-2">
                 <template x-for="order in pendingOrders" :key="order.offline_id">
-                    <div class="p-4 border rounded-xl pending-sync">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <p class="font-semibold">Table <span x-text="order.table_id"></span> - Seat <span x-text="order.seat"></span></p>
+                    <div class="p-3 pl-4 rounded-[18px] bg-slate-50 pending-sync">
+                        <div class="flex justify-between items-start gap-2 mb-1">
+                            <div class="min-w-0">
+                                <p class="text-[15px]">Table <span x-text="order.table_id"></span> - Seat <span x-text="order.seat"></span></p>
                                 <p class="text-xs text-slate-500" x-text="new Date(order.created_at).toLocaleString()"></p>
                             </div>
-                            <span class="px-2 py-1 text-xs rounded-full"
-                                  :class="order.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'"
+                            <span class="kf-tag"
+                                  :class="order.status === 'failed' ? 'r' : 'ys'"
                                   x-text="order.status"></span>
                         </div>
                         <div class="text-sm text-slate-600">
@@ -235,7 +241,7 @@
             <button
                 @click="manualSync()"
                 :disabled="syncing || !navigator.onLine"
-                class="w-full mt-4 py-3 rounded-xl bg-indigo-600 text-white font-semibold disabled:opacity-50"
+                class="btn-primary w-full mt-4 !h-12 disabled:opacity-50"
             >
                 <span x-show="!syncing">Sync Now</span>
                 <span x-show="syncing">Syncing...</span>
@@ -252,9 +258,9 @@
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
          class="fixed top-4 left-4 right-4 z-50">
-        <div :class="toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : toast.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'"
-             class="px-4 py-3 rounded-xl shadow-lg border flex items-center gap-3">
-            <span class="text-sm font-medium" x-text="toast.message"></span>
+        <div :class="toast.type === 'success' ? 'bg-emerald-50 text-emerald-800' : toast.type === 'error' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-yellow-800'"
+             class="max-w-md mx-auto px-4 py-3 rounded-full shadow-[0_18px_40px_rgba(30,30,40,0.18)] flex items-center gap-3">
+            <span class="text-sm" x-text="toast.message"></span>
         </div>
     </div>
 </div>

@@ -1,0 +1,403 @@
+{% extends 'base.html' %}
+
+{% block title %}Kitchen Stations{% endblock %}
+
+{% block page_title %}Kitchen Stations{% endblock %}
+
+{% block content %}
+<div class="space-y-4" x-data="stationPage()" @keydown.escape.window="modalOpen = false">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <p>Split kitchen tickets by station and print them on each station's Wi-Fi printer</p>
+        <div class="kf-actions">
+            {% if outlets %}
+            <label class="flex items-center gap-2 text-[13px] text-slate-600">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+                <span class="sr-only sm:not-sr-only">Outlet</span>
+                <select onchange="window.location.search = '?outlet=' + this.value" class="!h-9 !py-0 !rounded-full px-4 text-[13px] max-w-[200px]">
+                    {% for o in outlets %}
+                    <option value="{{ o.pk }}" {% if outlet and o.pk == outlet.pk %}selected{% endif %}>{{ o.name }} ({{ o.code }})</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% endif %}
+            {% if outlet %}
+            <a href="{% url 'dashboard:kitchen' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">Kitchen Display</a>
+            <button type="button" @click="openAdd()" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Add Station
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not outlet %}
+    <div class="kf-card">
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"></path></svg>
+            </span>
+            <b>No outlet available</b>
+            <span>Your account is not linked to an active outlet.</span>
+        </div>
+    </div>
+    {% else %}
+
+    <!-- Stations -->
+    <section id="stations" class="kf-card p-5 space-y-3">
+        <div class="kf-cardhead">
+            <div>
+                <h3 class="kf-h">Stations</h3>
+                <p class="text-xs text-slate-600 mt-0.5">Each station gets its own ticket with only its items. The default station receives anything not routed.</p>
+            </div>
+        </div>
+
+        {% if stations %}
+        <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {% for st in stations %}
+            <div class="rounded-[20px] bg-white/70 p-4 flex flex-col gap-3">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                        <b class="block font-normal text-[17px] leading-tight truncate">{{ st.name }}</b>
+                        <small class="block text-xs text-slate-600 mt-0.5 truncate">
+                            {% if st.printer_ip %}{{ st.printer_ip }}:{{ st.printer_port }}{% else %}Display only{% endif %}
+                            · {% if st.paper_width == 32 %}58 mm{% else %}80 mm{% endif %}{% if st.copies > 1 %} · {{ st.copies }} copies{% endif %}
+                        </small>
+                    </div>
+                    <div class="flex flex-wrap justify-end gap-1">
+                        {% if st.is_default %}<span class="kf-tag y">Default</span>{% endif %}
+                        {% if st.is_active %}<span class="kf-tag g">Active</span>{% else %}<span class="kf-tag h">Inactive</span>{% endif %}
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+                    <span class="kf-tag s">{{ st.category_count }} categor{{ st.category_count|pluralize:"y,ies" }}</span>
+                    {% if st.last_job %}
+                    <span class="kf-tag {% if st.last_job.status == 'printed' %}g{% elif st.last_job.status == 'failed' %}r{% elif st.last_job.status == 'queued' %}ys{% elif st.last_job.status == 'sending' %}s{% else %}h{% endif %}" title="{{ st.last_job.title }}">
+                        Last ticket: {{ st.last_job.get_status_display|lower }} · {{ st.last_job.created_at|timesince }} ago
+                    </span>
+                    {% elif st.printer_ip %}
+                    <span class="kf-tag o">No tickets yet</span>
+                    {% endif %}
+                </div>
+                <div class="flex flex-wrap gap-2 mt-auto">
+                    <button type="button" class="btn-secondary !h-9 !px-4 !text-[13px]"
+                            @click='openEdit({{ st.pk }}, {"name": "{{ st.name|escapejs }}", "printer_ip": "{{ st.printer_ip|default:""|escapejs }}", "printer_port": {{ st.printer_port }}, "paper_width": {{ st.paper_width }}, "copies": {{ st.copies }}, "is_default": {{ st.is_default|yesno:"true,false" }}, "is_active": {{ st.is_active|yesno:"true,false" }}, "display_order": {{ st.display_order }}})'>
+                        Edit
+                    </button>
+                    {% if st.printer_ip %}
+                    <form method="POST" action="{% url 'kitchen:station_test_print' st.pk %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="outlet" value="{{ outlet.pk }}">
+                        <button type="submit" class="btn-secondary !h-9 !px-4 !text-[13px]">Test print</button>
+                    </form>
+                    {% endif %}
+                    <form method="POST" action="{% url 'kitchen:station_delete' st.pk %}" class="ml-auto"
+                          onsubmit="return confirm('Delete station &quot;{{ st.name|escapejs }}&quot;? Its categories will go to the default station.')">
+                        {% csrf_token %}
+                        <input type="hidden" name="outlet" value="{{ outlet.pk }}">
+                        <button type="submit" class="btn-danger !h-9 !px-4 !text-[13px]">Delete</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+            </span>
+            <b>No stations yet</b>
+            <span class="max-w-md">Add your first station, e.g. Grill or Bar. Until then, kitchen tickets use the single KOT printer from Printer Settings.</span>
+            <button type="button" @click="openAdd()" class="btn-yellow !h-9 !px-4 !text-[13px] mt-2">Add first station</button>
+        </div>
+        {% endif %}
+    </section>
+
+    <div class="grid lg:grid-cols-2 gap-4 items-start">
+        <!-- Routing -->
+        <section id="routing" class="kf-card p-5 space-y-3">
+            <div class="kf-cardhead">
+                <div>
+                    <h3 class="kf-h">Category routing</h3>
+                    <p class="text-xs text-slate-600 mt-0.5">Choose which station prepares each menu category. Items can override this on their own page.</p>
+                </div>
+            </div>
+            {% if categories %}
+            <form method="POST" action="{% url 'kitchen:routing_save' %}" class="space-y-3">
+                {% csrf_token %}
+                <input type="hidden" name="outlet" value="{{ outlet.pk }}">
+                <ul class="kf-rows">
+                    {% for cat in categories %}
+                    <li>
+                        <div class="!rounded-[18px] flex-wrap sm:flex-nowrap !pl-4">
+                            <div class="min-w-0 flex-1">
+                                <b>{{ cat.name }}{% if not cat.is_active %} <span class="text-slate-500">(hidden)</span>{% endif %}</b>
+                                <small>
+                                    {% if not cat.outlet_id %}Shared category · {% endif %}
+                                    {% if cat.override_count %}{{ cat.override_count }} item{{ cat.override_count|pluralize }} use{{ cat.override_count|pluralize:"s," }} their own station{% else %}No item overrides{% endif %}
+                                </small>
+                            </div>
+                            <select name="station_{{ cat.pk }}" class="kf-pill-select w-full sm:w-48 !bg-white" {% if not stations %}disabled{% endif %}>
+                                <option value="">— Default station —</option>
+                                {% for st in stations %}
+                                <option value="{{ st.pk }}" {% if cat.kitchen_station_id == st.pk %}selected{% endif %}>{{ st.name }}{% if not st.is_active %} (inactive){% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% if stations %}
+                <div class="flex justify-end">
+                    <button type="submit" class="btn-primary !h-9 !px-4 !text-[13px]">Save routing</button>
+                </div>
+                {% else %}
+                <p class="text-xs text-slate-600">Add a station first to route categories.</p>
+                {% endif %}
+            </form>
+            {% else %}
+            <div class="kf-empty">
+                <span class="kf-ic is-soft is-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                </span>
+                <b>No menu categories</b>
+                <span>Create categories in the menu first.</span>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- Print agent -->
+        <section id="agent" class="kf-card p-5 space-y-3">
+            <div class="kf-cardhead">
+                <div>
+                    <h3 class="kf-h">Print agent</h3>
+                    <p class="text-xs text-slate-600 mt-0.5">A small program on a computer at the outlet that sends tickets to the Wi-Fi printers.</p>
+                </div>
+                {% if agent %}
+                {% if agent.is_online %}
+                <span class="kf-tag g"><span class="kf-dot"></span>Online</span>
+                {% elif agent.last_seen_at %}
+                <span class="kf-tag ys">Last seen {{ agent.last_seen_at|timesince }} ago</span>
+                {% else %}
+                <span class="kf-tag h">Never connected</span>
+                {% endif %}
+                {% endif %}
+            </div>
+
+            {% if agent %}
+            <div>
+                <label class="kf-label" for="agentToken">Agent token</label>
+                <div class="flex gap-2">
+                    <input id="agentToken" type="text" readonly value="{{ agent.token }}" class="kf-input font-mono !text-[13px]" @focus="$event.target.select()">
+                    <button type="button" class="btn-secondary !h-[42px] !px-4 !text-[13px] shrink-0" @click="copy('{{ agent.token|escapejs }}', 'token')" x-text="copied === 'token' ? 'Copied' : 'Copy'">Copy</button>
+                </div>
+            </div>
+            <div>
+                <label class="kf-label">Run command</label>
+                <div class="flex gap-2 items-start">
+                    <code class="block flex-1 min-w-0 rounded-[14px] bg-[#2A2A2C] text-[#F5C842] px-3.5 py-2.5 text-[12px] font-mono break-all">{{ run_command }}</code>
+                    <button type="button" class="btn-secondary !h-[42px] !px-4 !text-[13px] shrink-0" @click="copy('{{ run_command|escapejs }}', 'cmd')" x-text="copied === 'cmd' ? 'Copied' : 'Copy'">Copy</button>
+                </div>
+                <p class="text-xs text-slate-600 mt-1.5">On Windows use <code class="font-mono">py kaffero_print_agent.py --server {{ server_url }} --token …</code></p>
+            </div>
+            <ol class="space-y-2 text-[13px] text-slate-700">
+                <li class="flex gap-2.5"><span class="kf-rank !w-6 !h-6 !text-xs">1</span><span>On a computer on the <b class="font-normal text-slate-900">same Wi-Fi as the printers</b>, install Python 3 (python.org).</span></li>
+                <li class="flex gap-2.5"><span class="kf-rank !w-6 !h-6 !text-xs">2</span><span><a href="{% url 'kitchen:agent_download' %}{% if outlets %}?outlet={{ outlet.pk }}{% endif %}" class="underline underline-offset-2">Download the print agent</a> and open a terminal in the download folder.</span></li>
+                <li class="flex gap-2.5"><span class="kf-rank !w-6 !h-6 !text-xs">3</span><span>Run the command above and keep the window open. Tickets print while it runs.</span></li>
+            </ol>
+            <div class="flex flex-wrap gap-2 justify-end">
+                <a href="{% url 'kitchen:agent_download' %}{% if outlets %}?outlet={{ outlet.pk }}{% endif %}" class="btn-primary !h-9 !px-4 !text-[13px]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Download agent
+                </a>
+                <form method="POST" action="{% url 'kitchen:agent_regenerate' agent.pk %}"
+                      onsubmit="return confirm('Generate a new token? The running agent will stop working until you restart it with the new command.')">
+                    {% csrf_token %}
+                    <input type="hidden" name="outlet" value="{{ outlet.pk }}">
+                    <button type="submit" class="btn-secondary !h-9 !px-4 !text-[13px]">Regenerate token</button>
+                </form>
+            </div>
+            {% else %}
+            <div class="kf-empty">
+                <span class="kf-ic is-soft is-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                </span>
+                <b>No print agent yet</b>
+                <span class="max-w-sm">Printers are on your local network, so a computer at the outlet relays tickets to them.</span>
+                <form method="POST" action="{% url 'kitchen:agent_create' %}" class="mt-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="outlet" value="{{ outlet.pk }}">
+                    <button type="submit" class="btn-yellow !h-9 !px-4 !text-[13px]">Set up print agent</button>
+                </form>
+            </div>
+            {% endif %}
+        </section>
+    </div>
+
+    <!-- Recent print jobs -->
+    <section id="jobs" class="kf-card p-5 space-y-3">
+        <div class="kf-cardhead">
+            <div>
+                <h3 class="kf-h">Recent print jobs</h3>
+                <p class="text-xs text-slate-600 mt-0.5">Last 30 tickets queued for this outlet.</p>
+            </div>
+            <a href="{% url 'kitchen:stations' %}{% if outlets %}?outlet={{ outlet.pk }}{% endif %}#jobs" class="btn-secondary !h-9 !px-4 !text-[13px]">Refresh</a>
+        </div>
+        {% if jobs %}
+        <div class="overflow-x-auto -mx-2">
+            <table class="w-full text-[13px] min-w-[640px]">
+                <thead>
+                    <tr class="text-left text-xs text-slate-600">
+                        <th class="px-2 py-2 font-normal">Time</th>
+                        <th class="px-2 py-2 font-normal">Ticket</th>
+                        <th class="px-2 py-2 font-normal">Station</th>
+                        <th class="px-2 py-2 font-normal">Status</th>
+                        <th class="px-2 py-2 font-normal text-right">Tries</th>
+                        <th class="px-2 py-2 font-normal">Error</th>
+                        <th class="px-2 py-2 font-normal text-right"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for job in jobs %}
+                    <tr class="border-t border-slate-200/70">
+                        <td class="px-2 py-2.5 whitespace-nowrap text-slate-600">{{ job.created_at|date:"d M, H:i" }}</td>
+                        <td class="px-2 py-2.5">{{ job.title|default:"—" }}{% if job.kind == 'test' %} <span class="kf-tag o !py-0">test</span>{% endif %}</td>
+                        <td class="px-2 py-2.5 whitespace-nowrap">{{ job.station.name|default:"—" }}</td>
+                        <td class="px-2 py-2.5">
+                            <span class="kf-tag {% if job.status == 'queued' %}ys{% elif job.status == 'sending' %}s{% elif job.status == 'printed' %}g{% elif job.status == 'failed' %}r{% else %}h{% endif %}">{{ job.get_status_display }}</span>
+                        </td>
+                        <td class="px-2 py-2.5 text-right tabular-nums">{{ job.attempts }}</td>
+                        <td class="px-2 py-2.5 text-xs text-red-700 max-w-[220px] truncate" title="{{ job.last_error }}">{{ job.last_error|truncatechars:60 }}</td>
+                        <td class="px-2 py-2.5">
+                            <div class="flex justify-end gap-1.5">
+                                {% if job.status == 'failed' or job.status == 'cancelled' %}
+                                <form method="POST" action="{% url 'kitchen:job_retry' job.pk %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="outlet" value="{{ outlet.pk }}">
+                                    <button type="submit" class="btn-secondary !h-8 !px-3 !text-xs">Retry</button>
+                                </form>
+                                {% endif %}
+                                {% if job.status == 'queued' or job.status == 'failed' %}
+                                <form method="POST" action="{% url 'kitchen:job_cancel' job.pk %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="outlet" value="{{ outlet.pk }}">
+                                    <button type="submit" class="btn-secondary !h-8 !px-3 !text-xs">Cancel</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            </span>
+            <b>No print jobs yet</b>
+            <span>Tickets appear here when orders are sent to the kitchen{% if has_printer_station %} or you run a test print{% endif %}.</span>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Add / edit station modal -->
+    <div x-show="modalOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true" role="dialog">
+        <div class="flex items-center justify-center min-h-screen px-4 py-6">
+            <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" @click="modalOpen = false"></div>
+            <div class="relative bg-white rounded-3xl max-w-lg w-full p-6">
+                <h3 class="text-xl font-light text-slate-900 mb-1" x-text="editId ? 'Edit station' : 'Add station'">Add station</h3>
+                <p class="text-slate-600 text-sm mb-5">Leave the printer IP empty for a display-only station.</p>
+                <form method="POST" :action="editId ? '{% url 'kitchen:stations' %}stations/' + editId + '/edit/' : '{% url 'kitchen:station_add' %}'" class="space-y-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="outlet" value="{{ outlet.pk }}">
+                    <div class="grid sm:grid-cols-2 gap-3">
+                        <div class="sm:col-span-2">
+                            <label class="kf-label" for="st_name">Name</label>
+                            <input id="st_name" type="text" name="name" x-model="form.name" maxlength="60" required placeholder="e.g. Grill, Broast, Bar" class="kf-input">
+                        </div>
+                        <div>
+                            <label class="kf-label" for="st_ip">Printer IP (optional)</label>
+                            <input id="st_ip" type="text" name="printer_ip" x-model="form.printer_ip" placeholder="192.168.1.50" inputmode="decimal" class="kf-input">
+                        </div>
+                        <div>
+                            <label class="kf-label" for="st_port">Port</label>
+                            <input id="st_port" type="number" name="printer_port" x-model="form.printer_port" min="1" max="65535" class="kf-input">
+                        </div>
+                        <div>
+                            <label class="kf-label" for="st_width">Paper width</label>
+                            <select id="st_width" name="paper_width" x-model="form.paper_width" class="kf-input">
+                                {% for value, label in paper_widths %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="kf-label" for="st_copies">Copies</label>
+                            <input id="st_copies" type="number" name="copies" x-model="form.copies" min="1" max="5" class="kf-input">
+                        </div>
+                        <div>
+                            <label class="kf-label" for="st_order">Display order</label>
+                            <input id="st_order" type="number" name="display_order" x-model="form.display_order" min="0" class="kf-input">
+                        </div>
+                        <div class="flex flex-col justify-end gap-2 pb-1">
+                            <label class="flex items-center gap-2 text-sm text-slate-700">
+                                <input type="checkbox" name="is_default" value="1" x-model="form.is_default" class="rounded">
+                                Default station
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-slate-700">
+                                <input type="checkbox" name="is_active" value="1" x-model="form.is_active" class="rounded">
+                                Active
+                            </label>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button type="button" @click="modalOpen = false" class="btn-secondary">Cancel</button>
+                        <button type="submit" class="btn-primary" x-text="editId ? 'Save station' : 'Add station'">Add station</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function stationPage() {
+    const blank = { name: '', printer_ip: '', printer_port: 9100, paper_width: '48', copies: 1, is_default: false, is_active: true, display_order: 0 };
+    return {
+        modalOpen: false,
+        editId: null,
+        copied: '',
+        form: { ...blank },
+        openAdd() {
+            this.editId = null;
+            this.form = { ...blank, is_default: {{ stations|yesno:"false,true" }} };
+            this.modalOpen = true;
+        },
+        openEdit(id, data) {
+            this.editId = id;
+            this.form = { ...blank, ...data, paper_width: String(data.paper_width) };
+            this.modalOpen = true;
+        },
+        copy(text, key) {
+            const done = () => { this.copied = key; setTimeout(() => { this.copied = ''; }, 1500); };
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(done);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text; document.body.appendChild(ta); ta.select();
+                try { document.execCommand('copy'); done(); } finally { ta.remove(); }
+            }
+        },
+    };
+}
+</script>
+{% endblock %}

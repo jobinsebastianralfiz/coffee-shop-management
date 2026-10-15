@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}Payments{% endblock %}
+{% block page_title %}Payments Received{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <div class="kf-pagehead">
+        <p>Payments received from wholesale customers</p>
+        <div class="kf-actions">
+            <a href="{% url 'retail:invoices' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">Invoices</a>
+            <a href="{% url 'retail:payment_receive' %}" class="btn-yellow !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Receive Payment
+            </a>
+        </div>
+    </div>
+
+    <form method="GET" class="flex flex-wrap items-center gap-2">
+        <input type="date" name="from" value="{{ date_from|default:'' }}" aria-label="From date" class="h-10 px-3 border border-slate-200 !rounded-full text-sm bg-white">
+        <input type="date" name="to" value="{{ date_to|default:'' }}" aria-label="To date" class="h-10 px-3 border border-slate-200 !rounded-full text-sm bg-white">
+        <button type="submit" class="btn-primary !h-10 !px-4 !text-[13px]">Filter</button>
+        {% if date_from or date_to %}
+        <a href="{% url 'retail:payments' %}" class="btn-secondary !h-10 !px-4 !text-[13px]">Clear</a>
+        {% endif %}
+    </form>
+
+    <div class="kf-card overflow-hidden">
+        <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Receipt #</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Date</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Customer</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Invoice</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Method</th>
+                    <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Amount</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Received By</th>
+                    <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Receipt</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200/60">
+                {% for payment in payments %}
+                <tr class="hover:bg-white/50">
+                    <td class="px-4 py-2.5 whitespace-nowrap">
+                        <a href="{% url 'retail:payment_receipt' payment.pk %}" target="_blank" class="text-slate-900 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-900">{{ payment.receipt_number }}</a>
+                    </td>
+                    <td class="px-4 py-2.5 text-[13px] text-slate-600 tabular whitespace-nowrap">{{ payment.payment_date|date:"M d, Y" }}</td>
+                    <td class="px-4 py-2.5">
+                        <a href="{% url 'retail:customer_detail' payment.customer.pk %}" class="block text-sm text-slate-900 hover:underline truncate max-w-[220px]">{{ payment.customer.business_name }}</a>
+                        <p class="text-xs text-slate-500">{{ payment.customer.customer_code }}</p>
+                    </td>
+                    <td class="px-4 py-2.5 text-[13px] whitespace-nowrap">
+                        {% if payment.invoice %}
+                        <a href="{% url 'retail:invoice_detail' payment.invoice.pk %}" class="text-slate-700 hover:underline">{{ payment.invoice.invoice_number }}</a>
+                        {% else %}
+                        <span class="text-slate-500">On account</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-2.5">
+                        <span class="kf-tag s">{{ payment.get_payment_method_display }}</span>
+                        {% if payment.reference_number %}<p class="text-[11px] text-slate-500 mt-0.5 truncate max-w-[160px]">{{ payment.reference_number }}</p>{% endif %}
+                    </td>
+                    <td class="px-4 py-2.5 text-right text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ payment.amount }}</td>
+                    <td class="px-4 py-2.5 text-[13px] text-slate-600 whitespace-nowrap">{% if payment.received_by %}{{ payment.received_by.get_full_name|default:payment.received_by.username }}{% else %}-{% endif %}</td>
+                    <td class="px-4 py-2.5 text-right">
+                        <a href="{% url 'retail:payment_receipt' payment.pk %}" target="_blank" class="w-9 h-9 inline-grid place-items-center rounded-full text-slate-600 hover:text-slate-900 hover:bg-white" title="Print Receipt">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4">
+                        <div class="kf-empty">
+                            <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></span>
+                            <b>No payments found</b>
+                            <span>{% if date_from or date_to %}Try a different date range{% else %}Record a payment to see it here{% endif %}</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+
+        {% if payments.has_other_pages %}
+        <div class="px-4 py-3 border-t border-slate-200/60 flex flex-wrap items-center justify-between gap-2">
+            <p class="text-[13px] text-slate-600">Page {{ payments.number }} of {{ payments.paginator.num_pages }}</p>
+            <div class="flex gap-2">
+                {% if payments.has_previous %}
+                <a href="?page={{ payments.previous_page_number }}{% if date_from %}&from={{ date_from }}{% endif %}{% if date_to %}&to={{ date_to }}{% endif %}" class="btn-secondary !h-9 !px-4 !text-[13px]">Previous</a>
+                {% endif %}
+                {% if payments.has_next %}
+                <a href="?page={{ payments.next_page_number }}{% if date_from %}&from={{ date_from }}{% endif %}{% if date_to %}&to={{ date_to }}{% endif %}" class="btn-secondary !h-9 !px-4 !text-[13px]">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

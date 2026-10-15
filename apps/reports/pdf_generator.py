@@ -73,7 +73,7 @@ class BasePDFReport:
         """Add report header with business info."""
         # Business name
         self.elements.append(Paragraph(
-            self.business.name or "Coffee Shop",
+            self.business.business_name or "Coffee Shop",
             self.styles['ReportTitle']
         ))
 
@@ -296,13 +296,13 @@ class EODReportPDF(BasePDFReport):
         if cash_data:
             self.add_section("Cash Drawer")
             drawer_items = [
-                ("Opening Balance", f"{currency}{cash_data.get('opening_balance', 0):,.2f}"),
-                ("Cash Sales", f"{currency}{cash_data.get('total_cash_sales', 0):,.2f}"),
-                ("Cash In", f"+{currency}{cash_data.get('total_cash_in', 0):,.2f}"),
-                ("Cash Out", f"-{currency}{cash_data.get('total_cash_out', 0):,.2f}"),
-                ("Expected Balance", f"{currency}{cash_data.get('expected_balance', 0):,.2f}"),
-                ("Actual Balance", f"{currency}{cash_data.get('actual_balance', 0):,.2f}"),
-                ("Variance", f"{currency}{cash_data.get('variance', 0):,.2f}"),
+                ("Opening Balance", f"{currency}{(cash_data.get('opening_balance') or 0):,.2f}"),
+                ("Cash Sales", f"{currency}{(cash_data.get('total_cash_sales') or 0):,.2f}"),
+                ("Cash In", f"+{currency}{(cash_data.get('total_cash_in') or 0):,.2f}"),
+                ("Cash Out", f"-{currency}{(cash_data.get('total_cash_out') or 0):,.2f}"),
+                ("Expected Balance", f"{currency}{(cash_data.get('expected_balance') or 0):,.2f}"),
+                ("Actual Balance", f"{currency}{(cash_data.get('actual_balance') or 0):,.2f}"),
+                ("Variance", f"{currency}{(cash_data.get('variance') or 0):,.2f}"),
             ]
             self.add_summary_box(drawer_items)
 

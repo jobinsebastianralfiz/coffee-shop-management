@@ -4,32 +4,31 @@
 {% block page_title %}{% if expense %}Edit{% else %}Add{% endif %} Expense{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto space-y-6 fade-in">
+<div class="max-w-3xl mx-auto space-y-4 fade-in">
     <!-- Header -->
-    <div class="flex items-center gap-4">
-        <a href="{% if expense %}{% url 'dashboard:expense_detail' expense.pk %}{% else %}{% url 'dashboard:expense_list' %}{% endif %}" class="p-2 rounded-xl hover:bg-slate-100 transition-colors">
-            <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
-            </svg>
-        </a>
-        <div>
-            <h1 class="text-2xl font-bold text-slate-800">{% if expense %}Edit Expense{% else %}Add New Expense{% endif %}</h1>
-            <p class="text-slate-500 mt-1">{% if expense %}Update expense details{% else %}Record a new business expense{% endif %}</p>
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% if expense %}{% url 'dashboard:expense_detail' expense.pk %}{% else %}{% url 'dashboard:expense_list' %}{% endif %}" class="kf-arrow kf-arrow-light" aria-label="Back">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
+                </svg>
+            </a>
+            <p>{% if expense %}Update expense details{% else %}Record a new business expense{% endif %}</p>
         </div>
     </div>
 
     <!-- Form -->
-    <form method="post" enctype="multipart/form-data" class="space-y-6">
+    <form method="post" enctype="multipart/form-data" class="space-y-4">
         {% csrf_token %}
 
         <!-- Basic Information -->
-        <div class="premium-card bg-white rounded-2xl p-6">
-            <h2 class="text-lg font-bold text-slate-800 mb-6">Basic Information</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-4">Basic information</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {% if outlets and user.role == 'super_admin' %}
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Outlet *</label>
-                    <select name="outlet" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors">
+                <div class="sm:col-span-2">
+                    <label class="kf-label">Outlet *</label>
+                    <select name="outlet" required class="kf-input">
                         <option value="">Select an outlet</option>
                         {% for outlet in outlets %}
                         <option value="{{ outlet.pk }}" {% if expense.outlet_id == outlet.pk %}selected{% endif %}>{{ outlet.name }}</option>
@@ -38,34 +37,34 @@
                 </div>
                 {% endif %}
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Category *</label>
-                    <select name="category" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors">
+                    <label class="kf-label">Category *</label>
+                    <select name="category" required class="kf-input">
                         <option value="">Select a category</option>
                         {% for cat in categories %}
                         <option value="{{ cat.pk }}" {% if expense.category_id == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
                         {% endfor %}
                     </select>
                     {% if form.category.errors %}
-                    <p class="mt-1 text-sm text-red-600">{{ form.category.errors.0 }}</p>
+                    <p class="mt-1 text-xs text-red-600">{{ form.category.errors.0 }}</p>
                     {% endif %}
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Date *</label>
-                    <input type="date" name="date" value="{{ expense.date|date:'Y-m-d'|default:today }}" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors">
+                    <label class="kf-label">Date *</label>
+                    <input type="date" name="date" value="{{ expense.date|date:'Y-m-d'|default:today }}" required class="kf-input">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Amount *</label>
+                    <label class="kf-label">Amount *</label>
                     <div class="relative">
-                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">{{ currency_symbol }}</span>
-                        <input type="number" name="amount" step="0.01" min="0" value="{{ expense.amount|default:'' }}" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors" placeholder="0.00">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm">{{ currency_symbol }}</span>
+                        <input type="number" name="amount" step="0.01" min="0" value="{{ expense.amount|default:'' }}" required class="kf-input !pl-9 tabular" placeholder="0.00">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Payment Method *</label>
-                    <select name="payment_method" required class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors">
+                    <label class="kf-label">Payment Method *</label>
+                    <select name="payment_method" required class="kf-input">
                         <option value="cash" {% if expense.payment_method == 'cash' %}selected{% endif %}>Cash</option>
                         <option value="bank" {% if expense.payment_method == 'bank' %}selected{% endif %}>Bank Transfer</option>
                         <option value="card" {% if expense.payment_method == 'card' %}selected{% endif %}>Credit/Debit Card</option>
@@ -74,8 +73,8 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Status</label>
-                    <select name="status" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors">
+                    <label class="kf-label">Status</label>
+                    <select name="status" class="kf-input">
                         <option value="pending" {% if expense.status == 'pending' %}selected{% endif %}>Pending</option>
                         <option value="approved" {% if expense.status == 'approved' %}selected{% endif %}>Approved</option>
                         <option value="paid" {% if expense.status == 'paid' %}selected{% endif %}>Paid</option>
@@ -84,44 +83,46 @@
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Reference Number</label>
-                    <input type="text" name="reference_number" value="{{ expense.reference_number|default:'' }}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors" placeholder="Invoice/Receipt number">
+                    <label class="kf-label">Reference Number</label>
+                    <input type="text" name="reference_number" value="{{ expense.reference_number|default:'' }}" class="kf-input" placeholder="Invoice/Receipt number">
                 </div>
 
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Description</label>
-                    <textarea name="description" rows="3" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors resize-none" placeholder="Brief description of the expense...">{{ expense.description|default:'' }}</textarea>
+                <div class="sm:col-span-2">
+                    <label class="kf-label">Description</label>
+                    <textarea name="description" rows="3" class="kf-input resize-none" placeholder="Brief description of the expense...">{{ expense.description|default:'' }}</textarea>
                 </div>
             </div>
         </div>
 
         <!-- Vendor Information -->
-        <div class="premium-card bg-white rounded-2xl p-6">
-            <h2 class="text-lg font-bold text-slate-800 mb-6">Vendor Information</h2>
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-4">Vendor information</h3>
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">Vendor Name</label>
-                <input type="text" name="vendor_name" value="{{ expense.vendor_name|default:'' }}" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-colors" placeholder="Vendor or supplier name">
+                <label class="kf-label">Vendor Name</label>
+                <input type="text" name="vendor_name" value="{{ expense.vendor_name|default:'' }}" class="kf-input" placeholder="Vendor or supplier name">
             </div>
         </div>
 
         <!-- Receipt Upload -->
-        <div class="premium-card bg-white rounded-2xl p-6">
-            <h2 class="text-lg font-bold text-slate-800 mb-6">Receipt</h2>
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-4">Receipt</h3>
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">Upload Receipt</label>
-                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl hover:border-indigo-300 transition-colors">
-                    <div class="space-y-2 text-center">
+                <label class="kf-label">Upload Receipt</label>
+                <div class="flex justify-center px-5 py-5 border border-slate-300 border-dashed rounded-2xl bg-white/50 hover:bg-white/80 transition-colors">
+                    <div class="flex flex-col items-center gap-2 text-center">
                         {% if expense.receipt %}
-                        <div class="mb-4">
-                            <img src="{{ expense.receipt.url }}" alt="Current receipt" class="mx-auto h-32 object-contain rounded-lg">
-                            <p class="text-sm text-slate-500 mt-2">Current receipt</p>
+                        <div class="mb-2">
+                            <img src="{{ expense.receipt.url }}" alt="Current receipt" class="mx-auto h-28 object-contain rounded-xl">
+                            <p class="text-xs text-slate-600 mt-1.5">Current receipt</p>
                         </div>
                         {% endif %}
-                        <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                        </svg>
+                        <span class="kf-ic is-soft">
+                            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                        </span>
                         <div class="flex text-sm text-slate-600 justify-center">
-                            <label for="receipt" class="relative cursor-pointer rounded-md font-medium text-indigo-600 hover:text-indigo-500">
+                            <label for="receipt" class="relative cursor-pointer font-medium text-slate-900 underline underline-offset-2">
                                 <span>Upload a file</span>
                                 <input id="receipt" name="receipt" type="file" accept="image/*" class="sr-only">
                             </label>
@@ -134,10 +135,10 @@
         </div>
 
         <!-- Form Actions -->
-        <div class="flex items-center justify-end gap-4">
+        <div class="flex items-center justify-end gap-2">
             <a href="{% if expense %}{% url 'dashboard:expense_detail' expense.pk %}{% else %}{% url 'dashboard:expense_list' %}{% endif %}" class="btn-secondary">Cancel</a>
             <button type="submit" class="btn-primary">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                 </svg>
                 {% if expense %}Update Expense{% else %}Create Expense{% endif %}

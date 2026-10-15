@@ -3,26 +3,29 @@
 {% block title %}Table {{ table.number }} - Menu{% endblock %}
 
 {% block content %}
-<div x-data="orderingApp()" class="min-h-screen pb-32">
+<div x-data="orderingApp()" class="min-h-screen pb-40">
     <!-- Header -->
-    <header class="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
-        <div class="px-4 py-3">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-lg font-bold text-slate-800">{{ business.business_name }}</h1>
-                    <div class="flex items-center gap-2 text-sm text-slate-500">
-                        <span>Table {{ table.number }}{% if table.name %} - {{ table.name }}{% endif %}</span>
-                        <span class="text-slate-300">|</span>
-                        <a href="{% url 'ordering:change_seat' table_uuid=table.uuid %}" class="inline-flex items-center gap-1 text-indigo-600 font-medium">
+    <header class="sticky top-0 z-40 bg-[#F3F3F1]/85 backdrop-blur-md">
+        <div class="px-4 pt-4 pb-2 max-w-md mx-auto">
+            <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <h1 class="kf-hello !text-[24px] truncate">{{ business.business_name }}</h1>
+                    <div class="flex items-center gap-1.5 mt-1 text-[13px] text-slate-600 min-w-0">
+                        <span class="truncate">Table {{ table.number }}{% if table.name %} - {{ table.name }}{% endif %}</span>
+                        {% if current_seat %}
+                        <a href="{% url 'ordering:change_seat' table_uuid=table.uuid %}" class="kf-tag w flex-none !py-1">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
                             </svg>
                             Seat {{ current_seat }}
                         </a>
+                        {% else %}
+                        <a href="{% url 'ordering:landing' table_uuid=table.uuid %}" class="kf-tag w flex-none !py-1">Home</a>
+                        {% endif %}
                     </div>
                 </div>
-                <a href="{% url 'ordering:call_waiter' table_uuid=table.uuid %}" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-100 text-amber-700 text-sm font-semibold">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <a href="{% url 'ordering:call_waiter' table_uuid=table.uuid %}" class="flex-none inline-flex items-center gap-2 h-11 px-4 rounded-full bg-slate-800 text-white text-[13px]">
+                    <svg class="w-4 h-4 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                     </svg>
                     Call Waiter
@@ -31,20 +34,20 @@
         </div>
 
         <!-- Category Tabs -->
-        <div class="px-4 pb-3 overflow-x-auto hide-scrollbar">
-            <div class="flex gap-2">
+        <div class="px-4 pb-3 max-w-md mx-auto">
+            <div class="kf-seg hide-scrollbar !flex !flex-nowrap w-full">
                 <button
                     @click="selectedCategory = null"
-                    :class="selectedCategory === null ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700'"
-                    class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                    :class="selectedCategory === null ? 'active' : ''"
+                    class="!py-2.5 transition-colors"
                 >
                     All
                 </button>
                 {% for category in categories %}
                 <button
                     @click="selectedCategory = {{ category.pk }}"
-                    :class="selectedCategory === {{ category.pk }} ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-700'"
-                    class="px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all"
+                    :class="selectedCategory === {{ category.pk }} ? 'active' : ''"
+                    class="!py-2.5 transition-colors"
                 >
                     {{ category.name }}
                 </button>
@@ -54,40 +57,53 @@
     </header>
 
     <!-- Menu Items -->
-    <main class="p-4 space-y-6">
+    <main class="px-4 pt-1 space-y-4 max-w-md mx-auto">
+        {% if guest_waiting and current_order %}
+        <a href="{% url 'ordering:order_detail' table_uuid=table.uuid order_uuid=current_order.uuid %}" class="kf-card !bg-amber-50 p-3 flex items-center gap-3">
+            <span class="kf-ic is-yellow flex-none"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+            <span class="text-sm text-slate-800">Your order is waiting for a staff member to confirm you're at the table. <span class="underline">See status</span></span>
+        </a>
+        {% endif %}
         {% for category in categories %}
         <div x-show="selectedCategory === null || selectedCategory === {{ category.pk }}">
-            <h2 class="text-lg font-bold text-slate-800 mb-3">{{ category.name }}</h2>
-            <div class="space-y-3">
+            <h2 class="kf-h mb-2 px-1">{{ category.name }}</h2>
+            <div class="space-y-2">
                 {% for item in category.items.all %}
                 {% if item.is_available %}
                 <div
                     @click="showItemDetail({{ item.pk }}, '{{ item.name|escapejs }}', {{ item.base_price }}, '{{ item.description|escapejs }}', '{{ item.food_type }}', '{% if item.image %}{{ item.image.url }}{% endif %}')"
-                    class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex gap-4 cursor-pointer active:scale-[0.98] transition-transform"
+                    class="kf-card !rounded-[24px] p-3 flex gap-3 cursor-pointer active:scale-[0.98] transition-transform"
                 >
                     <!-- Item Info -->
-                    <div class="flex-1 min-w-0">
+                    <div class="flex-1 min-w-0 flex flex-col">
                         <div class="flex items-center gap-2 mb-1">
                             <!-- Food Type Indicator -->
-                            <span class="food-indicator {% if item.food_type == 'veg' %}veg{% elif item.food_type == 'non_veg' %}non-veg{% else %}egg{% endif %}">
+                            <span class="food-indicator flex-none {% if item.food_type == 'veg' %}veg{% elif item.food_type == 'non_veg' %}non-veg{% else %}egg{% endif %}">
                                 <span></span>
                             </span>
-                            <h3 class="font-semibold text-slate-800 truncate">{{ item.name }}</h3>
+                            <h3 class="text-[15px] text-slate-900 truncate">{{ item.name }}</h3>
                         </div>
                         {% if item.description %}
-                        <p class="text-sm text-slate-500 line-clamp-2 mb-2">{{ item.description }}</p>
+                        <p class="text-[13px] text-slate-600 line-clamp-2 mb-2">{{ item.description }}</p>
                         {% endif %}
-                        <p class="text-lg font-bold text-indigo-600">{{ item.base_price }}</p>
+                        <div class="mt-auto flex items-center justify-between gap-2">
+                            <p class="text-[17px] font-light tabular">{{ item.base_price }}</p>
+                            <span class="w-9 h-9 rounded-full bg-slate-800 text-amber-300 flex items-center justify-center" aria-hidden="true">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                </svg>
+                            </span>
+                        </div>
                     </div>
 
                     <!-- Item Image -->
                     {% if item.image %}
-                    <div class="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
+                    <div class="w-24 h-24 rounded-[18px] overflow-hidden flex-shrink-0">
                         <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-full h-full object-cover">
                     </div>
                     {% else %}
-                    <div class="w-24 h-24 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex-shrink-0 flex items-center justify-center">
-                        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="w-24 h-24 rounded-[18px] bg-white flex-shrink-0 flex items-center justify-center">
+                        <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                         </svg>
                     </div>
@@ -110,38 +126,39 @@
         <div class="absolute inset-0 bg-black/50" @click="showModal = false"></div>
 
         <!-- Bottom Sheet -->
-        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[80vh] overflow-hidden">
-            <div class="p-4 border-b border-slate-100">
-                <div class="w-12 h-1 bg-slate-300 rounded-full mx-auto"></div>
+        <div class="bottom-sheet absolute bottom-0 left-0 right-0 bg-white rounded-t-[28px] max-h-[80vh] overflow-hidden max-w-md mx-auto">
+            <div class="pt-3 pb-2">
+                <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto"></div>
             </div>
 
-            <div class="p-4 overflow-y-auto max-h-[60vh]">
+            <div class="px-5 pb-2 overflow-y-auto max-h-[60vh]">
                 <!-- Item Image -->
-                <div x-show="selectedItem.image" class="w-full h-48 rounded-2xl overflow-hidden mb-4">
+                <div x-show="selectedItem.image" class="w-full h-48 rounded-[22px] overflow-hidden mb-4">
                     <img :src="selectedItem.image" :alt="selectedItem.name" class="w-full h-full object-cover">
                 </div>
 
                 <!-- Item Info -->
-                <div class="flex items-start gap-2 mb-2">
-                    <span class="food-indicator" :class="selectedItem.food_type === 'veg' ? 'veg' : (selectedItem.food_type === 'non_veg' ? 'non-veg' : 'egg')">
+                <div class="flex items-start gap-2 mb-1">
+                    <span class="food-indicator flex-none mt-1.5" :class="selectedItem.food_type === 'veg' ? 'veg' : (selectedItem.food_type === 'non_veg' ? 'non-veg' : 'egg')">
                         <span></span>
                     </span>
-                    <h3 class="text-xl font-bold text-slate-800" x-text="selectedItem.name"></h3>
+                    <h3 class="text-[22px] font-light leading-tight tracking-tight text-slate-900" x-text="selectedItem.name"></h3>
                 </div>
-                <p class="text-slate-500 mb-4" x-text="selectedItem.description"></p>
-                <p class="text-2xl font-bold text-indigo-600 mb-6" x-text="'₹' + selectedItem.price"></p>
+                <p class="text-sm text-slate-600 mb-3" x-text="selectedItem.description"></p>
+                <p class="text-[26px] font-light tabular mb-4" x-text="'₹' + selectedItem.price"></p>
 
+                {% if not browse_only %}
                 <!-- Quantity Selector -->
-                <div class="flex items-center justify-between mb-6">
-                    <span class="text-sm font-medium text-slate-700">Quantity</span>
-                    <div class="flex items-center gap-4">
-                        <button @click="quantity > 1 ? quantity-- : null" class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
+                <div class="flex items-center justify-between mb-4 bg-slate-50 rounded-full p-1.5 pl-4">
+                    <span class="text-sm text-slate-700">Quantity</span>
+                    <div class="flex items-center gap-2">
+                        <button @click="quantity > 1 ? quantity-- : null" class="w-11 h-11 rounded-full bg-white flex items-center justify-center text-slate-700" aria-label="Decrease quantity">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
                             </svg>
                         </button>
-                        <span class="text-xl font-bold text-slate-800 w-8 text-center" x-text="quantity"></span>
-                        <button @click="quantity++" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white">
+                        <span class="text-xl font-light text-slate-900 w-8 text-center tabular" x-text="quantity"></span>
+                        <button @click="quantity++" class="w-11 h-11 rounded-full bg-slate-800 flex items-center justify-center text-amber-300" aria-label="Increase quantity">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
@@ -150,19 +167,27 @@
                 </div>
 
                 <!-- Special Instructions -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-slate-700 mb-2">Special Instructions (optional)</label>
+                <div class="mb-3">
+                    <label class="kf-label">Special Instructions (optional)</label>
                     <textarea
                         x-model="specialInstructions"
                         placeholder="e.g., No onions, extra spicy..."
-                        class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        class="kf-input text-sm"
                         rows="2"
                     ></textarea>
                 </div>
+                {% endif %}
             </div>
 
             <!-- Add to Order Button -->
-            <div class="p-4 border-t border-slate-100 bg-white">
+            <div class="px-5 pt-3 pb-5 bg-white">
+                {% if browse_only %}
+                {% if ordering_enabled %}
+                <a href="{% url 'ordering:select_seat' table_uuid=table.uuid %}" class="btn-yellow w-full !h-14 !text-base">Choose your seat to order</a>
+                {% else %}
+                <p class="text-center text-sm text-slate-600">Please order with a staff member.</p>
+                {% endif %}
+                {% else %}
                 <form method="POST" action="{% url 'ordering:add_item' table_uuid=table.uuid %}">
                     {% csrf_token %}
                     <input type="hidden" name="menu_item" :value="selectedItem.id">
@@ -170,17 +195,18 @@
                     <input type="hidden" name="special_instructions" :value="specialInstructions">
                     <button
                         type="submit"
-                        class="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-lg shadow-lg"
+                        class="btn-yellow w-full !h-14 !text-base"
                     >
                         Add to Order - <span x-text="'₹' + (selectedItem.price * quantity).toFixed(2)"></span>
                     </button>
                 </form>
+                {% endif %}
             </div>
         </div>
     </div>
 
     <!-- Start Order Modal (if no current order) -->
-    {% if not current_order %}
+    {% if not current_order and not browse_only %}
     <div
         x-show="showStartOrderModal"
         x-cloak
@@ -188,30 +214,30 @@
         style="display: none;"
     >
         <div class="absolute inset-0 bg-black/50" @click="showStartOrderModal = false"></div>
-        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl">
-            <div class="p-4 border-b border-slate-100">
-                <div class="w-12 h-1 bg-slate-300 rounded-full mx-auto"></div>
+        <div class="bottom-sheet absolute bottom-0 left-0 right-0 bg-white rounded-t-[28px] max-w-md mx-auto">
+            <div class="pt-3 pb-2">
+                <div class="w-10 h-1 bg-slate-300 rounded-full mx-auto"></div>
             </div>
-            <form method="POST" action="{% url 'ordering:create_order' table_uuid=table.uuid %}" class="p-6">
+            <form method="POST" action="{% url 'ordering:create_order' table_uuid=table.uuid %}" class="px-5 pb-5 pt-2">
                 {% csrf_token %}
-                <h3 class="text-xl font-bold text-slate-800 mb-4">Start Your Order</h3>
+                <h3 class="text-[22px] font-light tracking-tight text-slate-900 mb-3">Start Your Order</h3>
 
                 {% if require_customer_info %}
-                <div class="space-y-4 mb-6">
+                <div class="space-y-3 mb-5">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">Your Name *</label>
-                        <input type="text" name="customer_name" required placeholder="Enter your name" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <label class="kf-label">Your Name *</label>
+                        <input type="text" name="customer_name" required placeholder="Enter your name" class="kf-input !h-12">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">Phone Number *</label>
-                        <input type="tel" name="customer_phone" required placeholder="Enter your phone" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <label class="kf-label">Phone Number *</label>
+                        <input type="tel" name="customer_phone" required placeholder="Enter your phone" class="kf-input !h-12">
                     </div>
                 </div>
                 {% else %}
-                <p class="text-slate-500 mb-6">Tap below to start adding items to your order.</p>
+                <p class="text-sm text-slate-600 mb-5">Tap below to start adding items to your order.</p>
                 {% endif %}
 
-                <button type="submit" class="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-lg shadow-lg">
+                <button type="submit" class="btn-yellow w-full !h-14 !text-base">
                     Start Order
                 </button>
             </form>
@@ -220,43 +246,64 @@
     {% endif %}
 
     <!-- Bottom Cart Bar -->
-    {% if current_order and current_order.items.exists %}
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40">
-        <div class="flex items-center justify-between mb-3">
-            <div>
-                <p class="text-sm text-slate-500">{{ current_order.items.count }} items</p>
-                <p class="text-xl font-bold text-slate-800">{{ current_order.subtotal }}</p>
+    {% if current_order and new_items %}
+    <div class="fixed bottom-0 left-0 right-0 px-3 z-40" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
+        <div class="kf-dcard kf-glow-dark max-w-md mx-auto p-3 pl-5 shadow-[0_18px_40px_rgba(30,30,40,0.28)]">
+            <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="text-xs text-slate-400">{{ new_items|length }} new item{{ new_items|length|pluralize }}{% if ordered_items %} · bill so far {{ current_order.subtotal }}{% endif %}</p>
+                    <p class="text-[22px] font-light leading-tight tabular">{{ new_items_total }}</p>
+                </div>
+                <form method="POST" action="{% url 'ordering:submit_order' table_uuid=table.uuid %}" x-data="placeOrder()" @submit.prevent="send($el)">
+                    {% csrf_token %}
+                    <input type="hidden" name="lat"><input type="hidden" name="lng"><input type="hidden" name="accuracy">
+                    <button type="submit" class="btn-yellow !h-12 !px-6" :disabled="busy">
+                        <span x-show="!busy">{% if ordered_items %}Order these{% else %}Place Order{% endif %}</span>
+                        <span x-show="busy" x-cloak>Sending…</span>
+                    </button>
+                </form>
             </div>
-            <form method="POST" action="{% url 'ordering:submit_order' table_uuid=table.uuid %}">
-                {% csrf_token %}
-                <button type="submit" class="px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-lg">
-                    Place Order
-                </button>
-            </form>
-        </div>
 
-        <!-- Cart Items Preview -->
-        <div class="space-y-2">
-            {% for item in current_order.items.all %}
-            <div class="flex items-center justify-between text-sm">
-                <span class="text-slate-600">{{ item.quantity }}x {{ item.item_name }}</span>
-                <span class="font-medium text-slate-800">{{ item.total_price }}</span>
+            <!-- This round -->
+            <div class="space-y-1 max-h-28 overflow-y-auto mt-2 pt-2 pr-2 border-t border-white/10">
+                {% for item in new_items %}
+                <div class="flex items-center justify-between gap-2 text-[13px]">
+                    <span class="text-slate-300 truncate">{{ item.quantity }}x {{ item.item_name }}</span>
+                    <span class="tabular">{{ item.total_price }}</span>
+                </div>
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
     </div>
+    {% elif current_order and ordered_items %}
+    <!-- Already ordered: nothing new in the cart -->
+    <div class="fixed bottom-0 left-0 right-0 px-3 z-40" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
+        <div class="kf-dcard max-w-md mx-auto p-3 pl-5 flex items-center justify-between gap-3 shadow-[0_18px_40px_rgba(30,30,40,0.28)]">
+            <div class="min-w-0">
+                <p class="text-xs text-slate-400">{{ ordered_items|length }} item{{ ordered_items|length|pluralize }} ordered · tap a dish to order more</p>
+                <p class="text-[22px] font-light leading-tight tabular">{{ current_order.subtotal }}</p>
+            </div>
+            <a href="{% url 'ordering:order_detail' table_uuid=table.uuid order_uuid=current_order.uuid %}" class="btn-secondary !h-12 !px-5 !bg-white/10 !text-white hover:!bg-white/20">Track order</a>
+        </div>
+    </div>
+    {% elif browse_only %}
+    {% if ordering_enabled %}
+    <div class="fixed bottom-0 left-0 right-0 px-3 z-40" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
+        <a href="{% url 'ordering:select_seat' table_uuid=table.uuid %}" class="btn-yellow w-full max-w-md mx-auto flex !h-14 !text-base shadow-[0_18px_40px_rgba(30,30,40,0.22)]">Start ordering</a>
+    </div>
+    {% endif %}
     {% elif not current_order %}
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40">
+    <div class="fixed bottom-0 left-0 right-0 px-3 z-40" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
         <button
             @click="showStartOrderModal = true"
-            class="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-lg shadow-lg"
+            class="btn-yellow w-full max-w-md mx-auto flex !h-14 !text-base shadow-[0_18px_40px_rgba(30,30,40,0.22)]"
         >
             Start New Order
         </button>
     </div>
     {% else %}
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 z-40">
-        <p class="text-center text-slate-500 text-sm">Tap on items above to add to your order</p>
+    <div class="fixed bottom-0 left-0 right-0 px-3 z-40" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
+        <p class="max-w-md mx-auto text-center text-slate-700 text-[13px] bg-white/85 backdrop-blur rounded-full py-3 px-4">Tap on items above to add to your order</p>
     </div>
     {% endif %}
 </div>
@@ -274,7 +321,7 @@ function orderingApp() {
         specialInstructions: '',
 
         showItemDetail(id, name, price, description, food_type, image) {
-            {% if current_order %}
+            {% if current_order or browse_only %}
             this.selectedItem = { id, name, price, description, food_type, image };
             this.quantity = 1;
             this.specialInstructions = '';
@@ -284,6 +331,33 @@ function orderingApp() {
             {% endif %}
         }
     }
+}
+
+// Place order: share location (if the outlet uses it) so the order goes
+// straight to the kitchen; otherwise a staff member confirms at the table
+function placeOrder() {
+    return {
+        busy: false,
+        send(form) {
+            if (this.busy) return;
+            this.busy = true;
+            const submit = () => form.submit();
+            {% if location_enabled %}
+            if (!navigator.geolocation) { submit(); return; }
+            let done = false;
+            const finish = () => { if (!done) { done = true; submit(); } };
+            setTimeout(finish, 8000);
+            navigator.geolocation.getCurrentPosition((pos) => {
+                form.lat.value = pos.coords.latitude;
+                form.lng.value = pos.coords.longitude;
+                form.accuracy.value = Math.round(pos.coords.accuracy || 0);
+                finish();
+            }, finish, { enableHighAccuracy: true, timeout: 7000, maximumAge: 60000 });
+            {% else %}
+            submit();
+            {% endif %}
+        },
+    };
 }
 </script>
 {% endblock %}

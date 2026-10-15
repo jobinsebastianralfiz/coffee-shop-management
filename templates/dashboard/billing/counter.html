@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+
+{% block title %}Billing Counter{% endblock %}
+{% block page_title %}Billing Counter{% endblock %}
+
+{% block content %}
+{% url 'dashboard:billing_counter' as counter_url %}
+<div class="lg:h-full grid grid-cols-1 lg:grid-cols-5 lg:grid-rows-1 gap-4">
+
+    <!-- Open bills -->
+    <section class="lg:col-span-2 kf-card p-4 flex flex-col gap-3 min-w-0 lg:min-h-0" aria-label="Open bills">
+        <form method="get" class="flex items-center gap-2">
+            <label for="billSearch" class="sr-only">Bill number or table</label>
+            <div class="relative flex-1 min-w-0">
+                <svg class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <input id="billSearch" name="q" value="{{ query }}" autocomplete="off" {% if not selected %}autofocus{% endif %}
+                       placeholder="Bill no., table or phone"
+                       class="w-full h-11 pl-10 pr-4 !rounded-full border border-slate-200 bg-white text-sm">
+            </div>
+            <button type="submit" class="btn-primary !h-11 !px-4 !text-[13px]">Find</button>
+            {% if query %}<a href="{{ counter_url }}" class="btn-secondary !h-11 !px-4 !text-[13px]">Clear</a>{% endif %}
+        </form>
+
+        <div class="flex items-center justify-between">
+            <h2 class="kf-h">Open bills</h2>
+            <span class="text-xs text-slate-600">{{ bills|length }} to collect · <a href="{% url 'dashboard:daily_collections' %}" class="underline underline-offset-2">Today's collections & tips</a></span>
+        </div>
+
+        <!-- Screen facing the guest -->
+        <div class="flex items-center gap-2 rounded-[18px] bg-white/60 px-3 py-2">
+            <span class="kf-ic is-sm is-soft"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg></span>
+            <span class="flex-1 min-w-0 text-[13px] text-slate-700">Customer screen shows the bill you open</span>
+            <a href="{% url 'dashboard:customer_display' %}" target="kafferoCustomerDisplay" class="btn-secondary !h-8 !px-3 !text-[12px] !bg-white">Open</a>
+            <form method="post" action="{% url 'dashboard:customer_display_clear' %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ counter_url }}">
+                <button type="submit" class="btn-secondary !h-8 !px-3 !text-[12px] !bg-white">Clear</button>
+            </form>
+        </div>
+
+        <div class="space-y-2 lg:flex-1 lg:min-h-0 lg:overflow-y-auto -mx-1 px-1">
+            {% for bill in bills %}
+            <a href="{{ counter_url }}?order={{ bill.pk }}{% if query %}&q={{ query|urlencode }}{% endif %}"
+               class="block rounded-[20px] px-4 py-3 transition-colors {% if selected and selected.pk == bill.pk %}bg-slate-800 text-white{% else %}bg-white/70 hover:bg-white{% endif %}">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-sm truncate">
+                            {% if bill.table %}Table {{ bill.all_table_numbers|default:bill.table.number }}{% else %}{{ bill.get_order_type_display }}{% endif %}
+                            {% if bill.party_name %}<span class="{% if selected and selected.pk == bill.pk %}text-slate-300{% else %}text-slate-600{% endif %}"> · {{ bill.party_name }}</span>{% endif %}
+                        </p>
+                        <p class="text-xs tabular {% if selected and selected.pk == bill.pk %}text-slate-300{% else %}text-slate-500{% endif %}">#{{ bill.order_number }}</p>
+                    </div>
+                    <p class="text-lg font-light tabular leading-tight">{{ currency_symbol }}{{ bill.counter_due|floatformat:2 }}</p>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                    {% if bill.paying_online %}<span class="kf-tag g !text-[11px] !py-0">Paying online…</span>{% endif %}
+                    {% if bill.bill_printed_at %}
+                    <span class="kf-tag y !text-[11px] !py-0">Bill given · {{ bill.bill_printed_at|timesince|cut:" " }} ago</span>
+                    {% else %}
+                    <span class="kf-tag {% if bill.status == 'served' %}w{% else %}s{% endif %} !text-[11px] !py-0">{% if bill.status == 'served' %}Eating{% else %}{{ bill.get_status_display }}{% endif %}</span>
+                    {% endif %}
+                </div>
+            </a>
+            {% empty %}
+            <div class="kf-empty">
+                <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"></path></svg></span>
+                <b>{% if query %}No open bill matches “{{ query }}”{% else %}No bills waiting{% endif %}</b>
+                <span>{% if query %}Check the bill number or table{% else %}Bills appear here once guests have ordered{% endif %}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Checkout -->
+    <section class="lg:col-span-3 kf-card p-4 sm:p-5 flex flex-col gap-4 min-w-0 lg:min-h-0 lg:overflow-y-auto" aria-label="Checkout"
+             x-data="counterCheckout({{ amount_due|default:0|stringformat:'.2f' }})">
+        {% if just_paid and not selected %}
+        <div class="kf-dcard kf-glow-dark p-5 flex flex-wrap items-center justify-between gap-3" role="status">
+            <div>
+                <p class="text-sm text-slate-300">Payment collected</p>
+                <p class="text-xl font-light">Bill closed and table freed</p>
+            </div>
+            <a href="{% url 'dashboard:order_print' pk=just_paid %}" target="_blank" class="btn-yellow">Print receipt</a>
+        </div>
+        {% endif %}
+
+        {% if selected %}
+        <!-- Bill header -->
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+                <p class="text-xs text-slate-600 tabular">Bill #{{ selected.order_number }}</p>
+                <h2 class="text-2xl font-light leading-tight">
+                    {% if selected.table %}Table {{ selected.all_table_numbers|default:selected.table.number }}{% else %}{{ selected.get_order_type_display }}{% endif %}
+                    {% if selected.party_name %}<span class="text-slate-500"> · {{ selected.party_name }}</span>{% endif %}
+                </h2>
+                {% if selected.customer_name or selected.customer_phone %}<p class="text-xs text-slate-600 mt-0.5">{{ selected.customer_name }} {{ selected.customer_phone }}</p>{% endif %}
+            </div>
+            <div class="kf-actions" x-data="{ copied: false }">
+                {% if online_pay %}
+                <button type="button" class="btn-secondary !h-9 !px-4 !text-[13px]"
+                        @click="navigator.clipboard && navigator.clipboard.writeText('{{ pay_url|escapejs }}').then(() => { copied = true; setTimeout(() => copied = false, 2000) })"
+                        x-text="copied ? 'Link copied' : 'Copy pay link'">Copy pay link</button>
+                <a class="btn-secondary !h-9 !px-4 !text-[13px]" target="_blank" rel="noopener"
+                   href="https://wa.me/{% if selected.customer_phone %}{{ selected.customer_phone|cut:' '|cut:'+'|cut:'-' }}{% endif %}?text={{ 'Your bill at '|urlencode }}{{ request.get_host|urlencode }}{{ ': '|urlencode }}{{ pay_url|urlencode }}">WhatsApp link</a>
+                {% endif %}
+                <a href="{% url 'dashboard:order_print' pk=selected.pk %}" target="_blank" class="btn-secondary !h-9 !px-4 !text-[13px]">Print bill</a>
+                <a href="{% url 'dashboard:order_detail' pk=selected.pk %}" class="btn-secondary !h-9 !px-4 !text-[13px]">Open order</a>
+            </div>
+        </div>
+
+        {% if online_pay %}
+        <!-- Guest at the counter scans this to pay (and tip) on their own phone -->
+        <div x-data="{ showQr: false }">
+            <button type="button" @click="showQr = !showQr" class="w-full flex items-center justify-between gap-3 rounded-[22px] bg-white/60 hover:bg-white/80 px-4 py-3 transition-colors" :aria-expanded="showQr">
+                <span class="text-sm"><b class="font-medium">Show QR</b> <span class="text-slate-600">· guest scans to pay by UPI, card or wallet and add a tip</span></span>
+                <span class="kf-ic is-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg></span>
+            </button>
+            <div x-show="showQr" x-cloak class="mt-2 rounded-[22px] bg-white p-5 flex flex-col items-center gap-2 text-center">
+                <img src="{% url 'payments:pay_qr' order_uuid=selected.uuid %}" alt="QR code to pay bill {{ selected.order_number }}" class="w-56 h-56">
+                <p class="text-sm text-slate-700">Scan with your phone camera to pay {{ currency_symbol }}{{ amount_due|floatformat:2 }}</p>
+                <p class="text-xs text-slate-500">This screen closes the bill automatically once the payment comes through.</p>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-xs text-slate-600 px-1 -mt-1">
+            To send guests a pay link or QR (UPI, card, wallet + tip), add your Razorpay keys in
+            <a href="{% url 'dashboard:payment_settings' %}" class="underline underline-offset-2">Settings → Payment Gateway</a>.
+        </p>
+        {% endif %}
+
+        {% if unsent_count %}
+        <div class="rounded-2xl bg-amber-100 px-4 py-3 text-sm text-slate-800" role="alert">
+            {{ unsent_count }} item{{ unsent_count|pluralize }} on this bill {{ unsent_count|pluralize:"has,have" }} not gone to the kitchen.
+            <a href="{% url 'dashboard:order_detail' pk=selected.pk %}" class="underline underline-offset-2">Open the order</a> to send or remove {{ unsent_count|pluralize:"it,them" }} before collecting.
+        </div>
+        {% endif %}
+
+        <!-- Items -->
+        <div class="rounded-[22px] bg-white/70 divide-y divide-slate-100">
+            {% for item in items %}
+            <div class="flex items-center gap-3 px-4 py-2.5 text-sm {% if item.status == 'cancelled' %}opacity-50{% endif %}">
+                <span class="w-7 text-slate-600 tabular">{{ item.quantity }}×</span>
+                <span class="flex-1 min-w-0 truncate {% if item.status == 'cancelled' %}line-through{% endif %}">{{ item.item_name }}{% if item.variant_name %} ({{ item.variant_name }}){% endif %}</span>
+                {% if item.status == 'cancelled' %}<span class="kf-tag r !text-[11px] !py-0">Void</span>{% endif %}
+                <span class="tabular {% if item.status == 'cancelled' %}line-through{% endif %}">{{ currency_symbol }}{{ item.total_price }}</span>
+            </div>
+            {% endfor %}
+            {% for sale in retail_sales %}{% for ri in sale.items.all %}
+            <div class="flex items-center gap-3 px-4 py-2.5 text-sm">
+                <span class="w-7 text-slate-600 tabular">{{ ri.quantity|floatformat:"-2" }}×</span>
+                <span class="flex-1 min-w-0 truncate">{{ ri.product_name }}</span>
+                <span class="kf-tag s !text-[11px] !py-0">Shop</span>
+                <span class="tabular">{{ currency_symbol }}{{ ri.total|floatformat:2 }}</span>
+            </div>
+            {% endfor %}{% endfor %}
+        </div>
+
+        <!-- Add counter purchases -->
+        <div class="rounded-[22px] bg-white/50 p-3" x-data="{ open: false, tab: 'menu', q: '' }">
+            <button type="button" @click="open = !open; $nextTick(() => open && $refs.find.focus())" class="w-full flex items-center justify-between gap-3 px-1" :aria-expanded="open">
+                <span class="text-sm"><b class="font-medium">Add item</b> <span class="text-slate-600">· sweets, snacks or anything picked up at the counter</span></span>
+                <span class="kf-ic is-sm is-yellow"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg></span>
+            </button>
+            <div x-show="open" x-cloak class="mt-3 space-y-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="kf-seg">
+                        <button type="button" :class="tab === 'menu' && 'active'" @click="tab = 'menu'">Menu</button>
+                        {% if counter_products %}<button type="button" :class="tab === 'shop' && 'active'" @click="tab = 'shop'">Shop products</button>{% endif %}
+                    </div>
+                    <input x-ref="find" x-model="q" type="search" placeholder="Search…" aria-label="Search items" class="flex-1 min-w-[140px] h-10 px-4 !rounded-full border border-slate-200 bg-white text-sm">
+                </div>
+                <div x-show="tab === 'menu'" class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+                    {% for mi in counter_menu %}
+                    <form method="post" action="{% url 'dashboard:order_add_item' pk=selected.pk %}" x-show="!q || '{{ mi.name|lower|escapejs }}'.includes(q.toLowerCase())">
+                        {% csrf_token %}
+                        <input type="hidden" name="menu_item" value="{{ mi.pk }}">
+                        <input type="hidden" name="quantity" value="1">
+                        <input type="hidden" name="direct" value="1">
+                        <input type="hidden" name="next" value="{{ counter_url }}?order={{ selected.pk }}">
+                        <button type="submit" class="w-full text-left rounded-2xl bg-white hover:bg-amber-50 px-3 py-2.5 transition-colors">
+                            <span class="block text-sm truncate">{{ mi.name }}</span>
+                            <span class="block text-xs text-slate-600 tabular">{{ currency_symbol }}{{ mi.base_price }}</span>
+                        </button>
+                    </form>
+                    {% endfor %}
+                </div>
+                {% if counter_products %}
+                <div x-show="tab === 'shop'" x-cloak class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+                    {% for p in counter_products %}
+                    <form method="post" action="{% url 'dashboard:order_add_retail_item' pk=selected.pk %}" x-show="!q || '{{ p.name|lower|escapejs }} {{ p.sku|default:''|lower|escapejs }}'.includes(q.toLowerCase())">
+                        {% csrf_token %}
+                        <input type="hidden" name="product" value="{{ p.pk }}">
+                        <input type="hidden" name="quantity" value="1">
+                        <input type="hidden" name="next" value="{{ counter_url }}?order={{ selected.pk }}">
+                        <button type="submit" class="w-full text-left rounded-2xl bg-white hover:bg-amber-50 px-3 py-2.5 transition-colors" {% if p.track_inventory and p.current_stock <= 0 %}disabled{% endif %}>
+                            <span class="block text-sm truncate">{{ p.name }}</span>
+                            <span class="block text-xs text-slate-600 tabular">{{ currency_symbol }}{{ p.selling_price }}{% if p.track_inventory %} · {{ p.current_stock|floatformat:"-2" }} left{% endif %}</span>
+                        </button>
+                    </form>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Totals -->
+        <div class="space-y-1.5 text-sm px-1">
+            <div class="flex justify-between"><span class="text-slate-600">Food & drinks</span><span class="tabular">{{ currency_symbol }}{{ selected.subtotal }}</span></div>
+            {% if selected.discount_amount > 0 %}<div class="flex justify-between"><span class="text-slate-600">Discount</span><span class="tabular">−{{ currency_symbol }}{{ selected.discount_amount }}</span></div>{% endif %}
+            {% if selected.cgst_amount > 0 or selected.sgst_amount > 0 %}<div class="flex justify-between"><span class="text-slate-600">GST</span><span class="tabular">{{ currency_symbol }}{{ selected.tax_amount|floatformat:2 }}</span></div>{% endif %}
+            {% if selected.service_charge > 0 %}<div class="flex justify-between"><span class="text-slate-600">Service charge</span><span class="tabular">{{ currency_symbol }}{{ selected.service_charge }}</span></div>{% endif %}
+            {% if retail_sales %}<div class="flex justify-between"><span class="text-slate-600">Shop items (incl. tax)</span><span class="tabular">{{ currency_symbol }}{{ retail_due|floatformat:2 }}</span></div>{% endif %}
+            {% if paid_so_far > 0 %}<div class="flex justify-between"><span class="text-slate-600">Already paid</span><span class="tabular">−{{ currency_symbol }}{{ paid_so_far|floatformat:2 }}</span></div>{% endif %}
+            <div class="flex items-end justify-between pt-2 border-t border-slate-200/70">
+                <span class="text-slate-800">To collect</span>
+                <span class="text-4xl font-light tabular leading-none">{{ currency_symbol }}{{ amount_due|floatformat:2 }}</span>
+            </div>
+        </div>
+
+        <!-- Payment -->
+        <form method="post" action="{% url 'dashboard:order_payment' pk=selected.pk %}" class="space-y-3" @submit="submitting = true">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ counter_url }}">
+            <input type="hidden" name="method" :value="method">
+            <input type="hidden" name="include_retail" value="{% if retail_sales %}true{% endif %}">
+
+            <div class="kf-seg !flex w-full" role="radiogroup" aria-label="Payment method">
+                {% for value, label in payment_methods %}
+                <button type="button" class="flex-1 justify-center !py-2.5" role="radio" :aria-checked="method === '{{ value }}'" :class="method === '{{ value }}' && 'active'" @click="method = '{{ value }}'">{{ label }}</button>
+                {% endfor %}
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="kf-label" for="payAmount">Amount</label>
+                    <input id="payAmount" name="amount" type="number" step="0.01" min="0.01" x-model.number="amount" class="kf-input tabular" required>
+                    <p class="text-xs text-slate-500 mt-1" x-show="amount < due - 0.005">Part payment: the rest stays on this bill.</p>
+                </div>
+                <div x-show="method === 'cash'">
+                    <label class="kf-label" for="tendered">Cash received</label>
+                    <input id="tendered" name="amount_tendered" type="number" step="0.01" x-model.number="tendered" class="kf-input tabular">
+                    <div class="flex gap-1.5 mt-1.5">
+                        <template x-for="note in quickCash" :key="note">
+                            <button type="button" class="kf-tag w hover:bg-amber-100" @click="tendered = note" x-text="'{{ currency_symbol }}' + note"></button>
+                        </template>
+                    </div>
+                </div>
+                <div x-show="method !== 'cash'" x-cloak>
+                    <label class="kf-label" for="txn">Reference / last 4 digits (optional)</label>
+                    <input id="txn" name="transaction_id" type="text" maxlength="100" class="kf-input">
+                </div>
+            </div>
+
+            <div x-show="method === 'cash' && tendered > 0" class="flex items-center justify-between rounded-2xl px-4 py-3"
+                 :class="change >= 0 ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'">
+                <span class="text-sm" x-text="change >= 0 ? 'Change to give' : 'Short by'"></span>
+                <span class="text-2xl font-light tabular" x-text="'{{ currency_symbol }}' + Math.abs(change).toFixed(2)"></span>
+            </div>
+
+            <button type="submit" class="btn-yellow w-full !h-14 !text-base" :disabled="submitting || amount <= 0 || (method === 'cash' && tendered > 0 && change < 0)">
+                <span x-text="submitting ? 'Collecting…' : 'Collect ' + '{{ currency_symbol }}' + Number(amount || 0).toFixed(2) + ' by ' + methodLabel"></span>
+            </button>
+        </form>
+        {% else %}
+        {% if not just_paid %}
+        <div class="kf-empty flex-1">
+            <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg></span>
+            <b>Pick a bill to collect</b>
+            <span>Type or scan the bill number from the guest's printed bill, or choose a table on the left.</span>
+        </div>
+        {% endif %}
+        {% endif %}
+    </section>
+</div>
+
+<script>
+{% if selected and online_pay %}
+// A guest may be paying online for the open bill: check every few seconds
+setInterval(async () => {
+    try {
+        const r = await fetch('{% url "payments:pay_status" order_uuid=selected.uuid %}', { credentials: 'same-origin' });
+        const d = await r.json();
+        if (d.paid) window.location.href = '{% url "dashboard:billing_counter" %}?paid={{ selected.pk }}';
+    } catch (e) { /* offline for a moment; try again next tick */ }
+}, 5000);
+{% endif %}
+
+// Keep the list current (online payments, new bills) while nobody is mid-checkout
+{% if not selected %}
+setTimeout(() => {
+    const field = document.getElementById('billSearch');
+    if (!field || (document.activeElement !== field && !field.value)) window.location.reload();
+}, 20000);
+{% endif %}
+
+function counterCheckout(due) {
+    const labels = { {% for value, label in payment_methods %}'{{ value }}': '{{ label|escapejs }}',{% endfor %} };
+    return {
+        due: due,
+        amount: due,
+        tendered: null,
+        method: 'cash',
+        submitting: false,
+        get change() { return (Number(this.tendered) || 0) - (Number(this.amount) || 0); },
+        get methodLabel() { return labels[this.method] || this.method; },
+        get quickCash() {
+            // Exact amount, then the next round notes a guest is likely to hand over
+            const a = Math.ceil(Number(this.amount) || 0);
+            const out = [a];
+            [100, 200, 500, 2000].forEach(n => { const v = Math.ceil(a / n) * n; if (v > a && !out.includes(v)) out.push(v); });
+            return out.slice(0, 4);
+        },
+    };
+}
+</script>
+{% endblock %}

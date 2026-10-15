@@ -23,6 +23,10 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv())
 
+# Public address guests reach the app on (used for bill QR codes and pay links,
+# so they work even when staff use the app on localhost). Empty = current host.
+PUBLIC_BASE_URL = config("PUBLIC_BASE_URL", default="")
+
 
 # =============================================================================
 # APPLICATION DEFINITION
@@ -62,6 +66,7 @@ LOCAL_APPS = [
     "apps.dashboard",
     "apps.ordering",
     "apps.finance",
+    "apps.retail",
     "apps.waiter",
     "apps.printing",
 ]
@@ -367,8 +372,11 @@ PLAN_NAME = config("PLAN_NAME", default="Basic")
 # Maximum outlets allowed (0 = unlimited)
 MAX_OUTLETS = config("MAX_OUTLETS", default=1, cast=int)
 
-# Maximum staff per outlet (0 = unlimited)
+# Maximum staff per outlet - includes waiter, kitchen, cashier (0 = unlimited)
 MAX_STAFF_PER_OUTLET = config("MAX_STAFF_PER_OUTLET", default=0, cast=int)
+
+# Maximum outlet managers per outlet (0 = unlimited)
+MAX_OUTLET_MANAGERS_PER_OUTLET = config("MAX_OUTLET_MANAGERS_PER_OUTLET", default=0, cast=int)
 
 # Maximum tables per outlet (0 = unlimited)
 MAX_TABLES_PER_OUTLET = config("MAX_TABLES_PER_OUTLET", default=0, cast=int)
@@ -379,6 +387,42 @@ PLAN_FEATURES = config(
     default="POS System,Menu Management,Order Management,Table Management,Basic Reports",
     cast=Csv(),
 )
+
+
+# =============================================================================
+# BUSINESS MODULE TOGGLES (Configurable per plan)
+# =============================================================================
+
+# Enable Cafe module (menu, orders, tables, kitchen display)
+ENABLE_CAFE = config("ENABLE_CAFE", default=True, cast=bool)
+
+# Enable Retail module (retail products, barcode scanning, retail POS)
+ENABLE_RETAIL = config("ENABLE_RETAIL", default=False, cast=bool)
+
+# Enable Wholesale module (B2B customers, credit management, invoicing)
+ENABLE_WHOLESALE = config("ENABLE_WHOLESALE", default=False, cast=bool)
+
+
+# =============================================================================
+# BARCODE SETTINGS
+# =============================================================================
+
+# Country prefix for EAN-13 barcodes (869 = India)
+BARCODE_PREFIX = config("BARCODE_PREFIX", default="869")
+
+# Default barcode type (EAN13, CODE128, QR)
+DEFAULT_BARCODE_TYPE = config("DEFAULT_BARCODE_TYPE", default="EAN13")
+
+
+# =============================================================================
+# WHOLESALE SETTINGS
+# =============================================================================
+
+# Default payment terms in days for wholesale customers
+DEFAULT_PAYMENT_TERMS_DAYS = config("DEFAULT_PAYMENT_TERMS_DAYS", default=30, cast=int)
+
+# Default credit limit for new wholesale customers (0 = no credit)
+DEFAULT_CREDIT_LIMIT = config("DEFAULT_CREDIT_LIMIT", default=0, cast=float)
 
 
 # =============================================================================

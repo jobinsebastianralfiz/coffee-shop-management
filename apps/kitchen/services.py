@@ -21,6 +21,8 @@ def get_order_data(order):
             "special_instructions": item.special_instructions,
             "status": item.status,
             "addons": item.addons,
+            "station_id": item.station_id,
+            "station_name": item.station.name if item.station_id else None,
         })
 
     # Get time elapsed since order creation
@@ -173,7 +175,7 @@ def get_kitchen_orders():
         created_at__date=today
     ).select_related(
         "table", "created_by", "kitchen_ticket", "kitchen_ticket__assigned_to"
-    ).prefetch_related("items__menu_item")
+    ).prefetch_related("items__menu_item", "items__station")
 
     return {
         "pending": base_queryset.filter(status=Order.Status.CONFIRMED).order_by("created_at"),
@@ -280,3 +282,112 @@ def set_order_priority(order, priority, user=None):
     broadcast_priority_changed(order, old_priority, priority, user)
 
     return True, f"Priority changed to {priority}"
+
+
+# ---------------------------------------------------------------------------
+# Per-station actions (kitchen display filtered to one station)
+# ---------------------------------------------------------------------------
+
+DONE_ITEM_STATUSES = ("ready", "served")
+
+
+def station_column(order, station_id):
+    """
+    Kitchen display column ("pending", "preparing", "ready") for one station's
+    view of an order, or None if the station has nothing on it.
+    Mirrors stationColumn() in static/js/kitchen-websocket.js.
+    """
+    from apps.orders.models import Order, OrderItem
+
+    # Items served in an earlier round are done with; only this round counts
+    items = [i for i in order.items.all() if i.status not in (OrderItem.Status.CANCELLED, OrderItem.Status.SERVED)]
+    mine = [i for i in items if i.station_id == station_id]
+    if not mine:
+        return None
+    if order.status == Order.Status.READY or all(i.status in DONE_ITEM_STATUSES for i in mine):
+        return "ready"
+    if any(i.status == OrderItem.Status.PREPARING for i in mine):
+        return "preparing"
+    # Started at order level (from the all-stations screen) without touching items
+    if order.status == Order.Status.PREPARING and all(i.status == OrderItem.Status.PENDING for i in items):
+        return "preparing"
+    if any(i.status in DONE_ITEM_STATUSES for i in mine):
+        return "preparing"  # partly done, rest still pending
+    return "pending"
+
+
+def _station_items(order, station_id):
+    from apps.orders.models import OrderItem
+
+    return order.items.filter(station_id=station_id).exclude(status=OrderItem.Status.CANCELLED)
+
+
+def _refresh(order):
+    from apps.orders.models import Order
+
+    return Order.objects.select_related("table", "kitchen_ticket").get(pk=order.pk)
+
+
+def start_preparing_station(order, station_id, user=None):
+    """
+    Start one station's items: its pending items become PREPARING, and the order
+    moves to PREPARING if it was still only confirmed.
+    """
+    from apps.orders.models import Order, OrderItem
+
+    if order.status not in (Order.Status.CONFIRMED, Order.Status.PREPARING):
+        return False, "Order is not waiting in the kitchen"
+    items = _station_items(order, station_id)
+    if not items.exists():
+        return False, "No items for this station"
+
+    items.filter(status=OrderItem.Status.PENDING).update(status=OrderItem.Status.PREPARING, updated_at=timezone.now())
+    order = _refresh(order)
+    if order.status == Order.Status.CONFIRMED:
+        start_preparing(order, user)  # broadcasts the status change
+    else:
+        broadcast_order_updated(order)
+    return True, "Station items moved to preparing"
+
+
+def bump_station(order, station_id, user=None):
+    """
+    Mark one station's items READY. When every non-cancelled item of the order is
+    ready (or served) the whole order is bumped, which notifies the waiter.
+    """
+    from apps.orders.models import Order, OrderItem
+
+    if order.status not in (Order.Status.CONFIRMED, Order.Status.PREPARING):
+        return False, "Order is not being prepared"
+    items = _station_items(order, station_id)
+    if not items.exists():
+        return False, "No items for this station"
+
+    items.filter(status__in=[OrderItem.Status.PENDING, OrderItem.Status.PREPARING]).update(
+        status=OrderItem.Status.READY, updated_at=timezone.now()
+    )
+    order = _refresh(order)
+    remaining = order.items.exclude(status__in=[OrderItem.Status.CANCELLED, *DONE_ITEM_STATUSES])
+    if not remaining.exists():
+        if order.status == Order.Status.CONFIRMED:
+            start_preparing(order, user)
+            order = _refresh(order)
+        return bump_order(order, user)
+
+    broadcast_order_updated(order)
+    return True, "Station items ready"
+
+
+def recall_station(order, station_id, user=None):
+    """Send one station's ready items back to PREPARING (recalling the order if it was READY)."""
+    from apps.orders.models import Order, OrderItem
+
+    items = _station_items(order, station_id)
+    if not items.exists():
+        return False, "No items for this station"
+    items.filter(status=OrderItem.Status.READY).update(status=OrderItem.Status.PREPARING, updated_at=timezone.now())
+    order = _refresh(order)
+    if order.status == Order.Status.READY:
+        return recall_order(order, user)
+    broadcast_order_updated(order)
+    return True, "Station items recalled"

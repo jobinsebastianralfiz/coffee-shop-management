@@ -133,6 +133,33 @@
             margin-bottom: 10px;
         }
 
+        .pay-qr {
+            text-align: center;
+            margin: 8px 0 4px;
+        }
+        .pay-qr img {
+            width: 150px;
+            height: 150px;
+        }
+        .pay-qr p {
+            font-size: 11px;
+            margin: 2px 0 0;
+        }
+
+        .bill-ref {
+            text-align: center;
+            margin: 6px 0 10px;
+        }
+        .bill-ref span {
+            display: block;
+            font-size: 11px;
+        }
+        .bill-ref strong {
+            display: block;
+            font-size: 20px;
+            letter-spacing: 1px;
+        }
+
         .payment-status.paid {
             background: #000;
             color: #fff;
@@ -169,10 +196,10 @@
             top: 20px;
             right: 20px;
             padding: 10px 20px;
-            background: #4f46e5;
+            background: #2A2A2C;
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 999px;
             cursor: pointer;
             font-family: system-ui, sans-serif;
             font-size: 14px;
@@ -240,7 +267,7 @@
         {% endif %}
     </div>
 
-    <!-- Items -->
+    <!-- Cafe Items -->
     <div class="items-section">
         <div class="items-header">
             <span class="item-name">Item</span>
@@ -259,10 +286,30 @@
         {% endfor %}
     </div>
 
+    {% if linked_retail_sales %}
+    <!-- Retail Items -->
+    <div class="items-section" style="border-top: 1px dashed #000; padding-top: 10px;">
+        <div style="font-weight: bold; margin-bottom: 5px; text-align: center;">-- RETAIL ITEMS --</div>
+        {% for sale in linked_retail_sales %}
+        {% for item in sale.items.all %}
+        <div class="item-row">
+            <span class="item-name">{{ item.product_name }}</span>
+            <span class="item-qty">{{ item.quantity }}</span>
+            <span class="item-price">{{ item.total }}</span>
+        </div>
+        {% endfor %}
+        {% endfor %}
+        <div class="total-row" style="border-top: 1px solid #000; padding-top: 5px; margin-top: 5px;">
+            <span>Retail Subtotal</span>
+            <span>{{ retail_total }}</span>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Totals -->
     <div class="totals-section">
         <div class="total-row">
-            <span>Subtotal</span>
+            <span>Cafe Subtotal</span>
             <span>{{ order.subtotal }}</span>
         </div>
         {% if order.discount_amount > 0 %}
@@ -289,10 +336,25 @@
             <span>{{ order.service_charge }}</span>
         </div>
         {% endif %}
+        {% if linked_retail_sales %}
+        <div class="total-row">
+            <span>Cafe Total</span>
+            <span>{{ order.total_amount }}</span>
+        </div>
+        <div class="total-row">
+            <span>Retail Total</span>
+            <span>{{ retail_total }}</span>
+        </div>
+        <div class="total-row grand-total">
+            <span>COMBINED TOTAL</span>
+            <span>{{ business.currency_symbol|default:"₹" }}{{ combined_total }}</span>
+        </div>
+        {% else %}
         <div class="total-row grand-total">
             <span>GRAND TOTAL</span>
             <span>{{ business.currency_symbol|default:"₹" }}{{ order.total_amount }}</span>
         </div>
+        {% endif %}
     </div>
 
     <!-- Payment Status -->
@@ -301,9 +363,15 @@
         <div class="payment-status paid">PAID</div>
         {% for payment in order.payments.all %}
         <div class="total-row">
-            <span>{{ payment.get_method_display }}</span>
+            <span>{{ payment.get_method_display }}{% if payment.transaction_id %} ({{ payment.transaction_id|truncatechars:18 }}){% endif %}</span>
             <span>{{ payment.amount }}</span>
         </div>
+        {% if payment.tip_amount > 0 %}
+        <div class="total-row">
+            <span>Tip - thank you!</span>
+            <span>{{ payment.tip_amount }}</span>
+        </div>
+        {% endif %}
         {% endfor %}
         {% if order.payments.first.change_amount and order.payments.first.change_amount > 0 %}
         <div class="total-row">
@@ -312,11 +380,21 @@
         </div>
         {% endif %}
         {% else %}
-        <div class="payment-status">UNPAID</div>
-        <div class="total-row">
-            <span>Balance Due</span>
-            <span><strong>{{ order.balance_due }}</strong></span>
+        <div class="payment-status">PLEASE PAY AT THE BILLING COUNTER</div>
+        <div class="bill-ref">
+            <span>Bill No.</span>
+            <strong>{{ order.order_number }}</strong>
         </div>
+        <div class="total-row">
+            <span>Amount to pay</span>
+            <span><strong>{{ business.currency_symbol|default:"₹" }}{{ amount_to_pay|floatformat:2 }}</strong></span>
+        </div>
+        {% if online_pay %}
+        <div class="pay-qr">
+            <img src="{% url 'payments:pay_qr' order_uuid=order.uuid %}" alt="Scan to pay">
+            <p>Or scan to pay from your seat<br>UPI · Card · Wallet · add a tip</p>
+        </div>
+        {% endif %}
         {% endif %}
     </div>
 

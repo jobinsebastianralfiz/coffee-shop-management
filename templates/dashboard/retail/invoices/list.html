@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}Invoices{% endblock %}
+{% block page_title %}Wholesale Invoices{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <div class="kf-pagehead">
+        <p>Wholesale invoices with amounts paid and balance due</p>
+        <div class="kf-actions">
+            <a href="{% url 'retail:payments' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">Payments</a>
+            <a href="{% url 'retail:payment_receive' %}" class="btn-yellow !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Receive Payment
+            </a>
+        </div>
+    </div>
+
+    <div class="kf-seg">
+        <a href="{% url 'retail:invoices' %}" class="{% if not status_filter %}active{% endif %}">All</a>
+        <a href="{% url 'retail:invoices' %}?status=pending" class="{% if status_filter == 'pending' %}active{% endif %}">Pending</a>
+        <a href="{% url 'retail:invoices' %}?status=partial" class="{% if status_filter == 'partial' %}active{% endif %}">Partial</a>
+        <a href="{% url 'retail:invoices' %}?status=overdue" class="{% if status_filter == 'overdue' %}active{% endif %}">Overdue</a>
+        <a href="{% url 'retail:invoices' %}?status=paid" class="{% if status_filter == 'paid' %}active{% endif %}">Paid</a>
+        <a href="{% url 'retail:invoices' %}?status=draft" class="{% if status_filter == 'draft' %}active{% endif %}">Draft</a>
+        <a href="{% url 'retail:invoices' %}?status=cancelled" class="{% if status_filter == 'cancelled' %}active{% endif %}">Cancelled</a>
+    </div>
+
+    <div class="kf-card overflow-hidden">
+        <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Invoice #</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Customer</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Date</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Due</th>
+                    <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Amount</th>
+                    <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Paid</th>
+                    <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Balance</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Status</th>
+                    <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200/60">
+                {% for invoice in invoices %}
+                <tr class="hover:bg-white/50">
+                    <td class="px-4 py-2.5 whitespace-nowrap">
+                        <a href="{% url 'retail:invoice_detail' invoice.pk %}" class="text-slate-900 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-900">{{ invoice.invoice_number }}</a>
+                    </td>
+                    <td class="px-4 py-2.5">
+                        <p class="text-sm text-slate-900 truncate max-w-[220px]">{{ invoice.customer.business_name }}</p>
+                        <p class="text-xs text-slate-500">{{ invoice.customer.customer_code }}</p>
+                    </td>
+                    <td class="px-4 py-2.5 text-[13px] text-slate-600 tabular whitespace-nowrap">{{ invoice.invoice_date|date:"M d, Y" }}</td>
+                    <td class="px-4 py-2.5 text-[13px] tabular whitespace-nowrap {% if invoice.is_overdue %}text-red-600{% else %}text-slate-600{% endif %}">{{ invoice.due_date|date:"M d, Y" }}</td>
+                    <td class="px-4 py-2.5 text-right text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ invoice.amount }}</td>
+                    <td class="px-4 py-2.5 text-right text-slate-600 tabular whitespace-nowrap">{{ currency_symbol }}{{ invoice.paid_amount }}</td>
+                    <td class="px-4 py-2.5 text-right tabular whitespace-nowrap {% if invoice.balance_due > 0 %}text-slate-900{% else %}text-slate-500{% endif %}">{{ currency_symbol }}{{ invoice.balance_due }}</td>
+                    <td class="px-4 py-2.5">
+                        <span class="kf-tag {% if invoice.status == 'paid' %}g{% elif invoice.status == 'overdue' %}r{% elif invoice.status == 'partial' %}s{% elif invoice.status == 'pending' %}ys{% elif invoice.status == 'cancelled' %}o{% else %}h{% endif %}">{{ invoice.get_status_display }}</span>
+                    </td>
+                    <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                        <a href="{% url 'retail:invoice_detail' invoice.pk %}" class="w-9 h-9 inline-grid place-items-center rounded-full text-slate-600 hover:text-slate-900 hover:bg-white" title="View">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        </a>
+                        <a href="{% url 'retail:invoice_print' invoice.pk %}" target="_blank" class="w-9 h-9 inline-grid place-items-center rounded-full text-slate-600 hover:text-slate-900 hover:bg-white" title="Print Invoice">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="px-4">
+                        <div class="kf-empty">
+                            <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></span>
+                            <b>No invoices found</b>
+                            <span>{% if status_filter %}No invoices with this status{% else %}Invoices are created from wholesale sales{% endif %}</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+
+        {% if invoices.has_other_pages %}
+        <div class="px-4 py-3 border-t border-slate-200/60 flex flex-wrap items-center justify-between gap-2">
+            <p class="text-[13px] text-slate-600">Page {{ invoices.number }} of {{ invoices.paginator.num_pages }}</p>
+            <div class="flex gap-2">
+                {% if invoices.has_previous %}
+                <a href="?page={{ invoices.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn-secondary !h-9 !px-4 !text-[13px]">Previous</a>
+                {% endif %}
+                {% if invoices.has_next %}
+                <a href="?page={{ invoices.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn-secondary !h-9 !px-4 !text-[13px]">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

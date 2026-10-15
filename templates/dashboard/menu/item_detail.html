@@ -1,0 +1,386 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ item.name }} - Menu Item{% endblock %}
+
+{% block page_title %}{{ item.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'dashboard:menu' %}" class="kf-arrow kf-arrow-light" aria-label="Back to menu">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <p class="truncate">{{ item.category.name }}{% if item.category.outlet %} - {{ item.category.outlet.name }}{% endif %}</p>
+        </div>
+        <div class="kf-actions">
+            {% if item.is_available %}
+            <span class="kf-tag g"><span class="kf-dot"></span>Available</span>
+            {% else %}
+            <span class="kf-tag r"><span class="kf-dot"></span>Unavailable</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Item Overview Card -->
+    <div class="kf-card p-4 sm:p-5">
+        <div class="flex flex-col sm:flex-row gap-4">
+            <!-- Image -->
+            <div class="w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0">
+                {% if item.image %}
+                <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-full h-full rounded-2xl object-cover">
+                {% else %}
+                <div class="w-full h-full rounded-2xl bg-[#F2F2F0] flex items-center justify-center">
+                    <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                {% endif %}
+            </div>
+            <!-- Details -->
+            <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2 mb-2">
+                            {% if item.food_type == 'veg' %}
+                            <span class="w-5 h-5 rounded border-2 border-green-600 bg-white flex items-center justify-center">
+                                <span class="w-2 h-2 rounded-full bg-green-600"></span>
+                            </span>
+                            <span class="text-sm text-green-700">Vegetarian</span>
+                            {% elif item.food_type == 'non_veg' %}
+                            <span class="w-5 h-5 rounded border-2 border-red-600 bg-white flex items-center justify-center">
+                                <span class="w-2 h-2 rounded-full bg-red-600"></span>
+                            </span>
+                            <span class="text-sm text-red-700">Non-Vegetarian</span>
+                            {% else %}
+                            <span class="w-5 h-5 rounded border-2 border-green-600 bg-white flex items-center justify-center">
+                                <span class="text-green-600 text-xs font-bold">V</span>
+                            </span>
+                            <span class="text-sm text-green-700">Vegan</span>
+                            {% endif %}
+                            {% if item.is_featured %}
+                            <span class="kf-tag ys">Featured</span>
+                            {% endif %}
+                        </div>
+                        <p class="text-sm text-slate-600">{{ item.description|default:"No description" }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-3xl font-light text-slate-900 tabular leading-none">&#8377;{{ item.base_price }}</p>
+                        <p class="text-xs text-slate-600 mt-1">Base price</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 mt-3">
+                    <span class="kf-tag s">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        {{ item.preparation_time }} min prep time
+                    </span>
+                    {% if item.calories %}
+                    <span class="kf-tag s">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path>
+                        </svg>
+                        {{ item.calories }} calories
+                    </span>
+                    {% endif %}
+                    {% if effective_station %}
+                    <span class="kf-tag d">Station: {{ effective_station.name }}{% if station_from_category %} (from category){% endif %}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if user.role == 'super_admin' and station_choices or user.role == 'super_admin' and item.kitchen_station %}
+    <!-- Kitchen Station -->
+    <form action="{% url 'dashboard:menu_item_edit' item.pk %}" method="POST" class="kf-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-end gap-3">
+        {% csrf_token %}
+        <input type="hidden" name="station_only" value="1">
+        <div class="flex-1 min-w-0">
+            <label for="itemKitchenStation" class="kf-label">Kitchen station</label>
+            <select name="kitchen_station" id="itemKitchenStation" class="kf-input w-full">
+                <option value="">&mdash; Use category's station{% if item.category.kitchen_station %} ({{ item.category.kitchen_station.name }}){% endif %} &mdash;</option>
+                {% for st in station_choices %}
+                <option value="{{ st.pk }}"{% if item.kitchen_station_id == st.pk %} selected{% endif %}>{{ st.name }}{% if not item.category.outlet_id %} ({{ st.outlet.name }}){% endif %}</option>
+                {% endfor %}
+            </select>
+            <p class="text-xs text-slate-600 mt-1">Where this item's kitchen tickets go. Overrides the category's station.</p>
+        </div>
+        <button type="submit" class="btn-primary !h-10 !px-5 !text-[13px] sm:mb-5">Save</button>
+    </form>
+    {% endif %}
+
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+    <!-- Variants Section -->
+    <div class="kf-card p-4 sm:p-5 space-y-3">
+        <div class="kf-cardhead flex-wrap">
+            <div class="min-w-0">
+                <h3 class="kf-h">Size Variants</h3>
+                <p class="text-xs text-slate-600 mt-0.5">Different sizes with different prices (e.g., Small, Medium, Large)</p>
+            </div>
+            <button onclick="document.getElementById('addVariantModal').classList.remove('hidden')" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Add Variant
+            </button>
+        </div>
+
+        {% if item.variants.all %}
+        <ul class="kf-rows">
+            {% for variant in item.variants.all %}
+            <li>
+                <div>
+                    <span class="kf-rank {% if variant.is_default %}is-top{% endif %}">{{ variant.name|slice:":1"|upper }}</span>
+                    <span class="flex-1 min-w-0">
+                        <b>{{ variant.name }}</b>
+                        {% if variant.is_default or not variant.is_available %}
+                        <span class="flex items-center gap-1.5 mt-0.5">
+                            {% if variant.is_default %}
+                            <span class="kf-tag ys !py-0 !px-2 !text-[11px]">Default</span>
+                            {% endif %}
+                            {% if not variant.is_available %}
+                            <span class="kf-tag r !py-0 !px-2 !text-[11px]">Unavailable</span>
+                            {% endif %}
+                        </span>
+                        {% endif %}
+                    </span>
+                    <span class="text-base tabular">&#8377;{{ variant.price }}</span>
+                    <span class="flex items-center gap-1">
+                        <button onclick="openEditVariantModal({{ variant.id }}, '{{ variant.name|escapejs }}', '{{ variant.price }}', {{ variant.is_default|yesno:'true,false' }}, {{ variant.is_available|yesno:'true,false' }})" class="w-9 h-9 rounded-full grid place-items-center hover:bg-slate-100 text-slate-600 hover:text-slate-900" aria-label="Edit variant">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            </svg>
+                        </button>
+                        <form action="{% url 'dashboard:menu_item_variant_delete' item.pk variant.pk %}" method="POST" onsubmit="return confirm('Delete this variant?')">
+                            {% csrf_token %}
+                            <button type="submit" class="w-9 h-9 rounded-full grid place-items-center hover:bg-red-50 text-slate-600 hover:text-red-600" aria-label="Delete variant">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        </form>
+                    </span>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"></path>
+                </svg>
+            </span>
+            <b>No variants added yet</b>
+            <span>Add size variants like Small, Medium, Large with different prices</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Add-On Groups Section -->
+    <div class="kf-card p-4 sm:p-5 space-y-3">
+        <div class="kf-cardhead flex-wrap">
+            <div class="min-w-0">
+                <h3 class="kf-h">Add-On Groups</h3>
+                <p class="text-xs text-slate-600 mt-0.5">Link customization options (e.g., Milk Options, Extra Toppings)</p>
+            </div>
+            <button onclick="document.getElementById('linkAddonModal').classList.remove('hidden')" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                </svg>
+                Link Add-On Group
+            </button>
+        </div>
+
+        {% if item.addon_groups.all %}
+        <div class="space-y-2">
+            {% for group in item.addon_groups.all %}
+            <div class="rounded-[20px] bg-white/65 p-3">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="kf-ic is-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-sm text-slate-900 truncate">{{ group.name }}</p>
+                            <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                                {% if group.is_required %}
+                                <span class="kf-tag r !py-0 !px-2 !text-[11px]">Required</span>
+                                {% else %}
+                                <span class="kf-tag s !py-0 !px-2 !text-[11px]">Optional</span>
+                                {% endif %}
+                                {% if group.is_multi_select %}
+                                <span>Multiple selection allowed</span>
+                                {% else %}
+                                <span>Single selection</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <form action="{% url 'dashboard:menu_item_unlink_addon' item.pk group.pk %}" method="POST">
+                        {% csrf_token %}
+                        <button type="submit" class="w-9 h-9 rounded-full grid place-items-center hover:bg-red-50 text-slate-600 hover:text-red-600" title="Unlink">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+                <!-- Add-ons in this group -->
+                <div class="flex flex-wrap gap-1.5 pl-[42px]">
+                    {% for addon in group.addons.all %}
+                    <span class="kf-tag w">
+                        {{ addon.name }}
+                        {% if addon.price > 0 %}
+                        <span class="text-emerald-600">+&#8377;{{ addon.price }}</span>
+                        {% endif %}
+                    </span>
+                    {% empty %}
+                    <span class="text-slate-500 text-xs">No add-ons in this group</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+            </span>
+            <b>No add-on groups linked</b>
+            <span>Link existing add-on groups or <a href="{% url 'dashboard:addon_groups' %}" class="text-slate-900 underline underline-offset-2">create new ones</a></span>
+        </div>
+        {% endif %}
+    </div>
+    </div>
+</div>
+
+<!-- Add Variant Modal -->
+<div id="addVariantModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('addVariantModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Add Size Variant</h3>
+            <p class="text-slate-600 text-sm mb-5">Add a size option with its price.</p>
+
+            <form action="{% url 'dashboard:menu_item_variant_add' item.pk %}" method="POST" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="kf-label">Variant Name</label>
+                    <input type="text" name="name" placeholder="e.g., Small, Medium, Large, Regular" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900" required>
+                </div>
+                <div>
+                    <label class="kf-label">Price (&#8377;)</label>
+                    <input type="number" name="price" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900" required>
+                </div>
+                <div class="flex items-center gap-6">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="is_default" class="w-5 h-5 rounded border-slate-300">
+                        <span class="text-sm text-slate-700">Default variant</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="is_available" checked class="w-5 h-5 rounded border-slate-300">
+                        <span class="text-sm text-slate-700">Available</span>
+                    </label>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('addVariantModal').classList.add('hidden')" class="btn-secondary flex-1 !bg-slate-100 hover:!bg-slate-200">Cancel</button>
+                    <button type="submit" class="btn-primary flex-1">Add Variant</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Variant Modal -->
+<div id="editVariantModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('editVariantModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Edit Variant</h3>
+            <p class="text-slate-600 text-sm mb-5">Update variant details.</p>
+
+            <form id="editVariantForm" method="POST" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="kf-label">Variant Name</label>
+                    <input type="text" name="name" id="editVariantName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900" required>
+                </div>
+                <div>
+                    <label class="kf-label">Price (&#8377;)</label>
+                    <input type="number" name="price" id="editVariantPrice" step="0.01" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900" required>
+                </div>
+                <div class="flex items-center gap-6">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="is_default" id="editVariantDefault" class="w-5 h-5 rounded border-slate-300">
+                        <span class="text-sm text-slate-700">Default variant</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="is_available" id="editVariantAvailable" class="w-5 h-5 rounded border-slate-300">
+                        <span class="text-sm text-slate-700">Available</span>
+                    </label>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('editVariantModal').classList.add('hidden')" class="btn-secondary flex-1 !bg-slate-100 hover:!bg-slate-200">Cancel</button>
+                    <button type="submit" class="btn-primary flex-1">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Link Add-On Group Modal -->
+<div id="linkAddonModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('linkAddonModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Link Add-On Group</h3>
+            <p class="text-slate-600 text-sm mb-5">Select add-on groups to make available for this item.</p>
+
+            <form action="{% url 'dashboard:menu_item_link_addon' item.pk %}" method="POST" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="kf-label">Select Add-On Group</label>
+                    {% if available_addon_groups %}
+                    <select name="addon_group" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900">
+                        <option value="">Choose a group...</option>
+                        {% for group in available_addon_groups %}
+                        <option value="{{ group.pk }}">{{ group.name }} ({{ group.addons.count }} add-ons)</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <div class="text-center py-6 text-slate-500">
+                        <p>No add-on groups available</p>
+                        <a href="{% url 'dashboard:addon_groups' %}" class="text-indigo-600 hover:underline text-sm">Create one first</a>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('linkAddonModal').classList.add('hidden')" class="btn-secondary flex-1 !bg-slate-100 hover:!bg-slate-200">Cancel</button>
+                    <button type="submit" {% if not available_addon_groups %}disabled{% endif %} class="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed">Link Group</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openEditVariantModal(id, name, price, isDefault, isAvailable) {
+    document.getElementById('editVariantForm').action = '{% url "dashboard:menu_item_variant_edit" item.pk 0 %}'.replace('/0/', '/' + id + '/');
+    document.getElementById('editVariantName').value = name;
+    document.getElementById('editVariantPrice').value = price;
+    document.getElementById('editVariantDefault').checked = isDefault;
+    document.getElementById('editVariantAvailable').checked = isAvailable;
+    document.getElementById('editVariantModal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

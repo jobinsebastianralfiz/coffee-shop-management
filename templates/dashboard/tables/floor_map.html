@@ -2,154 +2,194 @@
 
 {% block title %}Floor Map{% endblock %}
 
-{% block content %}
-<div class="space-y-6">
-    <!-- Outlet Filter (Super Admin Only) -->
-    {% if outlets and user.role == 'super_admin' %}
-    <div class="flex items-center justify-between bg-white rounded-xl border border-slate-200 p-4">
-        <div class="flex items-center gap-3">
-            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-            </svg>
-            <span class="text-sm font-medium text-slate-700">Filter by Outlet:</span>
-        </div>
-        <select onchange="filterByOutlet(this.value)" class="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-            <option value="">All Outlets</option>
-            {% for outlet in outlets %}
-            <option value="{{ outlet.pk }}" {% if selected_outlet == outlet.pk|stringformat:"i" %}selected{% endif %}>{{ outlet.name }} ({{ outlet.code }})</option>
-            {% endfor %}
-        </select>
-    </div>
-    {% endif %}
+{% block page_title %}Floor Map{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Drag-to-merge: press and hold (touch) or drag (mouse) a table onto another */
+    .kf-dt { position: relative; display: flex; flex-direction: column; align-items: center; padding: 6px; border-radius: 26px;
+             -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation;
+             transition: box-shadow .15s, background-color .15s, opacity .15s; }
+    .kf-dt.is-lifted { opacity: .3; }
+    body.kf-dragging, body.kf-dragging * { cursor: grabbing !important; }
+    body.kf-dragging .kf-dt.can-drop { box-shadow: inset 0 0 0 2px rgba(245, 200, 66, .55); background: rgba(245, 200, 66, .07); }
+    body.kf-dragging .kf-dt.no-drop:not(.is-lifted) { opacity: .4; }
+    .kf-dt.is-over { box-shadow: inset 0 0 0 3px #F5C842 !important; background: rgba(245, 200, 66, .2) !important; }
+    .kf-dt.is-over-bad { box-shadow: inset 0 0 0 3px #DC4A3D !important; background: rgba(220, 74, 61, .08) !important; opacity: 1 !important; }
+    .kf-ghost { position: fixed; z-index: 70; pointer-events: none; transform: translate(-50%, -50%) scale(1.06);
+                filter: drop-shadow(0 18px 30px rgba(30, 30, 40, .3)); opacity: .95; }
+    body.kf-merge-mode .kf-dt { cursor: pointer; }
+    body.kf-merge-mode .kf-dt.can-drop { box-shadow: inset 0 0 0 2px rgba(245, 200, 66, .55); background: rgba(245, 200, 66, .07); }
+    body.kf-merge-mode .kf-dt.no-drop { opacity: .4; }
+    .kf-dt.is-picked { box-shadow: inset 0 0 0 3px #2A2A2C !important; background: rgba(245, 200, 66, .22) !important; opacity: 1 !important; }
+    .kf-merge-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 80; max-width: calc(100vw - 32px);
+                      background: #2A2A2C; color: #F4F4F4; border-radius: 999px; padding: 10px 18px; font-size: 13px;
+                      box-shadow: 0 18px 40px rgba(30, 30, 40, .3); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900">Floor Map</h1>
-            <p class="text-slate-500 mt-1">{% if user.role == 'super_admin' %}View table status and details{% else %}Tap a table to take order{% endif %}</p>
+    <div class="kf-pagehead">
+        <p>{% if user.role == 'super_admin' %}Tap a table for details{% else %}Tap a table to take order{% endif %} · To merge, drag one table onto another, or use Merge tables</p>
+        <div class="kf-actions">
+            {% include "dashboard/tables/_qr_switch.html" %}
+            {% if floors and user.role != 'staff_kitchen' %}
+            <button type="button" id="mergeModeBtn" class="btn-yellow !h-9 !px-4 !text-[13px]" aria-pressed="false">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                Merge tables
+            </button>
+            {% endif %}
+            {% if outlets and user.role == 'super_admin' %}
+            <!-- Outlet Filter (Super Admin Only) -->
+            <label class="flex items-center gap-2 text-[13px] text-slate-600">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+                <span class="sr-only sm:not-sr-only">Outlet</span>
+                <select onchange="filterByOutlet(this.value)" class="!h-9 !py-0 !rounded-full px-4 text-[13px] max-w-[200px]">
+                    <option value="">All Outlets</option>
+                    {% for outlet in outlets %}
+                    <option value="{{ outlet.pk }}" {% if selected_outlet == outlet.pk|stringformat:"i" %}selected{% endif %}>{{ outlet.name }} ({{ outlet.code }})</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% endif %}
+            {% if user.role == 'outlet_manager' or user.role == 'super_admin' %}
+            <a href="{% url 'dashboard:tables' %}?view=manage{% if selected_outlet %}&outlet={{ selected_outlet }}{% endif %}" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                Manage Tables
+            </a>
+            {% endif %}
         </div>
-        {% if user.role == 'outlet_manager' or user.role == 'super_admin' %}
-        <a href="{% url 'dashboard:tables' %}?view=manage{% if selected_outlet %}&outlet={{ selected_outlet }}{% endif %}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 transition-colors">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            </svg>
-            Manage Tables
-        </a>
-        {% endif %}
+    </div>
+
+    <!-- Tap-to-merge instructions (shown while Merge tables is active) -->
+    <div id="mergeModeBar" class="hidden kf-dcard px-4 py-3 flex items-center gap-3" role="status" aria-live="polite">
+        <span class="kf-ic is-yellow is-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+        </span>
+        <span id="mergeModeText" class="flex-1 text-sm">Tap the first table to merge.</span>
+        <button type="button" id="mergeModeCancel" class="btn-secondary !h-9 !px-4 !text-[13px] !bg-white/10 !text-white hover:!bg-white/20">Cancel</button>
     </div>
 
     <!-- Floor Map -->
     {% if floors %}
-    <div x-data="{ activeFloor: '{{ floors.0.id }}' }" class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-visible">
-        <!-- Floor Tabs -->
-        <div class="flex items-center gap-2 p-4 border-b border-slate-100 bg-slate-50 overflow-x-auto">
-            {% for floor in floors %}
-            <button
-                class="px-5 py-2.5 rounded-xl font-semibold text-sm transition-all whitespace-nowrap"
-                :class="activeFloor === '{{ floor.id }}' ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
-                @click="activeFloor = '{{ floor.id }}'"
-            >
-                {{ floor.name }}{% if floor.outlet and outlets|length > 1 %} <span class="text-xs opacity-70">({{ floor.outlet.code }})</span>{% endif %}
-                <span class="ml-2 px-2 py-0.5 rounded-full text-xs" :class="activeFloor === '{{ floor.id }}' ? 'bg-white/20' : 'bg-slate-100'">{{ floor.tables.count }}</span>
-            </button>
-            {% endfor %}
+    <div x-data="{ activeFloor: '{{ floors.0.id }}' }" class="kf-card p-3 sm:p-4 space-y-3 overflow-visible">
+        <!-- Floor Tabs + Legend -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="kf-seg">
+                {% for floor in floors %}
+                <button
+                    type="button"
+                    :class="activeFloor === '{{ floor.id }}' && 'active'"
+                    @click="activeFloor = '{{ floor.id }}'"
+                >
+                    {{ floor.name }}{% if floor.outlet and outlets|length > 1 %} <span class="text-xs opacity-70">({{ floor.outlet.code }})</span>{% endif %}
+                    <span class="px-1.5 rounded-full text-[11px] tabular" :class="activeFloor === '{{ floor.id }}' ? 'bg-white/20' : 'bg-slate-100'">{{ floor.tables.count }}</span>
+                </button>
+                {% endfor %}
+            </div>
         </div>
 
         <!-- Floor Content -->
         {% for floor in floors %}
-        <div x-show="activeFloor === '{{ floor.id }}'" x-transition class="p-8 overflow-visible">
+        <div x-show="activeFloor === '{{ floor.id }}'" x-transition class="overflow-visible">
             {% if floor.tables.all %}
-            <div class="flex flex-wrap gap-10 justify-center items-center min-h-[400px] pb-20" style="background: radial-gradient(circle, #f8fafc 1px, transparent 1px); background-size: 20px 20px;">
+            <div class="flex flex-wrap gap-6 sm:gap-8 justify-center items-center min-h-[320px] rounded-[22px] bg-white/50 px-3 py-6 sm:p-6" style="background-image: radial-gradient(circle, rgba(30, 30, 30, 0.09) 1px, transparent 1px); background-size: 20px 20px;">
                 {% for table in floor.tables.all %}
-                {# Get order status - check both primary and combined orders #}
-                {% with primary_order=table.active_orders.0 combined_order=table.active_combined_orders.0 %}
-
-                {# Determine colors based on table/order status #}
-                {% if table.status == 'vacant' and not primary_order and not combined_order %}
+                {# Colour reflects every party on the table (see _annotate_floor_tables in the view) #}
+                <div class="kf-dt" data-table-id="{{ table.pk }}">
+                {% if table.kf_status == 'vacant' %}
                     {% with chair_fill="#6ee7b7" chair_stroke="#10b981" table_fill="#10b981" status_text="Vacant" status_color="text-emerald-600" order_status="" is_combined=False %}
                     {% include "dashboard/tables/_table_svg.html" %}
                     {% endwith %}
-                {% elif primary_order.status == 'ready' or combined_order.status == 'ready' %}
-                    {% with chair_fill="#c4b5fd" chair_stroke="#8b5cf6" table_fill="#8b5cf6" status_text="Ready!" status_color="text-purple-600" is_ready=True order_status="ready" is_combined=primary_order.combined_tables.exists %}
+                {% elif table.kf_status == 'ready' %}
+                    {% with chair_fill="#5E5E62" chair_stroke="#2A2A2C" table_fill="#2A2A2C" status_text="Ready!" status_color="text-purple-600" is_ready=True order_status="ready" is_combined=table.kf_partners combined_with=table.kf_partners_label party_count=table.kf_party_count %}
                     {% include "dashboard/tables/_table_svg.html" %}
                     {% endwith %}
-                {% elif primary_order.status == 'served' or combined_order.status == 'served' %}
-                    {% with chair_fill="#fed7aa" chair_stroke="#f97316" table_fill="#f97316" status_text="Served" status_color="text-orange-600" order_status="served" is_combined=primary_order.combined_tables.exists %}
+                {% elif table.kf_status == 'served' %}
+                    {% with chair_fill="#fed7aa" chair_stroke="#f97316" table_fill="#f97316" status_text="Served" status_color="text-orange-600" order_status="served" is_combined=table.kf_partners combined_with=table.kf_partners_label party_count=table.kf_party_count %}
                     {% include "dashboard/tables/_table_svg.html" %}
                     {% endwith %}
-                {% elif primary_order.status == 'preparing' or primary_order.status == 'confirmed' or combined_order.status == 'preparing' or combined_order.status == 'confirmed' %}
-                    {% with chair_fill="#a5f3fc" chair_stroke="#06b6d4" table_fill="#06b6d4" status_text="Preparing" status_color="text-cyan-600" order_status="preparing" is_combined=primary_order.combined_tables.exists %}
+                {% elif table.kf_status == 'preparing' %}
+                    {% with chair_fill="#D0D0D2" chair_stroke="#A9A9AE" table_fill="#A9A9AE" status_text="Preparing" status_color="text-cyan-600" order_status="preparing" is_combined=table.kf_partners combined_with=table.kf_partners_label party_count=table.kf_party_count %}
                     {% include "dashboard/tables/_table_svg.html" %}
                     {% endwith %}
-                {% elif primary_order.status == 'pending' or combined_order.status == 'pending' %}
-                    {% with chair_fill="#fde68a" chair_stroke="#f59e0b" table_fill="#f59e0b" status_text="Ordering" status_color="text-amber-600" order_status="pending" is_combined=primary_order.combined_tables.exists %}
+                {% elif table.kf_status == 'pending' %}
+                    {% with chair_fill="#FBE7A1" chair_stroke="#F5C842" table_fill="#F5C842" status_text="Ordering" status_color="text-amber-600" order_status="pending" is_combined=table.kf_partners combined_with=table.kf_partners_label party_count=table.kf_party_count %}
                     {% include "dashboard/tables/_table_svg.html" %}
                     {% endwith %}
-                {% elif table.status == 'reserved' %}
-                    {% with chair_fill="#93c5fd" chair_stroke="#3b82f6" table_fill="#3b82f6" status_text="Reserved" status_color="text-blue-600" order_status="" is_combined=False %}
+                {% elif table.kf_status == 'reserved' %}
+                    {% with chair_fill="#C6C6C8" chair_stroke="#6E6E73" table_fill="#6E6E73" status_text="Reserved" status_color="text-blue-600" order_status="" is_combined=False %}
                     {% include "dashboard/tables/_table_svg.html" %}
                     {% endwith %}
                 {% else %}
-                    {% with chair_fill="#cbd5e1" chair_stroke="#64748b" table_fill="#64748b" status_text="Unavailable" status_color="text-slate-500" order_status="" is_combined=False %}
+                    {% with chair_fill="#E0E0DC" chair_stroke="#8E8E93" table_fill="#8E8E93" status_text="Unavailable" status_color="text-slate-500" order_status="" is_combined=False %}
                     {% include "dashboard/tables/_table_svg.html" %}
                     {% endwith %}
                 {% endif %}
-
-                {% endwith %}
+                {% if table.kf_partners and user.role != 'staff_kitchen' %}
+                    <form method="post" action="{% url 'dashboard:table_unmerge' table.pk %}" class="mt-1.5"
+                          onsubmit="return confirm('{% if table.kf_merge_primary %}Release Table {{ table.kf_partners_label }} from this order?{% else %}Remove Table {{ table.number }} from the merged order?{% endif %}')">
+                        {% csrf_token %}
+                        <button type="submit" class="kf-tag o hover:bg-white">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            Unmerge{% if table.kf_merge_primary and table.kf_partners|length > 1 %} all{% endif %}
+                        </button>
+                    </form>
+                {% endif %}
+                </div>
                 {% endfor %}
             </div>
             {% else %}
-            <div class="text-center py-16">
-                <p class="font-semibold text-slate-700">No tables on this floor</p>
+            <div class="kf-empty">
+                <span class="kf-ic is-soft is-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                    </svg>
+                </span>
+                <b>No tables on this floor</b>
             </div>
             {% endif %}
         </div>
         {% endfor %}
     </div>
     {% else %}
-    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-16 text-center">
-        <h3 class="text-xl font-bold text-slate-900">No Floors Configured</h3>
-        <p class="text-slate-500 mt-2">Contact your administrator to set up floors and tables.</p>
+    <div class="kf-card">
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                </svg>
+            </span>
+            <b>No Floors Configured</b>
+            <span>Contact your administrator to set up floors and tables.</span>
+        </div>
     </div>
     {% endif %}
 
-    <!-- Legend -->
-    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-        <div class="flex flex-wrap items-center justify-center gap-4">
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded bg-emerald-500"></div>
-                <span class="text-sm text-slate-600">Vacant</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded bg-amber-500"></div>
-                <span class="text-sm text-slate-600">Ordering</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded bg-cyan-500"></div>
-                <span class="text-sm text-slate-600">Preparing</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded bg-purple-500 animate-pulse"></div>
-                <span class="text-sm text-slate-600">Ready to Serve</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded bg-orange-500"></div>
-                <span class="text-sm text-slate-600">Served (Unpaid)</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded bg-blue-500"></div>
-                <span class="text-sm text-slate-600">Reserved</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center">
-                    <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
-                    </svg>
-                </div>
-                <span class="text-sm text-slate-600">Combined</span>
-            </div>
-        </div>
+    <!-- Legend (swatches match the table SVG colours) -->
+    <div class="flex flex-wrap items-center justify-center gap-1.5">
+        <span class="kf-tag w"><i class="w-2.5 h-2.5 rounded-full" style="background:#10b981"></i>Vacant</span>
+        <span class="kf-tag w"><i class="w-2.5 h-2.5 rounded-full" style="background:#F5C842"></i>Ordering</span>
+        <span class="kf-tag w"><i class="w-2.5 h-2.5 rounded-full" style="background:#A9A9AE"></i>Preparing</span>
+        <span class="kf-tag w"><i class="w-2.5 h-2.5 rounded-full animate-pulse" style="background:#2A2A2C"></i>Ready to Serve</span>
+        <span class="kf-tag w"><i class="w-2.5 h-2.5 rounded-full" style="background:#f97316"></i>Served (Unpaid)</span>
+        <span class="kf-tag w"><i class="w-2.5 h-2.5 rounded-full" style="background:#6E6E73"></i>Reserved</span>
+        <span class="kf-tag w"><i class="w-2.5 h-2.5 rounded-full" style="background:#8E8E93"></i>Unavailable</span>
+        <span class="kf-tag w">
+            <span class="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center">
+                <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                </svg>
+            </span>
+            Combined
+        </span>
     </div>
 </div>
 
@@ -157,13 +197,13 @@
 <div id="tableDetailsModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('tableDetailsModal').classList.add('hidden')"></div>
-        <div class="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
-            <h3 class="text-xl font-bold text-slate-900 mb-1">Table Details</h3>
-            <p class="text-slate-500 text-sm mb-6" id="tableOutletName"></p>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-sm w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Table Details</h3>
+            <p class="text-slate-600 text-sm mb-5" id="tableOutletName"></p>
 
             <div class="space-y-4">
                 <!-- Table Info -->
-                <div class="bg-slate-50 rounded-xl p-4">
+                <div class="bg-slate-50 rounded-2xl p-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <span class="text-xs text-slate-500">Table Number</span>
@@ -186,12 +226,12 @@
 
                 <!-- QR Code -->
                 <div id="qrCodeSection" class="text-center">
-                    <p class="text-sm font-medium text-slate-700 mb-3">QR Code</p>
-                    <div class="bg-white border-2 border-slate-100 p-4 rounded-xl inline-block">
+                    <p class="kf-label mb-2">QR Code</p>
+                    <div class="bg-white border border-slate-100 p-3 rounded-2xl inline-block">
                         <img id="modalQRCode" src="" alt="QR Code" class="w-40 h-40 mx-auto">
                     </div>
                     <p class="text-xs text-slate-500 mt-2">Scan to order from this table</p>
-                    <a id="modalQRDownload" href="" download class="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200">
+                    <a id="modalQRDownload" href="" download class="btn-secondary !h-9 !px-4 !text-[13px] mt-3 !bg-slate-100 hover:!bg-slate-200">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                         </svg>
@@ -209,7 +249,7 @@
             </div>
 
             <div class="mt-6">
-                <button type="button" onclick="document.getElementById('tableDetailsModal').classList.add('hidden')" class="w-full px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                <button type="button" onclick="document.getElementById('tableDetailsModal').classList.add('hidden')" class="btn-secondary w-full !bg-slate-100 hover:!bg-slate-200">
                     Close
                 </button>
             </div>
@@ -269,5 +309,345 @@ function showTableDetails(tableNumber, capacity, status, qrUrl, floorName, outle
 
     document.getElementById('tableDetailsModal').classList.remove('hidden');
 }
+</script>
+
+<!-- Merge confirm sheet (opened after dropping a table onto another) -->
+<div id="mergeSheet" class="hidden fixed inset-0 z-50" aria-modal="true" role="dialog" aria-labelledby="mergeTitle">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" data-merge-close></div>
+    <div class="absolute inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[420px] bg-white rounded-t-[28px] sm:rounded-[28px] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl">
+        <div class="flex items-start gap-3">
+            <span class="kf-ic is-yellow is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+            </span>
+            <div class="min-w-0">
+                <h3 id="mergeTitle" class="kf-h"></h3>
+                <p id="mergeText" class="text-sm text-slate-600 mt-1"></p>
+            </div>
+        </div>
+        <div id="mergePartyName" class="hidden mt-4">
+            <label for="mergePartyInput" class="kf-label">Party name (optional)</label>
+            <input id="mergePartyInput" type="text" maxlength="50" class="kf-input" placeholder="Party A">
+        </div>
+        <div id="mergeParties" class="hidden mt-4 space-y-2" role="radiogroup" aria-label="Choose party"></div>
+        <p id="mergeError" class="hidden mt-3 text-sm text-red-600"></p>
+        <div class="flex gap-2 mt-5">
+            <button type="button" class="btn-secondary flex-1" data-merge-close>Cancel</button>
+            <button type="button" id="mergeConfirm" class="btn-yellow flex-1">Merge</button>
+        </div>
+    </div>
+</div>
+
+{{ tables_data|json_script:"kf-tables-data" }}
+<script>
+// Drag-to-merge on the floor map. Touch: press and hold ~0.35s, then drag. Mouse: drag.
+(function () {
+    const dataEl = document.getElementById('kf-tables-data');
+    if (!dataEl) return;
+    const tables = JSON.parse(dataEl.textContent);
+    const mergeUrl = '{% url "dashboard:table_merge" %}';
+    const csrfToken = '{{ csrf_token }}';
+    const HOLD_MS = 350;
+
+    let drag = null;
+    let suppressClick = false;
+    let pending = null; // {source, target} awaiting confirmation
+
+    const sheet = document.getElementById('mergeSheet');
+    const titleEl = document.getElementById('mergeTitle');
+    const textEl = document.getElementById('mergeText');
+    const partyNameBox = document.getElementById('mergePartyName');
+    const partyNameInput = document.getElementById('mergePartyInput');
+    const partiesBox = document.getElementById('mergeParties');
+    const errorEl = document.getElementById('mergeError');
+    const confirmBtn = document.getElementById('mergeConfirm');
+
+    function check(src, tgt) {
+        if (!src || !tgt || src.id === tgt.id) return { ok: false };
+        if (src.floor !== tgt.floor) return { ok: false, reason: 'Only tables on the same floor can be merged.' };
+        const srcBusy = src.orders.length > 0, tgtBusy = tgt.orders.length > 0;
+        if (srcBusy && tgtBusy) return { ok: false, reason: `Tables ${src.number} and ${tgt.number} both have open orders. Settle one first.` };
+        if (!srcBusy && !tgtBusy) {
+            if (!src.free || !tgt.free) return { ok: false, reason: 'Both tables need to be free to start a merged order.' };
+            return { ok: true };
+        }
+        const free = srcBusy ? tgt : src;
+        if (!free.free) return { ok: false, reason: `Table ${free.number} is not free.` };
+        return { ok: true };
+    }
+
+    function toast(message) {
+        const el = document.createElement('div');
+        el.className = 'kf-merge-toast';
+        el.setAttribute('role', 'status');
+        el.textContent = message;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 3200);
+    }
+
+    function tableAt(x, y) {
+        const hit = document.elementFromPoint(x, y);
+        return hit && hit.closest ? hit.closest('.kf-dt') : null;
+    }
+
+    function clearMarks() {
+        document.querySelectorAll('.kf-dt').forEach(el => el.classList.remove('can-drop', 'no-drop', 'is-over', 'is-over-bad', 'is-lifted'));
+        document.body.classList.remove('kf-dragging');
+    }
+
+    function lift() {
+        if (!drag || drag.lifted) return;
+        drag.lifted = true;
+        if (navigator.vibrate) navigator.vibrate(15);
+        const svg = drag.el.querySelector('svg');
+        drag.ghost = document.createElement('div');
+        drag.ghost.className = 'kf-ghost';
+        if (svg) drag.ghost.appendChild(svg.cloneNode(true));
+        document.body.appendChild(drag.ghost);
+        moveGhost(drag.x, drag.y);
+        drag.el.classList.add('is-lifted');
+        document.body.classList.add('kf-dragging');
+        drag.scroller = scrollParent(drag.el);
+        drag.raf = requestAnimationFrame(autoScroll);
+        document.querySelectorAll('.kf-dt').forEach(el => {
+            if (el === drag.el || el.offsetParent === null) return;
+            el.classList.add(check(drag.src, tables[el.dataset.tableId]).ok ? 'can-drop' : 'no-drop');
+        });
+    }
+
+    // Scroll the page while a lifted table is held near the top or bottom edge,
+    // so tables further down a phone screen can still be reached.
+    const EDGE = 70, MAX_SPEED = 14;
+    function scrollParent(el) {
+        for (let p = el.parentElement; p; p = p.parentElement) {
+            const oy = getComputedStyle(p).overflowY;
+            if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+        }
+        return document.scrollingElement;
+    }
+    function autoScroll() {
+        if (!drag || !drag.lifted) return;
+        const box = drag.scroller === document.scrollingElement
+            ? { top: 0, bottom: window.innerHeight }
+            : drag.scroller.getBoundingClientRect();
+        let dy = 0;
+        if (drag.y < box.top + EDGE) dy = -MAX_SPEED * (1 - Math.max(0, drag.y - box.top) / EDGE);
+        else if (drag.y > box.bottom - EDGE) dy = MAX_SPEED * (1 - Math.max(0, box.bottom - drag.y) / EDGE);
+        if (dy) {
+            drag.scroller.scrollTop += dy;
+            updateOver(drag.x, drag.y);
+        }
+        drag.raf = requestAnimationFrame(autoScroll);
+    }
+
+    function updateOver(x, y) {
+        const overEl = tableAt(x, y);
+        if (overEl === drag.over) return;
+        if (drag.over) drag.over.classList.remove('is-over', 'is-over-bad');
+        drag.over = overEl && overEl !== drag.el ? overEl : null;
+        if (drag.over) drag.over.classList.add(check(drag.src, tables[drag.over.dataset.tableId]).ok ? 'is-over' : 'is-over-bad');
+    }
+
+    function moveGhost(x, y) {
+        if (drag && drag.ghost) { drag.ghost.style.left = x + 'px'; drag.ghost.style.top = y + 'px'; }
+    }
+
+    // ---- Tap-to-merge mode: tap one table, then another ----
+    const modeBtn = document.getElementById('mergeModeBtn');
+    const modeBar = document.getElementById('mergeModeBar');
+    const modeText = document.getElementById('mergeModeText');
+    let picking = null; // null = off, {first: table|null} = on
+
+    function setMode(on) {
+        picking = on ? { first: null } : null;
+        document.body.classList.toggle('kf-merge-mode', on);
+        modeBar.classList.toggle('hidden', !on);
+        if (modeBtn) modeBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        modeText.textContent = 'Tap the first table to merge.';
+        document.querySelectorAll('.kf-dt').forEach(el => el.classList.remove('is-picked', 'can-drop', 'no-drop'));
+    }
+    if (modeBtn) modeBtn.addEventListener('click', () => setMode(!picking));
+    document.getElementById('mergeModeCancel').addEventListener('click', () => setMode(false));
+
+    function pickTable(el) {
+        const t = tables[el.dataset.tableId];
+        if (!picking.first) {
+            picking.first = t;
+            el.classList.add('is-picked');
+            document.querySelectorAll('.kf-dt').forEach(other => {
+                if (other === el) return;
+                other.classList.add(check(t, tables[other.dataset.tableId]).ok ? 'can-drop' : 'no-drop');
+            });
+            modeText.textContent = `Table ${t.number} selected. Now tap the table to merge it with.`;
+            return;
+        }
+        if (picking.first.id === t.id) { setMode(true); return; } // tap again to deselect
+        const result = check(picking.first, t);
+        if (!result.ok) { toast(result.reason || 'These tables cannot be merged.'); return; }
+        const first = picking.first;
+        setMode(false);
+        openSheet(first, t);
+    }
+
+    function onDown(e) {
+        if (picking) return; // tap-to-merge mode uses plain taps
+        if (e.button !== undefined && e.button !== 0) return;
+        if (e.target.closest('form')) return; // the Unmerge button
+        suppressClick = false; // a new press is never the tail of an earlier drag
+        const el = e.currentTarget;
+        drag = { el, src: tables[el.dataset.tableId], pointerId: e.pointerId, type: e.pointerType,
+                 startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, lifted: false, over: null, ghost: null };
+        if (e.pointerType !== 'mouse') drag.timer = setTimeout(lift, HOLD_MS);
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointercancel', onCancel);
+    }
+
+    function onMove(e) {
+        if (!drag || e.pointerId !== drag.pointerId) return;
+        drag.x = e.clientX; drag.y = e.clientY;
+        const dist = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY);
+        if (!drag.lifted) {
+            if (drag.type === 'mouse') { if (dist > 6) lift(); else return; }
+            else { if (dist > 10) { onCancel(); } return; } // finger moved before the hold: it's a scroll
+        }
+        e.preventDefault();
+        moveGhost(e.clientX, e.clientY);
+        updateOver(e.clientX, e.clientY);
+    }
+
+    function stopListening() {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onCancel);
+    }
+
+    function finish() {
+        if (!drag) return;
+        clearTimeout(drag.timer);
+        if (drag.raf) cancelAnimationFrame(drag.raf);
+        if (drag.ghost) drag.ghost.remove();
+        clearMarks();
+        stopListening();
+        drag = null;
+    }
+
+    function onCancel() { finish(); }
+
+    function onUp(e) {
+        if (!drag || e.pointerId !== drag.pointerId) return;
+        const wasLifted = drag.lifted;
+        const src = drag.src;
+        const overEl = wasLifted ? tableAt(e.clientX, e.clientY) : null;
+        finish();
+        if (!wasLifted) return; // plain tap: let the table open as usual
+        suppressClick = true;
+        setTimeout(() => { suppressClick = false; }, 450);
+        if (!overEl || overEl.dataset.tableId === String(src.id)) return;
+        const tgt = tables[overEl.dataset.tableId];
+        const result = check(src, tgt);
+        if (!result.ok) { if (result.reason) toast(result.reason); return; }
+        openSheet(src, tgt);
+    }
+
+    // Stop the page scrolling while a lifted table is being dragged by touch
+    document.addEventListener('touchmove', e => { if (drag && drag.lifted) e.preventDefault(); }, { passive: false });
+
+    document.querySelectorAll('.kf-dt').forEach(el => {
+        el.addEventListener('pointerdown', onDown);
+        el.addEventListener('contextmenu', e => e.preventDefault());
+        el.addEventListener('dragstart', e => e.preventDefault());
+        // A drag must not also open the table it started on
+        el.addEventListener('click', e => {
+            if (picking) {
+                if (e.target.closest('form')) return; // Unmerge button still works
+                e.preventDefault(); e.stopPropagation();
+                pickTable(el);
+                return;
+            }
+            if (suppressClick) { e.preventDefault(); e.stopPropagation(); suppressClick = false; }
+        }, true);
+    });
+
+    function openSheet(src, tgt) {
+        pending = { source: src, target: tgt, order: '' };
+        errorEl.classList.add('hidden');
+        partyNameBox.classList.add('hidden');
+        partiesBox.classList.add('hidden');
+        partiesBox.replaceChildren();
+        partyNameInput.value = '';
+
+        if (!src.orders.length && !tgt.orders.length) {
+            titleEl.textContent = `Merge Table ${src.number} + ${tgt.number}`;
+            textEl.textContent = 'Start one order and one bill for a party sitting across both tables.';
+            partyNameBox.classList.remove('hidden');
+            confirmBtn.textContent = 'Merge & start order';
+        } else {
+            const busy = src.orders.length ? src : tgt;
+            const free = busy === src ? tgt : src;
+            confirmBtn.textContent = 'Merge';
+            if (busy.orders.length === 1) {
+                const o = busy.orders[0];
+                pending.order = String(o.id);
+                titleEl.textContent = `Add Table ${free.number} to ${o.party}`;
+                textEl.textContent = `${o.party} is at Table ${o.tables}. Table ${free.number} joins the same order and bill.`;
+            } else {
+                titleEl.textContent = `Add Table ${free.number} to which party?`;
+                textEl.textContent = `Table ${busy.number} has ${busy.orders.length} parties. Table ${free.number} joins the one you choose.`;
+                busy.orders.forEach((o, i) => {
+                    const label = document.createElement('label');
+                    label.className = 'flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 cursor-pointer';
+                    const radio = document.createElement('input');
+                    radio.type = 'radio'; radio.name = 'mergeParty'; radio.value = o.id;
+                    if (i === 0) { radio.checked = true; pending.order = String(o.id); }
+                    radio.addEventListener('change', () => { pending.order = String(o.id); });
+                    const text = document.createElement('span');
+                    text.className = 'flex-1 min-w-0 text-sm';
+                    const name = document.createElement('b');
+                    name.className = 'block font-normal';
+                    name.textContent = o.party;
+                    const meta = document.createElement('small');
+                    meta.className = 'block text-xs text-slate-600';
+                    meta.textContent = `#${o.number} · Table ${o.tables}`;
+                    text.append(name, meta);
+                    label.append(radio, text);
+                    partiesBox.appendChild(label);
+                });
+                partiesBox.classList.remove('hidden');
+            }
+        }
+        sheet.classList.remove('hidden');
+        confirmBtn.focus();
+    }
+
+    function closeSheet() { sheet.classList.add('hidden'); pending = null; confirmBtn.disabled = false; }
+    sheet.querySelectorAll('[data-merge-close]').forEach(el => el.addEventListener('click', closeSheet));
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        if (!sheet.classList.contains('hidden')) closeSheet();
+        else if (picking) setMode(false);
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+        if (!pending) return;
+        confirmBtn.disabled = true;
+        errorEl.classList.add('hidden');
+        const body = new FormData();
+        body.append('source', pending.source.id);
+        body.append('target', pending.target.id);
+        if (pending.order) body.append('order', pending.order);
+        if (partyNameInput.value.trim()) body.append('party_name', partyNameInput.value.trim());
+        try {
+            const resp = await fetch(mergeUrl, { method: 'POST', body, headers: { 'X-CSRFToken': csrfToken }, credentials: 'same-origin' });
+            const result = await resp.json();
+            if (!result.ok) throw new Error(result.error || 'Could not merge the tables.');
+            if (result.redirect) window.location.href = result.redirect;
+            else window.location.reload();
+        } catch (err) {
+            errorEl.textContent = err.message || 'Could not merge the tables.';
+            errorEl.classList.remove('hidden');
+            confirmBtn.disabled = false;
+        }
+    });
+})();
 </script>
 {% endblock %}

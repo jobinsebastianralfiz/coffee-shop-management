@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block title %}Receive Payment{% endblock %}
+{% block page_title %}Receive Payment{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kf-payform :is(input, select) { height: 42px; width: 100%; border-width: 1px; border-style: solid; padding: 0 14px; font-size: 14px; }
+    .kf-payform textarea { width: 100%; border-width: 1px; border-style: solid; padding: 10px 14px; font-size: 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in max-w-3xl mx-auto space-y-4">
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'retail:payments' %}" class="kf-arrow kf-arrow-light flex-none" aria-label="Back to payments" title="Back to Payments">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </a>
+            <p>Record a payment from a wholesale customer, optionally against an invoice</p>
+        </div>
+    </div>
+
+    <form method="post" action="{% url 'retail:payment_receive' %}" class="kf-payform space-y-4">
+        {% csrf_token %}
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+
+        {% if form.non_field_errors %}
+        <div class="kf-card p-4 text-sm text-red-600">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Customer & Invoice</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label for="{{ form.customer.id_for_label }}" class="kf-label">Customer *</label>
+                    {{ form.customer }}
+                    {% if form.customer.errors %}<p class="text-red-500 text-xs mt-1">{{ form.customer.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.invoice.id_for_label }}" class="kf-label">Invoice <span class="text-slate-400">(optional)</span></label>
+                    {{ form.invoice }}
+                    {% if form.invoice.errors %}<p class="text-red-500 text-xs mt-1">{{ form.invoice.errors.0 }}</p>{% else %}<p class="text-[11px] text-slate-500 mt-1">Leave blank to apply to the customer account</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Payment</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label for="{{ form.amount.id_for_label }}" class="kf-label">Amount ({{ currency_symbol }}) *</label>
+                    {{ form.amount }}
+                    {% if form.amount.errors %}<p class="text-red-500 text-xs mt-1">{{ form.amount.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.payment_date.id_for_label }}" class="kf-label">Payment Date *</label>
+                    {{ form.payment_date }}
+                    {% if form.payment_date.errors %}<p class="text-red-500 text-xs mt-1">{{ form.payment_date.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.payment_method.id_for_label }}" class="kf-label">Payment Method *</label>
+                    {{ form.payment_method }}
+                    {% if form.payment_method.errors %}<p class="text-red-500 text-xs mt-1">{{ form.payment_method.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="{{ form.reference_number.id_for_label }}" class="kf-label">Reference Number</label>
+                    {{ form.reference_number }}
+                    {% if form.reference_number.errors %}<p class="text-red-500 text-xs mt-1">{{ form.reference_number.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="sm:col-span-2">
+                    <label for="{{ form.notes.id_for_label }}" class="kf-label">Notes</label>
+                    {{ form.notes }}
+                    {% if form.notes.errors %}<p class="text-red-500 text-xs mt-1">{{ form.notes.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap justify-end gap-2">
+            <a href="{% url 'retail:payments' %}" class="btn-secondary !h-10 !px-5 !text-[13px]">Cancel</a>
+            <button type="submit" class="btn-primary !h-10 !px-5 !text-[13px]">Record Payment</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if request.method == 'GET' and request.GET.invoice %}
+<script>
+    // Preselect the invoice passed as ?invoice=<pk> (the view only pre-fills ?customer=)
+    (function () {
+        var sel = document.getElementById('{{ form.invoice.id_for_label }}');
+        var val = '{{ request.GET.invoice|escapejs }}';
+        if (sel && !sel.value && sel.querySelector('option[value="' + val.replace(/"/g, '') + '"]')) {
+            sel.value = val;
+        }
+    })();
+</script>
+{% endif %}
+{% endblock %}

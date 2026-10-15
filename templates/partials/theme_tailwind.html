@@ -1,0 +1,37 @@
+{% load static asset_tags %}
+<!-- Kaffero theme: fonts, Tailwind palette remap and shared component styles.
+     Include right after the Tailwind CDN script. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>
+    // Remap Tailwind's palette onto the theme so existing utility classes pick it up:
+    // slate -> warm neutral ink, indigo/purple/violet -> yellow tints + dark accents,
+    // blue/sky/pink/fuchsia -> neutral greys, cyan/teal -> light greys, amber/yellow -> theme yellow.
+    // Emerald, red and orange keep Tailwind's defaults so status colours stay distinct.
+    (function () {
+        var ink = {50:'#F3F3F1',100:'#EBEBE8',200:'#E0E0DC',300:'#CACACB',400:'#A9A9AE',500:'#8E8E93',600:'#5E5E62',700:'#3A3A3D',800:'#2A2A2C',900:'#1E1E1E',950:'#141415'};
+        var accent = {50:'#FDF7E0',100:'#FBE7A1',200:'#F8DA7A',300:'#F5C842',400:'#4A4A4E',500:'#2A2A2C',600:'#2A2A2C',700:'#1E1E1E',800:'#1A1A1B',900:'#141415',950:'#0E0E0F'};
+        var mute = {50:'#F5F5F3',100:'#ECECEA',200:'#DEDEDB',300:'#C6C6C8',400:'#9C9CA1',500:'#6E6E73',600:'#4E4E52',700:'#3A3A3D',800:'#2A2A2C',900:'#1E1E1E',950:'#141415'};
+        var soft = {50:'#F7F7F5',100:'#EFEFEC',200:'#E3E3E0',300:'#D0D0D2',400:'#BDBDC1',500:'#A9A9AE',600:'#76767B',700:'#5E5E62',800:'#3A3A3D',900:'#2A2A2C',950:'#1E1E1E'};
+        var yellow = {50:'#FEF9E8',100:'#FBE7A1',200:'#F8DA7A',300:'#F7D15E',400:'#F5C842',500:'#F5C842',600:'#C99E1C',700:'#8A6A0E',800:'#5A4A12',900:'#3D320C',950:'#261F07'};
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Outfit', 'Helvetica Neue', 'Arial', 'sans-serif'] },
+                    colors: {
+                        slate: ink, gray: ink, zinc: ink, neutral: ink, stone: ink,
+                        indigo: accent, purple: accent, violet: accent,
+                        blue: mute, sky: mute, pink: mute, fuchsia: mute,
+                        cyan: soft, teal: soft,
+                        amber: yellow, yellow: yellow,
+                        brand: { primary: '#2A2A2C', secondary: '#1E1E1E', accent: '#F5C842' },
+                        kf: { ground: '#D9DCE3', ink: '#1E1E1E', ink2: '#5E5E62', dark: '#2A2A2C', dark2: '#3A3A3D', yellow: '#F5C842', soft: '#FBE7A1' },
+                    },
+                    borderRadius: { lg: '12px', xl: '14px', '2xl': '22px', '3xl': '28px' },
+                }
+            }
+        };
+    })();
+</script>
+<link rel="stylesheet" href="{% static_v 'css/theme.css' %}">

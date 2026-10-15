@@ -110,6 +110,13 @@ class Table(models.Model):
         blank=True,
     )
 
+    # When the table was last freed: guest phones confirmed before this
+    # must be confirmed again (see apps.ordering.guard)
+    guests_reset_at = models.DateTimeField(null=True, blank=True, editable=False)
+    # Short code staff tell guests at the table; a phone that enters it is
+    # confirmed. Changes every time the table is freed.
+    guest_code = models.CharField(max_length=4, blank=True, editable=False)
+
     # Floor map positioning
     position_x = models.PositiveIntegerField(default=0)
     position_y = models.PositiveIntegerField(default=0)
@@ -172,7 +179,37 @@ class Table(models.Model):
     def save(self, *args, **kwargs):
         """Save with validation."""
         self.full_clean()
+        if self.pk and self.status == self.Status.VACANT:
+            was = Table.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+            if was and was != self.Status.VACANT:
+                from django.utils import timezone
+
+                self.guests_reset_at = timezone.now()
+                self.guest_code = self.make_guest_code()
+                if kwargs.get("update_fields") is not None:
+                    kwargs["update_fields"] = list(set(kwargs["update_fields"]) | {"guests_reset_at", "guest_code"})
+        if not self.guest_code:
+            self.guest_code = self.make_guest_code()
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = list(set(kwargs["update_fields"]) | {"guest_code"})
         super().save(*args, **kwargs)
+
+    def make_guest_code(self):
+        import secrets
+
+        while True:
+            code = f"{secrets.randbelow(10000):04d}"
+            if code != self.guest_code:
+                return code
+
+    def new_guest_code(self):
+        """Give the table a fresh code (also ends existing phone confirmations)."""
+        from django.utils import timezone
+
+        self.guest_code = self.make_guest_code()
+        self.guests_reset_at = timezone.now()
+        self.save(update_fields=["guest_code", "guests_reset_at", "updated_at"])
+        return self.guest_code
 
     @classmethod
     def can_create_table(cls, outlet):

@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_create %}Add Customer{% else %}Edit Customer{% endif %}{% endblock %}
+{% block page_title %}{% if is_create %}Add Customer{% else %}Edit {{ customer.business_name }}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="fade-in max-w-4xl mx-auto space-y-4">
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% if customer %}{% url 'retail:customer_detail' customer.pk %}{% else %}{% url 'retail:customers' %}{% endif %}" class="kf-arrow kf-arrow-light" aria-label="Back">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <p class="truncate">{% if is_create %}Add a wholesale customer with a credit account{% else %}{{ customer.customer_code }} · update contact, address and credit terms{% endif %}</p>
+        </div>
+    </div>
+
+    <form method="POST" class="space-y-4">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="kf-card p-4 text-sm text-red-600">
+            {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+        {% endif %}
+
+        {% if form.outlet.is_hidden %}{{ form.outlet }}{% endif %}
+
+        <!-- Business -->
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Business</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="{% if form.outlet.is_hidden %}sm:col-span-2{% endif %}">
+                    <label class="kf-label" for="{{ form.business_name.id_for_label }}">Business Name *</label>
+                    {{ form.business_name }}
+                    {% if form.business_name.errors %}<p class="text-red-500 text-xs mt-1">{{ form.business_name.errors.0 }}</p>{% endif %}
+                </div>
+                {% if not form.outlet.is_hidden %}
+                <div>
+                    <label class="kf-label" for="{{ form.outlet.id_for_label }}">Outlet *</label>
+                    {{ form.outlet }}
+                    {% if form.outlet.errors %}<p class="text-red-500 text-xs mt-1">{{ form.outlet.errors.0 }}</p>{% endif %}
+                </div>
+                {% elif form.outlet.errors %}
+                <p class="text-red-500 text-xs sm:col-span-2">Outlet: {{ form.outlet.errors.0 }}</p>
+                {% endif %}
+                <div>
+                    <label class="kf-label" for="{{ form.gst_number.id_for_label }}">GST Number</label>
+                    {{ form.gst_number }}
+                    {% if form.gst_number.errors %}<p class="text-red-500 text-xs mt-1">{{ form.gst_number.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.pan_number.id_for_label }}">PAN Number</label>
+                    {{ form.pan_number }}
+                    {% if form.pan_number.errors %}<p class="text-red-500 text-xs mt-1">{{ form.pan_number.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact -->
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Contact Person</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="kf-label" for="{{ form.name.id_for_label }}">Name *</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}<p class="text-red-500 text-xs mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.phone.id_for_label }}">Phone *</label>
+                    {{ form.phone }}
+                    {% if form.phone.errors %}<p class="text-red-500 text-xs mt-1">{{ form.phone.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.email.id_for_label }}">Email</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}<p class="text-red-500 text-xs mt-1">{{ form.email.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Address -->
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Address</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="sm:col-span-3">
+                    <label class="kf-label" for="{{ form.address_line1.id_for_label }}">Address *</label>
+                    {{ form.address_line1 }}
+                    {% if form.address_line1.errors %}<p class="text-red-500 text-xs mt-1">{{ form.address_line1.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.city.id_for_label }}">City *</label>
+                    {{ form.city }}
+                    {% if form.city.errors %}<p class="text-red-500 text-xs mt-1">{{ form.city.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.state.id_for_label }}">State *</label>
+                    {{ form.state }}
+                    {% if form.state.errors %}<p class="text-red-500 text-xs mt-1">{{ form.state.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.postal_code.id_for_label }}">Postal Code *</label>
+                    {{ form.postal_code }}
+                    {% if form.postal_code.errors %}<p class="text-red-500 text-xs mt-1">{{ form.postal_code.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Credit Terms -->
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Credit Terms</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="kf-label" for="{{ form.credit_limit.id_for_label }}">Credit Limit ({{ currency_symbol }})</label>
+                    {{ form.credit_limit }}
+                    {% if form.credit_limit.errors %}<p class="text-red-500 text-xs mt-1">{{ form.credit_limit.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.payment_terms_days.id_for_label }}">Payment Terms (days)</label>
+                    {{ form.payment_terms_days }}
+                    {% if form.payment_terms_days.errors %}<p class="text-red-500 text-xs mt-1">{{ form.payment_terms_days.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.discount_percentage.id_for_label }}">Default Discount (%)</label>
+                    {{ form.discount_percentage }}
+                    {% if form.discount_percentage.errors %}<p class="text-red-500 text-xs mt-1">{{ form.discount_percentage.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes & Status -->
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Notes &amp; Status</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="kf-label" for="{{ form.notes.id_for_label }}">Notes</label>
+                    {{ form.notes }}
+                    {% if form.notes.errors %}<p class="text-red-500 text-xs mt-1">{{ form.notes.errors.0 }}</p>{% endif %}
+                </div>
+                <label class="flex items-center gap-2">
+                    {{ form.is_active }}
+                    <span class="text-sm text-slate-800">Active</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-end gap-2">
+            <a href="{% if customer %}{% url 'retail:customer_detail' customer.pk %}{% else %}{% url 'retail:customers' %}{% endif %}" class="btn-secondary">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary">
+                {% if is_create %}Create Customer{% else %}Save Changes{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

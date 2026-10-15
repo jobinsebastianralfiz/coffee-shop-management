@@ -131,32 +131,104 @@ class User(AbstractUser):
         return self.outlet
 
     @classmethod
-    def can_create_user(cls):
-        """Check if more users can be created based on plan limits."""
+    def can_create_user(cls, outlet=None, role=None):
+        """Check if more users can be created based on plan limits.
+
+        Args:
+            outlet: The outlet to check limits for (required for per-outlet limits)
+            role: The role being created (determines which limit to check)
+
+        Returns:
+            bool: True if user can be created, False otherwise
+        """
         from django.conf import settings as django_settings
 
-        max_users = getattr(django_settings, "MAX_STAFF_PER_OUTLET", 0)
-        if max_users == 0:  # Unlimited
+        # Super admin has no limits
+        if role == cls.Role.SUPER_ADMIN:
             return True
-        # Count all non-superadmin users (staff)
-        return cls.objects.exclude(role=cls.Role.SUPER_ADMIN).count() < max_users
+
+        # Outlet manager limit
+        if role == cls.Role.OUTLET_MANAGER:
+            max_managers = getattr(django_settings, "MAX_OUTLET_MANAGERS_PER_OUTLET", 0)
+            if max_managers == 0:  # Unlimited
+                return True
+            if outlet:
+                current_count = cls.objects.filter(
+                    outlet=outlet,
+                    role=cls.Role.OUTLET_MANAGER
+                ).count()
+            else:
+                # Global count if no outlet specified
+                current_count = cls.objects.filter(role=cls.Role.OUTLET_MANAGER).count()
+            return current_count < max_managers
+
+        # Staff roles (waiter, kitchen, cashier) - shared pool
+        staff_roles = [cls.Role.STAFF_CASHIER, cls.Role.STAFF_KITCHEN, cls.Role.WAITER]
+        if role in staff_roles:
+            max_staff = getattr(django_settings, "MAX_STAFF_PER_OUTLET", 0)
+            if max_staff == 0:  # Unlimited
+                return True
+            if outlet:
+                current_count = cls.objects.filter(
+                    outlet=outlet,
+                    role__in=staff_roles
+                ).count()
+            else:
+                current_count = cls.objects.filter(role__in=staff_roles).count()
+            return current_count < max_staff
+
+        # Default: allow
+        return True
 
     @classmethod
-    def users_remaining(cls):
-        """Get number of users that can still be created."""
+    def users_remaining(cls, outlet=None, role=None):
+        """Get number of users that can still be created.
+
+        Args:
+            outlet: The outlet to check limits for
+            role: The role type to check (outlet_manager or staff roles)
+        """
         from django.conf import settings as django_settings
 
-        max_users = getattr(django_settings, "MAX_STAFF_PER_OUTLET", 0)
-        if max_users == 0:  # Unlimited
+        # Outlet manager
+        if role == cls.Role.OUTLET_MANAGER:
+            max_managers = getattr(django_settings, "MAX_OUTLET_MANAGERS_PER_OUTLET", 0)
+            if max_managers == 0:
+                return float("inf")
+            if outlet:
+                current_count = cls.objects.filter(
+                    outlet=outlet,
+                    role=cls.Role.OUTLET_MANAGER
+                ).count()
+            else:
+                current_count = cls.objects.filter(role=cls.Role.OUTLET_MANAGER).count()
+            return max(0, max_managers - current_count)
+
+        # Staff roles
+        staff_roles = [cls.Role.STAFF_CASHIER, cls.Role.STAFF_KITCHEN, cls.Role.WAITER]
+        max_staff = getattr(django_settings, "MAX_STAFF_PER_OUTLET", 0)
+        if max_staff == 0:
             return float("inf")
-        return max(0, max_users - cls.objects.exclude(role=cls.Role.SUPER_ADMIN).count())
+        if outlet:
+            current_count = cls.objects.filter(
+                outlet=outlet,
+                role__in=staff_roles
+            ).count()
+        else:
+            current_count = cls.objects.filter(role__in=staff_roles).count()
+        return max(0, max_staff - current_count)
 
     @classmethod
-    def get_max_users(cls):
-        """Get the maximum users allowed from plan settings."""
+    def get_max_staff(cls):
+        """Get the maximum staff allowed per outlet from plan settings."""
         from django.conf import settings as django_settings
-
         return getattr(django_settings, "MAX_STAFF_PER_OUTLET", 0)
+
+    @classmethod
+    def get_max_managers(cls):
+        """Get the maximum outlet managers allowed per outlet from plan settings."""
+        from django.conf import settings as django_settings
+        return getattr(django_settings, "MAX_OUTLET_MANAGERS_PER_OUTLET", 0)
 
 
 class StaffAttendance(models.Model):
@@ -251,3 +323,120 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.action} - {self.timestamp}"
+
+
+class EmployeePoints(models.Model):
+    """
+    Track employee points for incentive system.
+    Points are earned per completed order and reset monthly.
+    """
+
+    class Reason(models.TextChoices):
+        ORDER_COMPLETED = "order_completed", "Order Completed"
+        BONUS = "bonus", "Bonus"
+        MANUAL_ADJUSTMENT = "manual_adjustment", "Manual Adjustment"
+        DEDUCTION = "deduction", "Deduction"
+
+    employee = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="points_history",
+        help_text="Employee who earned the points",
+    )
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="points_awarded",
+        help_text="Order that earned these points (if applicable)",
+    )
+    points = models.IntegerField(
+        default=0,
+        help_text="Points earned (positive) or deducted (negative)",
+    )
+    reason = models.CharField(
+        max_length=30,
+        choices=Reason.choices,
+        default=Reason.ORDER_COMPLETED,
+        help_text="Reason for points transaction",
+    )
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Additional description",
+    )
+    month = models.DateField(
+        help_text="First day of the month (for monthly grouping)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="points_awarded_by",
+        help_text="User who awarded/adjusted points (null for system)",
+    )
+
+    class Meta:
+        verbose_name = "Employee Points"
+        verbose_name_plural = "Employee Points"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["employee", "month"]),
+            models.Index(fields=["month"]),
+        ]
+
+    def __str__(self):
+        return f"{self.employee.username} - {self.points} pts ({self.reason})"
+
+    def save(self, *args, **kwargs):
+        # Auto-set month to first day of current month if not set
+        if not self.month:
+            from datetime import date
+            today = date.today()
+            self.month = today.replace(day=1)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_employee_points_for_month(cls, employee, month=None):
+        """Get total points for an employee for a specific month."""
+        from datetime import date
+        from django.db.models import Sum
+
+        if month is None:
+            month = date.today().replace(day=1)
+
+        result = cls.objects.filter(
+            employee=employee,
+            month=month
+        ).aggregate(total=Sum("points"))
+
+        return result["total"] or 0
+
+    @classmethod
+    def get_monthly_leaderboard(cls, outlet=None, month=None, limit=10):
+        """Get top employees by points for a month."""
+        from datetime import date
+        from django.db.models import Sum
+
+        if month is None:
+            month = date.today().replace(day=1)
+
+        queryset = cls.objects.filter(month=month)
+
+        if outlet:
+            queryset = queryset.filter(employee__outlet=outlet)
+
+        leaderboard = queryset.values(
+            "employee__id",
+            "employee__username",
+            "employee__first_name",
+            "employee__last_name",
+            "employee__role",
+        ).annotate(
+            total_points=Sum("points")
+        ).order_by("-total_points")[:limit]
+
+        return list(leaderboard)

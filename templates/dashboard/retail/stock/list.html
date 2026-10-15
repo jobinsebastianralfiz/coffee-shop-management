@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Stock Levels{% endblock %}
+{% block page_title %}Stock Management{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <div class="kf-pagehead">
+        <div class="kf-seg">
+            <a href="{% url 'retail:stock' %}" class="{% if not stock_filter %}active{% endif %}">All</a>
+            <a href="{% url 'retail:stock' %}?filter=low" class="{% if stock_filter == 'low' %}active{% endif %}">Low Stock</a>
+            <a href="{% url 'retail:stock' %}?filter=out" class="{% if stock_filter == 'out' %}active{% endif %}">Out of Stock</a>
+            <a href="{% url 'retail:stock' %}?filter=ok" class="{% if stock_filter == 'ok' %}active{% endif %}">In Stock</a>
+        </div>
+        <div class="kf-actions">
+            <a href="{% url 'retail:stock_movements' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">View Movements</a>
+            <a href="{% url 'retail:stock_adjust' %}" class="btn-primary !h-9 !px-4 !text-[13px]">Adjust Stock</a>
+        </div>
+    </div>
+
+    <div class="kf-card overflow-hidden">
+        <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Product</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Category</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Current Stock</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Minimum</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Status</th>
+                    <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200/60">
+                {% for product in products %}
+                <tr class="hover:bg-white/50">
+                    <td class="px-4 py-2.5">
+                        <a href="{% url 'retail:product_detail' product.pk %}" class="text-slate-900 hover:underline">{{ product.name }}</a>
+                        <p class="text-xs text-slate-500">{{ product.sku|default:"-" }}</p>
+                    </td>
+                    <td class="px-4 py-2.5">{% if product.category %}<span class="kf-tag w">{{ product.category.name }}</span>{% else %}<span class="text-slate-500">-</span>{% endif %}</td>
+                    <td class="px-4 py-2.5">
+                        <span class="tabular whitespace-nowrap {% if product.current_stock <= 0 %}text-red-600{% else %}text-slate-900{% endif %}">
+                            {{ product.current_stock }} {{ product.get_unit_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2.5 text-sm text-slate-600 tabular">{{ product.minimum_stock }}</td>
+                    <td class="px-4 py-2.5">
+                        {% if product.current_stock <= 0 %}
+                        <span class="kf-tag r">Out of Stock</span>
+                        {% elif product.current_stock <= product.minimum_stock %}
+                        <span class="kf-tag ys">Low Stock</span>
+                        {% else %}
+                        <span class="kf-tag g">In Stock</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-2.5 text-right">
+                        <a href="{% url 'retail:stock_adjust' %}?product={{ product.pk }}" class="btn-secondary !h-8 !px-3 !text-[12px]">Adjust</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4">
+                        <div class="kf-empty">
+                            <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></span>
+                            <b>No products found</b>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+
+        {% if products.has_other_pages %}
+        <div class="px-4 py-3 border-t border-slate-200/60 flex flex-wrap items-center justify-between gap-2">
+            <p class="text-[13px] text-slate-600">Page {{ products.number }} of {{ products.paginator.num_pages }}</p>
+            <div class="flex gap-2">
+                {% if products.has_previous %}
+                <a href="?page={{ products.previous_page_number }}&filter={{ stock_filter }}" class="btn-secondary !h-9 !px-4 !text-[13px]">Previous</a>
+                {% endif %}
+                {% if products.has_next %}
+                <a href="?page={{ products.next_page_number }}&filter={{ stock_filter }}" class="btn-secondary !h-9 !px-4 !text-[13px]">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

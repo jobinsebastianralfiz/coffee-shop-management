@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+
+{% block title %}Aging Report{% endblock %}
+{% block page_title %}Aging Report{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4" x-data="{ tab: 'all' }">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'retail:outstanding' %}" class="kf-arrow kf-arrow-light" aria-label="Back to outstanding">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <p class="truncate">Unpaid invoice balances grouped by how long they are overdue</p>
+        </div>
+        <div class="kf-actions">
+            <button type="button" onclick="window.print()" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                </svg>
+                Print
+            </button>
+            <a href="{% url 'retail:payment_receive' %}" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Receive Payment
+            </a>
+        </div>
+    </div>
+
+    <!-- Bucket totals -->
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <button type="button" @click="tab = 'current'" class="kf-tile text-left w-full" :class="tab === 'current' && 'ring-2 ring-slate-900/70'">
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ total_current|floatformat:2 }}</span><span class="l">Current · {{ current|length }} inv.</span></div>
+        </button>
+        <button type="button" @click="tab = 'd30'" class="kf-tile text-left w-full" :class="tab === 'd30' && 'ring-2 ring-slate-900/70'">
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ total_30|floatformat:2 }}</span><span class="l">1–30 days · {{ days_30|length }} inv.</span></div>
+        </button>
+        <button type="button" @click="tab = 'd60'" class="kf-tile text-left w-full" :class="tab === 'd60' && 'ring-2 ring-slate-900/70'">
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ total_60|floatformat:2 }}</span><span class="l">31–60 days · {{ days_60|length }} inv.</span></div>
+        </button>
+        <button type="button" @click="tab = 'd90'" class="kf-tile text-left w-full" :class="tab === 'd90' && 'ring-2 ring-slate-900/70'">
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ total_90|floatformat:2 }}</span><span class="l">61–90 days · {{ days_90|length }} inv.</span></div>
+        </button>
+        <button type="button" @click="tab = 'o90'" class="kf-tile text-left w-full is-dark" :class="tab === 'o90' && 'ring-2 ring-slate-900/70'">
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ total_over_90|floatformat:2 }}</span><span class="l">90+ days · {{ over_90|length }} inv.</span></div>
+        </button>
+    </div>
+
+    <!-- Bucket filter -->
+    <div class="kf-seg">
+        <button type="button" @click="tab = 'all'" :class="tab === 'all' && 'active'">All</button>
+        <button type="button" @click="tab = 'current'" :class="tab === 'current' && 'active'">Current <span class="opacity-60 tabular">{{ current|length }}</span></button>
+        <button type="button" @click="tab = 'd30'" :class="tab === 'd30' && 'active'">1–30 days <span class="opacity-60 tabular">{{ days_30|length }}</span></button>
+        <button type="button" @click="tab = 'd60'" :class="tab === 'd60' && 'active'">31–60 days <span class="opacity-60 tabular">{{ days_60|length }}</span></button>
+        <button type="button" @click="tab = 'd90'" :class="tab === 'd90' && 'active'">61–90 days <span class="opacity-60 tabular">{{ days_90|length }}</span></button>
+        <button type="button" @click="tab = 'o90'" :class="tab === 'o90' && 'active'">90+ days <span class="opacity-60 tabular">{{ over_90|length }}</span></button>
+    </div>
+
+    <!-- Current -->
+    <div class="kf-card overflow-hidden" x-show="tab === 'all' || tab === 'current'">
+        <div class="kf-cardhead px-5 pt-5 pb-3">
+            <div>
+                <h3 class="kf-h">Current</h3>
+                <p class="text-xs text-slate-600 mt-0.5">Not yet due</p>
+            </div>
+            <span class="text-sm tabular text-slate-900 whitespace-nowrap">{{ currency_symbol }}{{ total_current|floatformat:2 }}</span>
+        </div>
+        {% if current %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Invoice</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Customer</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Due Date</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Days Overdue</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Amount</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Balance</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/60">
+                    {% for entry in current %}
+                    <tr class="hover:bg-white/50">
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'retail:invoice_detail' entry.invoice.pk %}" class="text-sm text-slate-900 hover:underline whitespace-nowrap">{{ entry.invoice.invoice_number }}</a>
+                            <p class="text-xs text-slate-500 whitespace-nowrap">{{ entry.invoice.invoice_date|date:"d M Y" }}</p>
+                        </td>
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'retail:customer_detail' entry.invoice.customer.pk %}" class="text-sm text-slate-800 hover:underline whitespace-nowrap">{{ entry.invoice.customer.business_name }}</a>
+                        </td>
+                        <td class="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">{{ entry.invoice.due_date|date:"d M Y" }}</td>
+                        <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                            {% if entry.days_overdue > 0 %}<span class="kf-tag s tabular">{{ entry.days_overdue }} d</span>{% else %}<span class="kf-tag g">Not due</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-right text-sm text-slate-600 tabular whitespace-nowrap">{{ currency_symbol }}{{ entry.invoice.amount }}</td>
+                        <td class="px-4 py-2.5 text-right text-sm text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ entry.balance }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="px-5 pb-5 text-sm text-slate-500">No invoices in this bucket.</p>
+        {% endif %}
+    </div>
+    <!-- 1–30 days -->
+    <div class="kf-card overflow-hidden" x-show="tab === 'all' || tab === 'd30'">
+        <div class="kf-cardhead px-5 pt-5 pb-3">
+            <div>
+                <h3 class="kf-h">1–30 days</h3>
+                <p class="text-xs text-slate-600 mt-0.5">1 to 30 days overdue</p>
+            </div>
+            <span class="text-sm tabular text-slate-900 whitespace-nowrap">{{ currency_symbol }}{{ total_30|floatformat:2 }}</span>
+        </div>
+        {% if days_30 %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Invoice</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Customer</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Due Date</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Days Overdue</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Amount</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Balance</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/60">
+                    {% for entry in days_30 %}
+                    <tr class="hover:bg-white/50">
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'retail:invoice_detail' entry.invoice.pk %}" class="text-sm text-slate-900 hover:underline whitespace-nowrap">{{ entry.invoice.invoice_number }}</a>
+                            <p class="text-xs text-slate-500 whitespace-nowrap">{{ entry.invoice.invoice_date|date:"d M Y" }}</p>
+                        </td>
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'retail:customer_detail' entry.invoice.customer.pk %}" class="text-sm text-slate-800 hover:underline whitespace-nowrap">{{ entry.invoice.customer.business_name }}</a>
+                        </td>
+                        <td class="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">{{ entry.invoice.due_date|date:"d M Y" }}</td>
+                        <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                            {% if entry.days_overdue > 0 %}<span class="kf-tag ys tabular">{{ entry.days_overdue }} d</span>{% else %}<span class="kf-tag g">Not due</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-right text-sm text-slate-600 tabular whitespace-nowrap">{{ currency_symbol }}{{ entry.invoice.amount }}</td>
+                        <td class="px-4 py-2.5 text-right text-sm text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ entry.balance }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="px-5 pb-5 text-sm text-slate-500">No invoices in this bucket.</p>
+        {% endif %}
+    </div>
+    <!-- 31–60 days -->
+    <div class="kf-card overflow-hidden" x-show="tab === 'all' || tab === 'd60'">
+        <div class="kf-cardhead px-5 pt-5 pb-3">
+            <div>
+                <h3 class="kf-h">31–60 days</h3>
+                <p class="text-xs text-slate-600 mt-0.5">31 to 60 days overdue</p>
+            </div>
+            <span class="text-sm tabular text-slate-900 whitespace-nowrap">{{ currency_symbol }}{{ total_60|floatformat:2 }}</span>
+        </div>
+        {% if days_60 %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Invoice</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Customer</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Due Date</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Days Overdue</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Amount</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Balance</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/60">
+                    {% for entry in days_60 %}
+                    <tr class="hover:bg-white/50">
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'retail:invoice_detail' entry.invoice.pk %}" class="text-sm text-slate-900 hover:underline whitespace-nowrap">{{ entry.invoice.invoice_number }}</a>
+                            <p class="text-xs text-slate-500 whitespace-nowrap">{{ entry.invoice.invoice_date|date:"d M Y" }}</p>
+                        </td>
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'retail:customer_detail' entry.invoice.customer.pk %}" class="text-sm text-slate-800 hover:underline whitespace-nowrap">{{ entry.invoice.customer.business_name }}</a>
+                        </td>
+                        <td class="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">{{ entry.invoice.due_date|date:"d M Y" }}</td>
+                        <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                            {% if entry.days_overdue > 0 %}<span class="kf-tag r tabular">{{ entry.days_overdue }} d</span>{% else %}<span class="kf-tag g">Not due</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-right text-sm text-slate-600 tabular whitespace-nowrap">{{ currency_symbol }}{{ entry.invoice.amount }}</td>
+                        <td class="px-4 py-2.5 text-right text-sm text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ entry.balance }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="px-5 pb-5 text-sm text-slate-500">No invoices in this bucket.</p>
+        {% endif %}
+    </div>
+    <!-- 61–90 days -->
+    <div class="kf-card overflow-hidden" x-show="tab === 'all' || tab === 'd90'">
+        <div class="kf-cardhead px-5 pt-5 pb-3">
+            <div>
+                <h3 class="kf-h">61–90 days</h3>
+                <p class="text-xs text-slate-600 mt-0.5">61 to 90 days overdue</p>
+            </div>
+            <span class="text-sm tabular text-slate-900 whitespace-nowrap">{{ currency_symbol }}{{ total_90|floatformat:2 }}</span>
+        </div>
+        {% if days_90 %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Invoice</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Customer</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Due Date</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Days Overdue</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Amount</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Balance</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/60">
+                    {% for entry in days_90 %}
+                    <tr class="hover:bg-white/50">
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'retail:invoice_detail' entry.invoice.pk %}" class="text-sm text-slate-900 hover:underline whitespace-nowrap">{{ entry.invoice.invoice_number }}</a>
+                            <p class="text-xs text-slate-500 whitespace-nowrap">{{ entry.invoice.invoice_date|date:"d M Y" }}</p>
+                        </td>
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'retail:customer_detail' entry.invoice.customer.pk %}" class="text-sm text-slate-800 hover:underline whitespace-nowrap">{{ entry.invoice.customer.business_name }}</a>
+                        </td>
+                        <td class="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">{{ entry.invoice.due_date|date:"d M Y" }}</td>
+                        <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                            {% if entry.days_overdue > 0 %}<span class="kf-tag r tabular">{{ entry.days_overdue }} d</span>{% else %}<span class="kf-tag g">Not due</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-right text-sm text-slate-600 tabular whitespace-nowrap">{{ currency_symbol }}{{ entry.invoice.amount }}</td>
+                        <td class="px-4 py-2.5 text-right text-sm text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ entry.balance }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="px-5 pb-5 text-sm text-slate-500">No invoices in this bucket.</p>
+        {% endif %}
+    </div>
+    <!-- 90+ days -->
+    <div class="kf-card overflow-hidden" x-show="tab === 'all' || tab === 'o90'">
+        <div class="kf-cardhead px-5 pt-5 pb-3">
+            <div>
+                <h3 class="kf-h">90+ days</h3>
+                <p class="text-xs text-slate-600 mt-0.5">More than 90 days overdue</p>
+            </div>
+            <span class="text-sm tabular text-slate-900 whitespace-nowrap">{{ currency_symbol }}{{ total_over_90|floatformat:2 }}</span>
+        </div>
+        {% if over_90 %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Invoice</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Customer</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Due Date</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Days Overdue</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Amount</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Balance</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/60">
+                    {% for entry in over_90 %}
+                    <tr class="hover:bg-white/50">
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'retail:invoice_detail' entry.invoice.pk %}" class="text-sm text-slate-900 hover:underline whitespace-nowrap">{{ entry.invoice.invoice_number }}</a>
+                            <p class="text-xs text-slate-500 whitespace-nowrap">{{ entry.invoice.invoice_date|date:"d M Y" }}</p>
+                        </td>
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'retail:customer_detail' entry.invoice.customer.pk %}" class="text-sm text-slate-800 hover:underline whitespace-nowrap">{{ entry.invoice.customer.business_name }}</a>
+                        </td>
+                        <td class="px-4 py-2.5 text-sm text-slate-700 whitespace-nowrap">{{ entry.invoice.due_date|date:"d M Y" }}</td>
+                        <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                            {% if entry.days_overdue > 0 %}<span class="kf-tag r tabular">{{ entry.days_overdue }} d</span>{% else %}<span class="kf-tag g">Not due</span>{% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-right text-sm text-slate-600 tabular whitespace-nowrap">{{ currency_symbol }}{{ entry.invoice.amount }}</td>
+                        <td class="px-4 py-2.5 text-right text-sm text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ entry.balance }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="px-5 pb-5 text-sm text-slate-500">No invoices in this bucket.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

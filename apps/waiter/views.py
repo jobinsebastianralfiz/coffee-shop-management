@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Sum
+from django.db.models import Q, Count, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -18,6 +18,8 @@ from apps.core.models import BusinessSettings
 from apps.menu.models import Category, MenuItem
 from apps.orders.models import KitchenOrderTicket, Order, OrderItem
 from apps.tables.models import Floor, Table
+
+from apps.kitchen.routing import OPEN_STATUSES, send_order_to_kitchen
 
 
 def waiter_required(view_func):
@@ -104,10 +106,11 @@ def waiter_table_detail(request, pk):
     table = get_object_or_404(Table, pk=pk, is_active=True)
 
     # Get all active orders for this table
+    # Include orders this table was merged into from another table
     active_orders = Order.objects.filter(
-        table=table,
-        status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING, Order.Status.READY]
-    ).order_by("party_name")
+        Q(table=table) | Q(combined_tables=table),
+        status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING, Order.Status.READY, Order.Status.SERVED]
+    ).distinct().order_by("party_name")
 
     # Build seat status map
     seat_info = []
@@ -146,7 +149,7 @@ def waiter_take_order(request, pk, seat):
     existing_order = Order.objects.filter(
         table=table,
         party_name=f"Seat {seat}",
-        status__in=[Order.Status.PENDING, Order.Status.CONFIRMED]
+        status__in=OPEN_STATUSES  # a seat keeps one open bill until it is paid
     ).first()
 
     # Get menu categories and items
@@ -182,7 +185,7 @@ def waiter_add_item(request, pk, seat):
     order = Order.objects.filter(
         table=table,
         party_name=f"Seat {seat}",
-        status__in=[Order.Status.PENDING, Order.Status.CONFIRMED]
+        status__in=OPEN_STATUSES  # a seat keeps one open bill until it is paid
     ).first()
 
     created = False
@@ -191,7 +194,7 @@ def waiter_add_item(request, pk, seat):
             table=table,
             party_name=f"Seat {seat}",
             order_type=Order.OrderType.DINE_IN,
-            order_source=Order.OrderSource.WAITER,
+            order_source=Order.OrderSource.POS,  # staff-entered (there is no separate waiter source)
             status=Order.Status.PENDING,
             created_by=request.user,
         )
@@ -213,7 +216,7 @@ def waiter_add_item(request, pk, seat):
         menu_item = MenuItem.objects.get(pk=menu_item_id, is_available=True)
 
         # Check if item already exists
-        existing_item = order.items.filter(menu_item=menu_item).first()
+        existing_item = order.items.filter(menu_item=menu_item, kot_sent_at__isnull=True).exclude(status="cancelled").first()
         if existing_item:
             existing_item.quantity += quantity
             existing_item.total_price = existing_item.unit_price * existing_item.quantity
@@ -255,14 +258,14 @@ def waiter_submit_order(request, pk, seat):
         order = Order.objects.get(
             table=table,
             party_name=f"Seat {seat}",
-            status=Order.Status.PENDING
+            status__in=OPEN_STATUSES
         )
 
-        if not order.items.exists():
-            messages.error(request, "No items in order.")
+        if not order.items.filter(kot_sent_at__isnull=True).exclude(status="cancelled").exists():
+            messages.error(request, "No new items to send.")
             return redirect("waiter:take_order", pk=pk, seat=seat)
 
-        order.update_status(Order.Status.CONFIRMED)
+        send_order_to_kitchen(order, user=request.user)
         messages.success(request, f"Order for Seat {seat} sent to kitchen!")
 
     except Order.DoesNotExist:
@@ -470,7 +473,7 @@ def api_create_order(request):
     existing_order = Order.objects.filter(
         table=table,
         party_name=f"Seat {seat}",
-        status__in=[Order.Status.PENDING, Order.Status.CONFIRMED]
+        status__in=OPEN_STATUSES  # a seat keeps one open bill until it is paid
     ).first()
 
     if existing_order:
@@ -504,7 +507,7 @@ def api_create_order(request):
             menu_item = MenuItem.objects.get(pk=menu_item_id, is_available=True)
 
             # Check if item already exists
-            existing_item = order.items.filter(menu_item=menu_item).first()
+            existing_item = order.items.filter(menu_item=menu_item, kot_sent_at__isnull=True).exclude(status="cancelled").first()
             if existing_item:
                 existing_item.quantity += quantity
                 existing_item.total_price = existing_item.unit_price * existing_item.quantity
@@ -529,8 +532,8 @@ def api_create_order(request):
     order.save()
 
     # Auto-confirm if requested
-    if data.get("auto_confirm", False) and order.status == Order.Status.PENDING:
-        order.update_status(Order.Status.CONFIRMED)
+    if data.get("auto_confirm", False):  # sends only new items, any round
+        send_order_to_kitchen(order, user=request.user)
 
     return JsonResponse({
         "success": True,
@@ -594,7 +597,7 @@ def api_sync_orders(request):
             existing_order = Order.objects.filter(
                 table=table,
                 party_name=f"Seat {seat}",
-                status__in=[Order.Status.PENDING, Order.Status.CONFIRMED]
+                status__in=OPEN_STATUSES  # a seat keeps one open bill until it is paid
             ).first()
 
             if existing_order:
@@ -620,7 +623,7 @@ def api_sync_orders(request):
 
                 try:
                     menu_item = MenuItem.objects.get(pk=menu_item_id, is_available=True)
-                    existing_item = order.items.filter(menu_item=menu_item).first()
+                    existing_item = order.items.filter(menu_item=menu_item, kot_sent_at__isnull=True).exclude(status="cancelled").first()
                     if existing_item:
                         existing_item.quantity += quantity
                         existing_item.total_price = existing_item.unit_price * existing_item.quantity
@@ -642,7 +645,7 @@ def api_sync_orders(request):
             order.save()
 
             if order_data.get("auto_confirm", False):
-                order.update_status(Order.Status.CONFIRMED)
+                send_order_to_kitchen(order, user=request.user)
 
             results.append({
                 "offline_id": offline_id,

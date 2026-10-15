@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <p>
+            {% if is_own_history %}
+            Your points transactions
+            {% else %}
+            Points for {{ employee.get_full_name|default:employee.username }}
+            {% endif %}
+        </p>
+        <div class="kf-actions">
+            <a href="{% url 'dashboard:points_leaderboard' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Leaderboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Tiles -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <!-- Monthly Total -->
+        <div class="kf-tile is-dark">
+            <span class="kf-ic is-yellow">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                </svg>
+            </span>
+            <div class="min-w-0"><span class="v">{{ monthly_total }}</span><span class="l">{{ current_month|date:"F" }} Points</span></div>
+        </div>
+
+        <!-- Orders Completed -->
+        <div class="kf-tile">
+            <span class="kf-ic is-green">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                </svg>
+            </span>
+            <div class="min-w-0"><span class="v">{{ orders_count }}</span><span class="l">Orders Completed</span></div>
+        </div>
+
+        <!-- Average Per Order -->
+        <div class="kf-tile">
+            <span class="kf-ic is-soft">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                </svg>
+            </span>
+            <div class="min-w-0">
+                <span class="v">
+                    {% if orders_count > 0 %}
+                    {{ monthly_total|divisibleby:orders_count|default:"10" }}
+                    {% else %}
+                    0
+                    {% endif %}
+                </span>
+                <span class="l">Avg. Per Order</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Points History List -->
+    <div class="kf-card p-5 space-y-3">
+        <div class="kf-cardhead">
+            <h3 class="kf-h">Recent Transactions</h3>
+        </div>
+
+        {% if points_list %}
+        <ul class="kf-rows">
+            {% for point in points_list %}
+            <li>
+                <div>
+                    <!-- Icon -->
+                    <span class="kf-ic {% if point.points > 0 %}is-green{% else %}is-red{% endif %}">
+                        {% if point.points > 0 %}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        {% else %}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                        </svg>
+                        {% endif %}
+                    </span>
+
+                    <!-- Details -->
+                    <span class="flex-1 min-w-0">
+                        <b>{{ point.get_reason_display }}</b>
+                        <small>{% if point.description %}{{ point.description }}{% endif %}{% if point.order %} - Order #{{ point.order.order_number }}{% endif %}{% if point.description or point.order %} · {% endif %}{{ point.created_at|date:"M d, Y H:i" }}</small>
+                    </span>
+
+                    <!-- Points -->
+                    <span class="text-right flex-none pr-1">
+                        <span class="block text-base leading-none tabular {% if point.points > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">{% if point.points > 0 %}+{% endif %}{{ point.points }}</span>
+                        <span class="block text-[11px] text-slate-600 mt-0.5">points</span>
+                    </span>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </span>
+            <b>No points history yet</b>
+            <span>Complete orders to earn points</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

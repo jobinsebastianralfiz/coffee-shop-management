@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}Categories{% endblock %}
+{% block page_title %}Product Categories{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <div class="kf-pagehead">
+        <p>Group retail products for filtering and reports</p>
+        <a href="{% url 'retail:category_create' %}" class="btn-primary !h-9 !px-4 !text-[13px]">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Add Category
+        </a>
+    </div>
+
+    <div class="kf-card overflow-hidden">
+        <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Name</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Parent</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Products</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Order</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Status</th>
+                    <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200/60">
+                {% for category in categories %}
+                <tr class="hover:bg-white/50">
+                    <td class="px-4 py-2.5 text-slate-900">{{ category.name }}</td>
+                    <td class="px-4 py-2.5 text-sm text-slate-600">{{ category.parent.name|default:"-" }}</td>
+                    <td class="px-4 py-2.5"><span class="kf-tag s tabular">{{ category.products.count }}</span></td>
+                    <td class="px-4 py-2.5 text-sm text-slate-600 tabular">{{ category.display_order }}</td>
+                    <td class="px-4 py-2.5">
+                        {% if category.is_active %}
+                        <span class="kf-tag g">Active</span>
+                        {% else %}
+                        <span class="kf-tag h">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-2.5 text-right">
+                        <a href="{% url 'retail:category_edit' category.pk %}" class="btn-secondary !h-8 !px-3 !text-[12px]">Edit</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-4">
+                        <div class="kf-empty">
+                            <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></span>
+                            <b>No categories yet</b>
+                            <span>Add a category to organise your products</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

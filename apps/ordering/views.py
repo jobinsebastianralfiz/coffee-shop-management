@@ -3,12 +3,46 @@ Customer-facing ordering views for QR code self-ordering.
 """
 
 from django.contrib import messages
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from apps.core.models import BusinessSettings, OrderSettings
 from apps.menu.models import Category, MenuItem
 from apps.orders.models import KitchenOrderTicket, Order, OrderItem
 from apps.tables.models import Table
+
+from apps.kitchen.routing import OPEN_STATUSES, send_order_to_kitchen
+from apps.ordering import guard
+
+
+def _qr_disabled(table):
+    outlet = guard.outlet_of(table)
+    return not OrderSettings.load().allow_qr_ordering or (outlet is not None and not outlet.allow_qr_ordering)
+
+
+def _seat_order(request, table):
+    """This phone's open bill at the table, if it has one."""
+    seat = request.session.get(f"table_{table.uuid}_seat")
+    order_id = request.session.get(f"table_{table.uuid}_seat_{seat}_order") if seat else None
+    if not order_id:
+        return None
+    return Order.objects.filter(pk=order_id, table=table, status__in=OPEN_STATUSES).first()
+
+
+def landing(request, table_uuid):
+    """What a guest sees after scanning the table QR: menu, order, call waiter, pay."""
+    table = get_object_or_404(Table.objects.select_related("floor__outlet"), uuid=table_uuid, is_active=True)
+    order = _seat_order(request, table)
+    return render(request, "ordering/landing.html", {
+        "table": table,
+        "outlet": guard.outlet_of(table),
+        "business": BusinessSettings.load(),
+        "ordering_enabled": not _qr_disabled(table),
+        "current_order": order,
+        "current_seat": request.session.get(f"table_{table.uuid}_seat"),
+    })
 
 
 def select_seat(request, table_uuid):
@@ -16,12 +50,12 @@ def select_seat(request, table_uuid):
     Seat selection page - customer chooses their seat number.
     """
     table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
-    order_settings = OrderSettings.load()
 
     # Check if QR ordering is enabled
-    if not order_settings.allow_qr_ordering:
+    if _qr_disabled(table):
         return render(request, "ordering/disabled.html", {
             "message": "QR ordering is currently disabled.",
+            "table": table,
         })
 
     if request.method == "POST":
@@ -38,9 +72,10 @@ def select_seat(request, table_uuid):
         messages.error(request, "Please select a valid seat.")
 
     # Get existing orders for this table to show which seats have orders
+    # A seat stays taken until its order is paid or cancelled
     active_orders = Order.objects.filter(
         table=table,
-        status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING]
+        status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING, Order.Status.READY, Order.Status.SERVED]
     )
 
     # Extract seat numbers from party_name (format: "Seat X")
@@ -69,19 +104,12 @@ def table_menu(request, table_uuid):
     table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
     order_settings = OrderSettings.load()
 
-    # Check if QR ordering is enabled
-    if not order_settings.allow_qr_ordering:
-        return render(request, "ordering/disabled.html", {
-            "message": "QR ordering is currently disabled.",
-        })
-
-    # Check if seat is selected
+    # Without a seat (or with ordering off) the menu is browse-only
     seat_key = f"table_{table.uuid}_seat"
     current_seat = request.session.get(seat_key)
-
-    if not current_seat:
-        # Redirect to seat selection
-        return redirect("ordering:select_seat", table_uuid=table_uuid)
+    ordering_enabled = not _qr_disabled(table)
+    if not ordering_enabled:
+        current_seat = None
 
     # Get active categories and items
     categories = Category.objects.filter(is_active=True).prefetch_related(
@@ -90,7 +118,7 @@ def table_menu(request, table_uuid):
 
     # Get or create session for this table and seat
     session_key = f"table_{table.uuid}_seat_{current_seat}_order"
-    current_order_id = request.session.get(session_key)
+    current_order_id = request.session.get(session_key) if current_seat else None
     current_order = None
 
     if current_order_id:
@@ -99,19 +127,32 @@ def table_menu(request, table_uuid):
                 pk=current_order_id,
                 table=table,
                 party_name=f"Seat {current_seat}",
-                status__in=[Order.Status.PENDING, Order.Status.CONFIRMED]
+                status__in=OPEN_STATUSES
             )
         except Order.DoesNotExist:
             # Clear invalid session
             del request.session[session_key]
 
+    # Split the bill into this round's new items and what was already ordered
+    new_items, ordered_items = [], []
+    if current_order is not None:
+        for item in current_order.items.exclude(status="cancelled"):
+            (new_items if item.kot_sent_at is None else ordered_items).append(item)
+
     context = {
         "table": table,
         "categories": categories,
         "current_order": current_order,
+        "new_items": new_items,
+        "ordered_items": ordered_items,
+        "new_items_total": sum((i.total_price for i in new_items), 0),
         "current_seat": current_seat,
         "require_customer_info": order_settings.require_customer_info_qr,
         "business": BusinessSettings.load(),
+        "browse_only": not current_seat,
+        "ordering_enabled": ordering_enabled,
+        "guest_waiting": guard.is_waiting(guard.guest(request, table, create=False)),
+        "location_enabled": guard.location_enabled(table),
     }
     return render(request, "ordering/menu.html", context)
 
@@ -127,8 +168,12 @@ def create_order(request, table_uuid):
     table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
     order_settings = OrderSettings.load()
 
-    if not order_settings.allow_qr_ordering:
+    if _qr_disabled(table):
         messages.error(request, "QR ordering is currently disabled.")
+        return redirect("ordering:menu", table_uuid=table_uuid)
+
+    if guard.throttle(f"create:{request.session.session_key or guard._client_ip(request)}", 6, 600):
+        messages.error(request, "Too many tries. Please wait a few minutes or ask a staff member.")
         return redirect("ordering:menu", table_uuid=table_uuid)
 
     # Get current seat
@@ -147,7 +192,18 @@ def create_order(request, table_uuid):
             messages.error(request, "Please provide your name and phone number.")
             return redirect("ordering:menu", table_uuid=table_uuid)
 
-    # Create the order with seat-specific party_name
+    session_key = f"table_{table.uuid}_seat_{current_seat}_order"
+
+    # A seat keeps one open bill: later rounds add to it until it is paid
+    order = Order.objects.filter(
+        table=table, party_name=f"Seat {current_seat}", status__in=OPEN_STATUSES
+    ).order_by("-created_at").first()
+    if order is not None:
+        request.session[session_key] = order.pk
+        return redirect("ordering:menu", table_uuid=table_uuid)
+
+    # Create the order with seat-specific party_name. It stays pending until the
+    # guest submits it (auto-accept applies at submit).
     order = Order.objects.create(
         table=table,
         order_type=Order.OrderType.DINE_IN,
@@ -155,22 +211,20 @@ def create_order(request, table_uuid):
         customer_name=customer_name,
         customer_phone=customer_phone,
         party_name=f"Seat {current_seat}",
-        status=Order.Status.PENDING if not order_settings.auto_accept_orders else Order.Status.CONFIRMED,
+        status=Order.Status.PENDING,
     )
 
     # Create kitchen ticket
     KitchenOrderTicket.objects.create(order=order)
 
-    # Update table status
-    table.status = Table.Status.OCCUPIED
-    table.save(update_fields=["status", "updated_at"])
+    # The table is marked occupied when the first round is sent (after the
+    # guest is confirmed to be at the table), so a stray scan can't block it
 
     # Store order in session (seat-specific key)
-    session_key = f"table_{table.uuid}_seat_{current_seat}_order"
     request.session[session_key] = order.pk
 
-    messages.success(request, f"Order #{order.order_number} created for Seat {current_seat}!")
-    return redirect("ordering:order_detail", table_uuid=table_uuid, order_uuid=order.uuid)
+    messages.success(request, f"Order started for Seat {current_seat}. Tap a dish to add it.")
+    return redirect("ordering:menu", table_uuid=table_uuid)
 
 
 def add_item(request, table_uuid):
@@ -202,7 +256,7 @@ def add_item(request, table_uuid):
             pk=order_id,
             table=table,
             party_name=f"Seat {current_seat}",
-            status__in=[Order.Status.PENDING, Order.Status.CONFIRMED]
+            status__in=OPEN_STATUSES
         )
     except Order.DoesNotExist:
         messages.error(request, "Order not found or already completed.")
@@ -210,16 +264,29 @@ def add_item(request, table_uuid):
         return redirect("ordering:menu", table_uuid=table_uuid)
 
     menu_item_id = request.POST.get("menu_item")
-    quantity = int(request.POST.get("quantity", 1))
-    special_instructions = request.POST.get("special_instructions", "")
+    try:
+        quantity = int(request.POST.get("quantity", 1))
+    except (TypeError, ValueError):
+        quantity = 1
+    quantity = max(1, min(quantity, guard.MAX_QTY_PER_LINE))
+    special_instructions = request.POST.get("special_instructions", "")[:200]
+
+    if guard.throttle(f"add:{request.session.session_key}", 40, 600):
+        messages.error(request, "Too many items added too quickly. Please wait a moment.")
+        return redirect("ordering:menu", table_uuid=table_uuid)
+    unsent = sum(i.quantity for i in order.items.filter(kot_sent_at__isnull=True).exclude(status="cancelled"))
+    if unsent + quantity > guard.MAX_ITEMS_PER_ROUND:
+        messages.error(request, f"That's a big order! Please place up to {guard.MAX_ITEMS_PER_ROUND} items at a time, or ask a staff member.")
+        return redirect("ordering:menu", table_uuid=table_uuid)
 
     try:
         menu_item = MenuItem.objects.get(pk=menu_item_id, is_available=True)
 
         # Check if item already exists in order
-        existing_item = order.items.filter(menu_item=menu_item).first()
+        # Only merge into a line that has not gone to the kitchen yet
+        existing_item = order.items.filter(menu_item=menu_item, kot_sent_at__isnull=True).exclude(status="cancelled").first()
         if existing_item:
-            existing_item.quantity += quantity
+            existing_item.quantity = min(existing_item.quantity + quantity, guard.MAX_QTY_PER_LINE)
             existing_item.total_price = existing_item.unit_price * existing_item.quantity
             existing_item.save()
         else:
@@ -255,10 +322,17 @@ def order_detail(request, table_uuid, order_uuid):
         table=table
     )
 
+    g = guard.guest(request, table, create=False)
+    waiting = guard.is_waiting(g) and g.pending_order_id == order.pk
     context = {
         "table": table,
         "order": order,
         "business": BusinessSettings.load(),
+        "guest_waiting": waiting,
+        "guest_rejected": bool(g and g.rejected_at and g.pending_order_id == order.pk and not guard.is_confirmed(g, table)),
+        "location_enabled": guard.location_enabled(table),
+        "code_enabled": guard.code_enabled(table),
+        "held_items": order.items.filter(kot_sent_at__isnull=True).exclude(status="cancelled") if waiting else [],
     }
     return render(request, "ordering/order_detail.html", context)
 
@@ -290,7 +364,7 @@ def update_item_quantity(request, table_uuid):
             pk=order_id,
             table=table,
             party_name=f"Seat {current_seat}",
-            status=Order.Status.PENDING
+            status__in=OPEN_STATUSES
         )
     except Order.DoesNotExist:
         return redirect("ordering:menu", table_uuid=table_uuid)
@@ -299,9 +373,10 @@ def update_item_quantity(request, table_uuid):
     action = request.POST.get("action")
 
     try:
-        item = order.items.get(pk=item_id)
+        # Guests can only change what hasn't gone to the kitchen yet
+        item = order.items.get(pk=item_id, kot_sent_at__isnull=True)
 
-        if action == "increase":
+        if action == "increase" and item.quantity < guard.MAX_QTY_PER_LINE:
             item.quantity += 1
             item.total_price = item.unit_price * item.quantity
             item.save()
@@ -354,23 +429,33 @@ def submit_order(request, table_uuid):
             pk=order_id,
             table=table,
             party_name=f"Seat {current_seat}",
-            status=Order.Status.PENDING
+            status__in=OPEN_STATUSES
         )
 
-        if not order.items.exists():
+        if not order.items.filter(kot_sent_at__isnull=True).exclude(status="cancelled").exists():
             messages.error(request, "Please add items to your order first.")
             return redirect("ordering:menu", table_uuid=table_uuid)
 
-        # Update status based on settings
-        if order_settings.auto_accept_orders:
-            order.update_status(Order.Status.PREPARING)
-        else:
-            order.update_status(Order.Status.CONFIRMED)
+        if _qr_disabled(table):
+            messages.error(request, "QR ordering is currently disabled. Please ask a staff member.")
+            return redirect("ordering:menu", table_uuid=table_uuid)
+
+        # Is this phone really at the table? (not a photo of the QR used elsewhere)
+        g = guard.guest(request, table)
+        if not guard.is_confirmed(g, table):
+            lat, lng = request.POST.get("lat"), request.POST.get("lng")
+            if not (lat and lng and guard.check_location(g, table, lat, lng, request.POST.get("accuracy"))):
+                if not guard.is_waiting(g) and guard.waiting_count(table, exclude=g) >= guard.MAX_WAITING_PER_TABLE:
+                    messages.error(request, "Please ask a staff member to take your order.")
+                    return redirect("ordering:menu", table_uuid=table_uuid)
+                guard.request_staff(g, order)
+                return redirect("ordering:order_detail", table_uuid=table_uuid, order_uuid=order.uuid)
+
+        send_round(order, order_settings)
 
         messages.success(request, f"Your order (Seat {current_seat}) has been submitted! We'll start preparing it shortly.")
 
-        # Clear order session so customer can add more orders
-        del request.session[session_key]
+        # The session keeps pointing at this bill so the guest can order more later
 
         return redirect("ordering:order_detail", table_uuid=table_uuid, order_uuid=order.uuid)
 
@@ -384,12 +469,18 @@ def call_waiter(request, table_uuid):
     Request assistance from a waiter.
     """
     table = get_object_or_404(Table, uuid=table_uuid, is_active=True)
+    back = request.GET.get("next") == "home" and "ordering:landing" or "ordering:menu"
 
-    # In a real implementation, this would trigger a notification
-    # For now, just show a success message
+    if guard.throttle(f"call:{request.session.session_key or guard._client_ip(request)}", 1, 90):
+        messages.success(request, "We've already called a waiter. They'll be with you shortly.")
+        return redirect(back, table_uuid=table_uuid)
+
+    g = guard.guest(request, table)
+    g.called_at = timezone.now()
+    g.save(update_fields=["called_at"])
     messages.success(request, "A waiter has been notified and will assist you shortly.")
 
-    return redirect("ordering:menu", table_uuid=table_uuid)
+    return redirect(back, table_uuid=table_uuid)
 
 
 def change_seat(request, table_uuid):
@@ -404,3 +495,75 @@ def change_seat(request, table_uuid):
         del request.session[seat_key]
 
     return redirect("ordering:select_seat", table_uuid=table_uuid)
+
+
+def send_round(order, order_settings=None, user=None):
+    """Send the guest's new items to the kitchen and mark the table occupied."""
+    order_settings = order_settings or OrderSettings.load()
+    send_order_to_kitchen(order, user=user)
+    if order_settings.auto_accept_orders and order.status == Order.Status.CONFIRMED:
+        order.update_status(Order.Status.PREPARING)
+    table = order.table
+    if table is not None and table.status in (Table.Status.VACANT, Table.Status.RESERVED, Table.Status.CLEANING):
+        table.status = Table.Status.OCCUPIED
+        table.save(update_fields=["status", "updated_at"])
+
+
+def guest_status(request, table_uuid):
+    """Polled by the waiting screen: has a staff member confirmed this phone?"""
+    table = get_object_or_404(Table.objects.select_related("floor__outlet"), uuid=table_uuid, is_active=True)
+    g = guard.guest(request, table, create=False)
+    if guard.is_confirmed(g, table):
+        state = "confirmed"
+    elif g and g.rejected_at:
+        state = "rejected"
+    elif guard.is_waiting(g):
+        state = "waiting"
+    else:
+        state = "none"
+    return JsonResponse({"state": state})
+
+
+@require_POST
+def guest_code(request, table_uuid):
+    """Confirm a waiting phone with the table code and send its held round."""
+    table = get_object_or_404(Table.objects.select_related("floor__outlet"), uuid=table_uuid, is_active=True)
+    g = guard.guest(request, table, create=False)
+    if g is None:
+        return JsonResponse({"ok": False, "error": "Please scan the table QR again."}, status=400)
+    # 10,000 codes: a few tries per phone and per table stops guessing
+    if guard.throttle(f"code:{g.pk}", 5, 600) or guard.throttle(f"code-table:{table.pk}", 20, 600):
+        return JsonResponse({"ok": False, "error": "Too many wrong codes. A staff member will confirm your order."}, status=429)
+    if guard.is_confirmed(g, table) or guard.check_code(g, table, request.POST.get("code")):
+        order = g.pending_order
+        if order is not None and order.status in OPEN_STATUSES and order.table_id == table.pk:
+            send_round(order)
+        g.requested_at = None
+        g.save(update_fields=["requested_at"])
+        return JsonResponse({"ok": True})
+    return JsonResponse({"ok": False, "error": "That code isn't right. Please check with a staff member."})
+
+
+@require_POST
+def guest_locate(request, table_uuid):
+    """Confirm a waiting phone by location and send its held round."""
+    table = get_object_or_404(Table.objects.select_related("floor__outlet"), uuid=table_uuid, is_active=True)
+    g = guard.guest(request, table, create=False)
+    if g is None:
+        return JsonResponse({"ok": False, "error": "Please scan the table QR again."}, status=400)
+    if guard.throttle(f"locate:{g.pk}", 8, 600):
+        return JsonResponse({"ok": False, "error": "Too many tries. A staff member will confirm your order."}, status=429)
+    if guard.is_confirmed(g, table) or guard.check_location(
+        g, table, request.POST.get("lat"), request.POST.get("lng"), request.POST.get("accuracy")
+    ):
+        order = g.pending_order
+        if order is not None and order.status in OPEN_STATUSES and order.table_id == table.pk:
+            send_round(order)
+        g.requested_at = None
+        g.save(update_fields=["requested_at"])
+        return JsonResponse({"ok": True})
+    return JsonResponse({
+        "ok": False,
+        "error": "You seem to be away from the restaurant. A staff member will confirm your order at the table.",
+        "distance_m": g.distance_m,
+    })

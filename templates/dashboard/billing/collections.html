@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+
+{% block title %}Daily Collections{% endblock %}
+{% block page_title %}Daily Collections{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    <div class="kf-pagehead">
+        <p>Collected · <b class="font-medium text-slate-900">{{ label }}</b>{% if is_today %} (today){% endif %}</p>
+        <div class="kf-actions">
+            <a href="{% url 'dashboard:daily_collections_pdf' %}?{{ query }}" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Download PDF
+            </a>
+        </div>
+    </div>
+
+    <!-- Period -->
+    <div class="flex flex-wrap items-center gap-2" x-data="{ p: '{{ period }}' }">
+        <div class="kf-seg">
+            <a href="?period=day" class="{% if period == 'day' %}active{% endif %}">Day</a>
+            <a href="?period=month" class="{% if period == 'month' %}active{% endif %}">Month</a>
+            <a href="?period=all" class="{% if period == 'all' %}active{% endif %}">All time</a>
+            <button type="button" :class="p === 'range' && 'active'" @click="p = 'range'">Custom</button>
+        </div>
+
+        {% if period == 'day' %}
+        <a href="?period=day&date={{ prev_day|date:'Y-m-d' }}" class="kf-arrow kf-arrow-light" aria-label="Previous day"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></a>
+        <form method="get" x-show="p === 'day'"><input type="hidden" name="period" value="day"><input type="date" name="date" value="{{ start|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" onchange="this.form.submit()" aria-label="Choose date" class="!h-9 !rounded-full px-4 text-[13px] border border-slate-200 bg-white"></form>
+        {% if not is_today %}<a href="?period=day&date={{ next_day|date:'Y-m-d' }}" class="kf-arrow kf-arrow-light" aria-label="Next day"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></a>{% endif %}
+        {% elif period == 'month' %}
+        <form method="get" x-show="p === 'month'"><input type="hidden" name="period" value="month"><input type="month" name="month" value="{{ month_value }}" max="{{ today|date:'Y-m' }}" onchange="this.form.submit()" aria-label="Choose month" class="!h-9 !rounded-full px-4 text-[13px] border border-slate-200 bg-white"></form>
+        {% endif %}
+
+        <form method="get" x-show="p === 'range'" x-cloak class="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="period" value="range">
+            <input type="date" name="from" value="{% if period == 'range' %}{{ start|date:'Y-m-d' }}{% endif %}" max="{{ today|date:'Y-m-d' }}" required aria-label="From" class="!h-9 !rounded-full px-4 text-[13px] border border-slate-200 bg-white">
+            <span class="text-xs text-slate-600">to</span>
+            <input type="date" name="to" value="{% if period == 'range' %}{{ end|date:'Y-m-d' }}{% endif %}" max="{{ today|date:'Y-m-d' }}" required aria-label="To" class="!h-9 !rounded-full px-4 text-[13px] border border-slate-200 bg-white">
+            <button type="submit" class="btn-secondary !h-9 !px-4 !text-[13px]">Show</button>
+        </form>
+    </div>
+
+    <!-- Headline numbers -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="kf-tile is-dark">
+            <span class="kf-ic is-yellow"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ grand_total|floatformat:2 }}</span><span class="l">Total collected</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-soft"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ bills_total|floatformat:2 }}</span><span class="l">Restaurant bills · {{ orders_paid }} paid</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-green"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ tips_total|floatformat:2 }}</span><span class="l">Tips</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-soft"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ retail_total|floatformat:2 }}</span><span class="l">Retail POS sales</span></div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- By method -->
+        <section class="kf-card p-5 space-y-3">
+            <div class="kf-cardhead"><div><h3 class="kf-h">By payment method</h3><p class="text-xs text-slate-600 mt-0.5">Restaurant bills · match cash against the drawer</p></div></div>
+            {% if by_method %}
+            <ul class="kf-rows">
+                {% for row in by_method %}
+                <li><div>
+                    <span class="flex-1 min-w-0"><b>{{ row.method }}</b><small>{{ row.count }} payment{{ row.count|pluralize }}{% if row.tips %} · incl. {{ currency_symbol }}{{ row.tips|floatformat:2 }} tips on top{% endif %}</small></span>
+                    <span class="text-sm tabular">{{ currency_symbol }}{{ row.total|floatformat:2 }}</span>
+                </div></li>
+                {% endfor %}
+            </ul>
+            <div class="rounded-2xl bg-white/60 px-4 py-3 text-sm space-y-1.5">
+                <div class="flex justify-between"><span class="text-slate-600">Paid online by guests ({{ online_count }})</span><span class="tabular">{{ currency_symbol }}{{ online_total|floatformat:2 }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-600">Collected at the counter</span><span class="tabular">{{ currency_symbol }}{{ counter_total|floatformat:2 }}</span></div>
+            </div>
+            {% else %}
+            <div class="kf-empty"><b>No restaurant payments</b><span>Nothing was collected in this period.</span></div>
+            {% endif %}
+        </section>
+
+        <!-- Tips -->
+        <section class="kf-card p-5 space-y-3">
+            <div class="kf-cardhead"><div><h3 class="kf-h">Tips by staff</h3><p class="text-xs text-slate-600 mt-0.5">Credited to the waiter who served the table</p></div>
+                <a href="{% url 'dashboard:billing_tips' %}" class="kf-arrow kf-arrow-light" aria-label="Tips report"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg></a>
+            </div>
+            {% if tips_by_staff %}
+            <ul class="kf-rows">
+                {% for row in tips_by_staff %}
+                <li><div>
+                    <span class="kf-av !w-9 !h-9 !text-[11px]">{{ row.tip_for__first_name|default:row.tip_for__username|slice:":1"|upper }}{{ row.tip_for__last_name|slice:":1"|upper }}</span>
+                    <span class="flex-1 min-w-0"><b>{% if row.tip_for %}{{ row.tip_for__first_name|default:row.tip_for__username }} {{ row.tip_for__last_name }}{% else %}Not assigned{% endif %}</b><small>{{ row.count }} tip{{ row.count|pluralize }}</small></span>
+                    <span class="text-sm tabular">{{ currency_symbol }}{{ row.total|floatformat:2 }}</span>
+                </div></li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="kf-empty"><b>No tips</b><span>Tips appear when guests add one while paying from their phone.</span></div>
+            {% endif %}
+        </section>
+
+        <!-- Retail -->
+        <section class="kf-card p-5 space-y-3">
+            <div class="kf-cardhead"><div><h3 class="kf-h">Retail POS</h3><p class="text-xs text-slate-600 mt-0.5">Shop sales not on a restaurant bill</p></div></div>
+            {% if retail_by_method %}
+            <ul class="kf-rows">
+                {% for row in retail_by_method %}
+                <li><div>
+                    <span class="flex-1 min-w-0"><b>{{ row.payment_method|default:"Other"|title }}</b><small>{{ row.count }} sale{{ row.count|pluralize }}</small></span>
+                    <span class="text-sm tabular">{{ currency_symbol }}{{ row.total|floatformat:2 }}</span>
+                </div></li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="kf-empty"><b>No retail sales</b></div>
+            {% endif %}
+        </section>
+    </div>
+
+    {% if period != 'day' %}
+    <!-- Day by day -->
+    <section class="kf-card p-5 space-y-3">
+        <h3 class="kf-h">Day by day</h3>
+        {% if daily %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead><tr class="text-left">
+                    <th class="px-3 py-2">Date</th><th class="px-3 py-2 text-right">Bills</th><th class="px-3 py-2 text-right">Cash</th><th class="px-3 py-2 text-right">Card</th>
+                    <th class="px-3 py-2 text-right">UPI</th><th class="px-3 py-2 text-right">Wallet</th><th class="px-3 py-2 text-right">Tips</th><th class="px-3 py-2 text-right">Retail</th><th class="px-3 py-2 text-right">Total</th>
+                </tr></thead>
+                <tbody>
+                    {% for d in daily %}
+                    <tr>
+                        <td class="px-3 py-2.5 whitespace-nowrap"><a href="?period=day&date={{ d.date|date:'Y-m-d' }}" class="underline underline-offset-2">{{ d.date|date:"D, d M Y" }}</a></td>
+                        <td class="px-3 py-2.5 text-right tabular">{{ d.bills }}</td>
+                        <td class="px-3 py-2.5 text-right tabular">{{ d.cash|floatformat:2 }}</td>
+                        <td class="px-3 py-2.5 text-right tabular">{{ d.card|floatformat:2 }}</td>
+                        <td class="px-3 py-2.5 text-right tabular">{{ d.upi|floatformat:2 }}</td>
+                        <td class="px-3 py-2.5 text-right tabular">{{ d.wallet|floatformat:2 }}</td>
+                        <td class="px-3 py-2.5 text-right tabular">{{ d.tips|floatformat:2 }}</td>
+                        <td class="px-3 py-2.5 text-right tabular">{{ d.retail|floatformat:2 }}</td>
+                        <td class="px-3 py-2.5 text-right tabular font-medium">{{ currency_symbol }}{{ d.total|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="kf-empty"><b>Nothing collected in this period</b></div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- Every payment -->
+    <section class="kf-card p-5 space-y-3">
+        <h3 class="kf-h">All payments</h3>
+        {% if payments %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead><tr class="text-left">
+                    <th class="px-3 py-2">{% if period == "day" %}Time{% else %}Date / time{% endif %}</th><th class="px-3 py-2">Bill</th><th class="px-3 py-2">Table</th><th class="px-3 py-2">Method</th>
+                    <th class="px-3 py-2">Reference</th><th class="px-3 py-2">Taken by</th><th class="px-3 py-2 text-right">Amount</th><th class="px-3 py-2 text-right">Tip</th>
+                </tr></thead>
+                <tbody>
+                    {% for p in payments %}
+                    <tr>
+                        <td class="px-3 py-2.5 whitespace-nowrap tabular">{% if period == "day" %}{{ p.created_at|date:"h:i A" }}{% else %}{{ p.created_at|date:"d M, h:i A" }}{% endif %}</td>
+                        <td class="px-3 py-2.5 whitespace-nowrap"><a href="{% url 'dashboard:order_detail' pk=p.order_id %}" class="underline underline-offset-2">#{{ p.order.order_number }}</a></td>
+                        <td class="px-3 py-2.5">{% if p.order.table %}{{ p.order.table.number }}{% else %}{{ p.order.get_order_type_display }}{% endif %}</td>
+                        <td class="px-3 py-2.5 whitespace-nowrap"><span class="kf-tag {% if p.notes|slice:':11' == 'Paid online' %}g{% else %}s{% endif %}">{{ p.get_method_display }}{% if p.notes|slice:':11' == 'Paid online' %} · online{% endif %}</span></td>
+                        <td class="px-3 py-2.5 text-slate-600 tabular">{{ p.transaction_id|default:"—"|truncatechars:22 }}</td>
+                        <td class="px-3 py-2.5 whitespace-nowrap">{% if p.processed_by %}{{ p.processed_by.first_name|default:p.processed_by.username }}{% else %}Guest{% endif %}</td>
+                        <td class="px-3 py-2.5 text-right tabular">{{ currency_symbol }}{{ p.amount }}</td>
+                        <td class="px-3 py-2.5 text-right tabular">{% if p.tip_amount > 0 %}{{ currency_symbol }}{{ p.tip_amount }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="kf-empty"><b>No payments in this period</b></div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

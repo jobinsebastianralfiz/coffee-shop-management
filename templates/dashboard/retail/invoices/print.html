@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Invoice {{ invoice.invoice_number }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-size: 12px;
+            line-height: 1.45;
+            color: #111;
+            background: #fff;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 12mm 10mm;
+        }
+        .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .muted { color: #555; }
+        .head { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 12px; border-bottom: 2px solid #111; }
+        .brand { display: flex; gap: 12px; align-items: flex-start; }
+        .brand img { max-height: 56px; max-width: 120px; object-fit: contain; }
+        .brand h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+        .doc { text-align: right; }
+        .doc h2 { font-size: 18px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+        .doc .status { display: inline-block; margin-top: 6px; padding: 2px 10px; border: 1px solid #111; border-radius: 999px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .doc .status.paid { background: #111; color: #fff; }
+        .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 14px 0; }
+        .box { border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; }
+        .box h3 { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #555; margin-bottom: 4px; }
+        .box .name { font-size: 14px; font-weight: 500; }
+        .meta { width: 100%; border-collapse: collapse; }
+        .meta td { padding: 2px 0; vertical-align: top; }
+        .meta td:first-child { color: #555; width: 45%; }
+        table.items { width: 100%; border-collapse: collapse; margin-top: 4px; }
+        table.items th { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; text-align: left; padding: 6px 6px; border-top: 1px solid #111; border-bottom: 1px solid #111; background: #f3f3f3; }
+        table.items th.num { text-align: right; }
+        table.items td { padding: 6px 6px; border-bottom: 1px solid #e2e2e2; vertical-align: top; }
+        table.items tfoot td { border-top: 1px solid #111; border-bottom: 1px solid #111; font-weight: 500; }
+        .sku { font-size: 10px; color: #666; }
+        .bottom { display: grid; grid-template-columns: 1fr 260px; gap: 20px; margin-top: 14px; }
+        .totals { width: 100%; border-collapse: collapse; }
+        .totals td { padding: 3px 0; }
+        .totals tr.grand td { border-top: 2px solid #111; padding-top: 6px; font-size: 15px; font-weight: 600; }
+        .totals tr.due td { font-weight: 600; }
+        .notes h4 { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #555; margin: 10px 0 3px; }
+        .notes h4:first-child { margin-top: 0; }
+        .notes p { white-space: pre-line; }
+        .sign { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 40px; }
+        .sign .line { border-top: 1px solid #111; padding-top: 4px; min-width: 200px; text-align: center; }
+        .foot { margin-top: 18px; text-align: center; font-size: 10px; color: #666; }
+        .print-btn {
+            position: fixed; top: 20px; right: 20px;
+            padding: 10px 20px; background: #2A2A2C; color: #fff;
+            border: none; border-radius: 999px; cursor: pointer;
+            font-family: inherit; font-size: 14px;
+        }
+        .print-btn:hover { background: #000; }
+        @media print {
+            body { padding: 0; max-width: none; }
+            .print-btn { display: none; }
+            @page { size: A4; margin: 10mm; }
+            table.items th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .doc .status.paid { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+        @media (max-width: 640px) {
+            body { padding: 70px 16px 16px; }
+            .head, .parties, .bottom { display: block; }
+            .doc { text-align: left; margin-top: 10px; }
+            .parties .box + .box { margin-top: 10px; }
+            .items-wrap { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-btn" onclick="window.print()">Print Invoice</button>
+
+    {% with sale=invoice.sale customer=invoice.customer %}
+    <!-- Header -->
+    <div class="head">
+        <div class="brand">
+            {% if business_logo %}<img src="{{ business_logo }}" alt="{{ business_name }}">{% endif %}
+            <div>
+                <h1>{{ business_name }}</h1>
+                {% if business.tagline %}<p class="muted">{{ business.tagline }}</p>{% endif %}
+                {% if business.address %}<p>{{ business.address|linebreaksbr }}</p>
+                {% elif sale.outlet %}<p>{{ sale.outlet.address }}, {{ sale.outlet.city }}, {{ sale.outlet.state }} {{ sale.outlet.postal_code }}</p>{% endif %}
+                <p>
+                    {% if business.phone %}Tel: {{ business.phone }}{% elif sale.outlet.phone %}Tel: {{ sale.outlet.phone }}{% endif %}
+                    {% if business.email %} · {{ business.email }}{% endif %}
+                </p>
+                {% if business.gst_number %}<p><strong>GSTIN:</strong> {{ business.gst_number }}</p>{% endif %}
+                {% if business.fssai_number %}<p>FSSAI: {{ business.fssai_number }}</p>{% endif %}
+            </div>
+        </div>
+        <div class="doc">
+            <h2>Tax Invoice</h2>
+            <p><strong>{{ invoice.invoice_number }}</strong></p>
+            <span class="status {% if invoice.status == 'paid' %}paid{% endif %}">{{ invoice.get_status_display }}</span>
+        </div>
+    </div>
+
+    <!-- Parties -->
+    <div class="parties">
+        <div class="box">
+            <h3>Bill To</h3>
+            <p class="name">{{ customer.business_name }}</p>
+            <p>{{ customer.name }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</p>
+            <p>{{ customer.full_address }}</p>
+            {% if customer.email %}<p>{{ customer.email }}</p>{% endif %}
+            {% if customer.gst_number %}<p><strong>GSTIN:</strong> {{ customer.gst_number }}</p>{% endif %}
+            {% if customer.pan_number %}<p>PAN: {{ customer.pan_number }}</p>{% endif %}
+        </div>
+        <div class="box">
+            <h3>Invoice Details</h3>
+            <table class="meta">
+                <tr><td>Invoice No.</td><td>{{ invoice.invoice_number }}</td></tr>
+                <tr><td>Invoice Date</td><td>{{ invoice.invoice_date|date:"d/m/Y" }}</td></tr>
+                <tr><td>Due Date</td><td>{{ invoice.due_date|date:"d/m/Y" }}</td></tr>
+                <tr><td>Payment Terms</td><td>{{ customer.payment_terms_days }} days</td></tr>
+                {% if sale %}<tr><td>Sale Ref.</td><td>{{ sale.sale_number }}</td></tr>{% endif %}
+                <tr><td>Place of Supply</td><td>{{ customer.state }}</td></tr>
+                <tr><td>Customer Code</td><td>{{ customer.customer_code }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- Items -->
+    <div class="items-wrap">
+    <table class="items">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Description</th>
+                <th>HSN</th>
+                <th class="num">Qty</th>
+                <th class="num">Rate</th>
+                <th class="num">Disc.</th>
+                <th class="num">Taxable</th>
+                <th class="num">GST %</th>
+                <th class="num">CGST</th>
+                <th class="num">SGST</th>
+                <th class="num">IGST</th>
+                <th class="num">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ item.product_name }}<div class="sku">{{ item.product_sku }}</div></td>
+                <td>{{ item.hsn_code|default:"-" }}</td>
+                <td class="num">{{ item.quantity|floatformat:"-2" }}</td>
+                <td class="num">{{ item.unit_price|floatformat:2 }}</td>
+                <td class="num">{% if item.discount_amount > 0 %}{{ item.discount_amount|floatformat:2 }}{% else %}-{% endif %}</td>
+                <td class="num">{{ item.subtotal|floatformat:2 }}</td>
+                <td class="num">{{ item.tax_rate|floatformat:"-2" }}%</td>
+                <td class="num">{{ item.cgst_amount|floatformat:2 }}</td>
+                <td class="num">{{ item.sgst_amount|floatformat:2 }}</td>
+                <td class="num">{{ item.igst_amount|floatformat:2 }}</td>
+                <td class="num">{{ item.total|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="12" style="text-align:center; padding: 16px;" class="muted">No line items</td></tr>
+            {% endfor %}
+        </tbody>
+        {% if sale %}
+        <tfoot>
+            <tr>
+                <td colspan="6">Total</td>
+                <td class="num">{{ sale.subtotal|floatformat:2 }}</td>
+                <td></td>
+                <td class="num">{{ sale.cgst_amount|floatformat:2 }}</td>
+                <td class="num">{{ sale.sgst_amount|floatformat:2 }}</td>
+                <td class="num">{{ sale.igst_amount|floatformat:2 }}</td>
+                <td class="num">{{ sale.total_amount|floatformat:2 }}</td>
+            </tr>
+        </tfoot>
+        {% endif %}
+    </table>
+    </div>
+
+    <!-- Totals and notes -->
+    <div class="bottom">
+        <div class="notes">
+            {% if invoice.notes %}
+            <h4>Notes</h4>
+            <p>{{ invoice.notes }}</p>
+            {% endif %}
+            {% if invoice.terms_conditions %}
+            <h4>Terms &amp; Conditions</h4>
+            <p>{{ invoice.terms_conditions }}</p>
+            {% endif %}
+            {% if sale.notes %}
+            <h4>Sale Notes</h4>
+            <p>{{ sale.notes }}</p>
+            {% endif %}
+        </div>
+        <table class="totals">
+            {% if sale %}
+            <tr><td>Subtotal</td><td class="num">{{ sale.subtotal|floatformat:2 }}</td></tr>
+            {% if sale.discount_amount > 0 %}
+            <tr><td>Discount{% if sale.discount_percentage > 0 %} ({{ sale.discount_percentage|floatformat:"-2" }}%){% endif %}</td><td class="num">-{{ sale.discount_amount|floatformat:2 }}</td></tr>
+            {% endif %}
+            <tr><td>CGST</td><td class="num">{{ sale.cgst_amount|floatformat:2 }}</td></tr>
+            <tr><td>SGST</td><td class="num">{{ sale.sgst_amount|floatformat:2 }}</td></tr>
+            {% if sale.igst_amount > 0 %}
+            <tr><td>IGST</td><td class="num">{{ sale.igst_amount|floatformat:2 }}</td></tr>
+            {% endif %}
+            {% endif %}
+            <tr class="grand"><td>Invoice Total</td><td class="num">{{ currency_symbol }}{{ invoice.amount|floatformat:2 }}</td></tr>
+            <tr><td>Amount Paid</td><td class="num">{{ currency_symbol }}{{ invoice.paid_amount|floatformat:2 }}</td></tr>
+            <tr class="due"><td>Balance Due</td><td class="num">{{ currency_symbol }}{{ invoice.balance_due|floatformat:2 }}</td></tr>
+        </table>
+    </div>
+
+    <div class="sign">
+        <p class="muted">This is a computer generated invoice.</p>
+        <div class="line">For {{ business_name }}<br><span class="muted">Authorised Signatory</span></div>
+    </div>
+
+    <div class="foot">
+        {% if business.website %}<p>{{ business.website }}</p>{% endif %}
+        <p>Thank you for your business.</p>
+    </div>
+    {% endwith %}
+</body>
+</html>

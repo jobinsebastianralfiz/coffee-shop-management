@@ -21,11 +21,20 @@ class PlanInfoView(TemplateView):
 
         # Get plan info from settings (configured by vendor in .env)
         max_outlets = getattr(settings, "MAX_OUTLETS", 1)
+        max_staff = getattr(settings, "MAX_STAFF_PER_OUTLET", 0)
+        max_managers = getattr(settings, "MAX_OUTLET_MANAGERS_PER_OUTLET", 0)
+        max_tables = getattr(settings, "MAX_TABLES_PER_OUTLET", 0)
+
         context["plan"] = {
             "name": getattr(settings, "PLAN_NAME", "Basic"),
             "max_outlets": max_outlets,
             "max_outlets_display": "Unlimited" if max_outlets == 0 else max_outlets,
-            "max_staff_per_outlet": getattr(settings, "MAX_STAFF_PER_OUTLET", 0),
+            "max_staff_per_outlet": max_staff,
+            "max_staff_display": "Unlimited" if max_staff == 0 else max_staff,
+            "max_managers_per_outlet": max_managers,
+            "max_managers_display": "Unlimited" if max_managers == 0 else max_managers,
+            "max_tables_per_outlet": max_tables,
+            "max_tables_display": "Unlimited" if max_tables == 0 else max_tables,
             "features": getattr(settings, "PLAN_FEATURES", []),
         }
 

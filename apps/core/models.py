@@ -441,6 +441,31 @@ class Outlet(TimeStampedModel):
         help_text="Allow customers to order via QR code",
     )
 
+    # QR order protection: an order must come from someone at the table,
+    # not from a photo of the QR taken home
+    class QRGuard(models.TextChoices):
+        LOCATION_OR_STAFF = "location_or_staff", "Location or table code, else staff confirms"
+        CODE = "code", "Table code (staff tell guests), else staff confirms"
+        STAFF = "staff", "Staff confirms each new phone"
+        OFF = "off", "Off (anyone with the QR can order)"
+
+    qr_guard = models.CharField(
+        max_length=20,
+        choices=QRGuard.choices,
+        default=QRGuard.LOCATION_OR_STAFF,
+        help_text="How a guest's phone is confirmed to be at the table before its first order goes to the kitchen",
+    )
+    qr_radius_m = models.PositiveIntegerField(
+        default=150,
+        help_text="Guests within this distance (metres) of the outlet can order without staff confirmation",
+    )
+
+    # Employee Incentive Settings
+    points_per_order = models.PositiveIntegerField(
+        default=10,
+        help_text="Points awarded to employee per completed order",
+    )
+
     # Status
     is_active = models.BooleanField(default=True)
 

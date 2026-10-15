@@ -17,7 +17,12 @@ DEBUG = True
 # ALLOWED HOSTS
 # =============================================================================
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", ".trycloudflare.com"]
+
+# Cloudflare quick tunnel (cloudflared tunnel --url http://localhost:8000) for
+# testing Razorpay webhooks and guest pay links from phones
+CSRF_TRUSTED_ORIGINS = ["https://*.trycloudflare.com"]
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # =============================================================================
@@ -43,8 +48,13 @@ MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")  # noqa:
 
 INTERNAL_IPS = ["127.0.0.1", "localhost"]
 
+# Only on this computer: never show the toolbar (SQL, settings) through a public tunnel
 DEBUG_TOOLBAR_CONFIG = {
-    "SHOW_TOOLBAR_CALLBACK": lambda request: DEBUG,
+    "SHOW_TOOLBAR_CALLBACK": lambda request: (
+        DEBUG
+        and request.get_host().split(":")[0] in ("localhost", "127.0.0.1")
+        and not request.path.startswith("/billing/display")  # the guest-facing screen
+    ),
 }
 
 

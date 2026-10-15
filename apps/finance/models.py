@@ -243,9 +243,13 @@ class CashDrawer(models.Model):
 
         transactions = self.transactions.all()
 
-        # Cash sales (from payments)
+        # Cash sales (from cafe + retail payments)
+        sale_types = [
+            CashDrawerTransaction.TransactionType.SALE,
+            CashDrawerTransaction.TransactionType.RETAIL_SALE,
+        ]
         self.total_cash_sales = (
-            transactions.filter(transaction_type=CashDrawerTransaction.TransactionType.SALE).aggregate(
+            transactions.filter(transaction_type__in=sale_types).aggregate(
                 total=Sum("amount")
             )["total"]
             or 0
@@ -354,8 +358,13 @@ class CashierShift(models.Model):
 
         transactions = self.transactions.all()
 
+        # Cash sales (cafe + retail)
+        sale_types = [
+            CashDrawerTransaction.TransactionType.SALE,
+            CashDrawerTransaction.TransactionType.RETAIL_SALE,
+        ]
         self.cash_sales = (
-            transactions.filter(transaction_type=CashDrawerTransaction.TransactionType.SALE).aggregate(
+            transactions.filter(transaction_type__in=sale_types).aggregate(
                 total=Sum("amount")
             )["total"]
             or 0
@@ -390,7 +399,8 @@ class CashDrawerTransaction(models.Model):
     """
 
     class TransactionType(models.TextChoices):
-        SALE = "sale", "Sale Payment"
+        SALE = "sale", "Cafe Sale Payment"
+        RETAIL_SALE = "retail_sale", "Retail Sale Payment"
         CASH_IN = "cash_in", "Cash In"
         CASH_OUT = "cash_out", "Cash Out"
         EXPENSE = "expense", "Expense Payment"
@@ -422,6 +432,15 @@ class CashDrawerTransaction(models.Model):
     # Reference to order payment if applicable
     payment = models.ForeignKey(
         "orders.Payment",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cash_transactions",
+    )
+
+    # Reference to retail sale if applicable
+    retail_sale = models.ForeignKey(
+        "retail.RetailSale",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

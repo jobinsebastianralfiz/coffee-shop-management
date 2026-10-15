@@ -2,10 +2,13 @@
 
 {% block title %}Login{% endblock %}
 
+{% block page_title %}Login{% endblock %}
+
 {% block auth_content %}
-<div class="min-h-screen flex">
+<div class="min-h-screen p-3 lg:p-5">
+<div class="kf-frame kf-frame-bg min-h-[calc(100vh-1.5rem)] lg:min-h-[calc(100vh-2.5rem)] flex overflow-hidden lg:p-4 lg:gap-4">
     <!-- Left side - Brand/Image -->
-    <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden" style="background: linear-gradient(135deg, var(--login-gradient-start) 0%, var(--login-gradient-end) 100%);">
+    <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden kf-glow-dark rounded-[28px]">
         <!-- Animated Background Elements -->
         <div class="absolute inset-0">
             <!-- Grid Pattern -->
@@ -20,7 +23,7 @@
                 </svg>
             </div>
             <!-- Floating Orbs -->
-            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-400/25 rounded-full blur-3xl animate-pulse"></div>
             <div class="absolute bottom-1/4 right-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse" style="animation-delay: 1s;"></div>
         </div>
 
@@ -96,7 +99,7 @@
     </div>
 
     <!-- Right side - Login Form -->
-    <div class="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-8 bg-slate-50">
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-8">
         <div class="w-full max-w-md">
             <!-- Mobile logo -->
             <div class="lg:hidden text-center mb-8">
@@ -113,7 +116,7 @@
             </div>
 
             <!-- Login Card -->
-            <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-8 lg:p-10 border border-slate-100">
+            <div class="bg-white rounded-[28px] shadow-[0_30px_80px_rgba(30,30,40,0.12)] p-8 lg:p-10">
                 <div class="text-center mb-8">
                     <h2 class="text-2xl lg:text-3xl font-bold text-slate-900">{{ theme.login_welcome|default:"Welcome back!" }}</h2>
                     <p class="text-slate-500 mt-2">{{ theme.login_subtitle|default:"Sign in to your account" }}</p>
@@ -141,7 +144,7 @@
                                 type="text"
                                 name="username"
                                 placeholder="Enter your username"
-                                class="w-full h-12 pl-12 pr-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                                class="w-full h-12 pl-12 pr-4 rounded-[14px] border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:ring-4 focus:ring-amber-300/40 transition-all outline-none"
                                 required
                             />
                             <svg class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,7 +161,7 @@
                                 :type="show ? 'text' : 'password'"
                                 name="password"
                                 placeholder="Enter your password"
-                                class="w-full h-12 pl-12 pr-12 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                                class="w-full h-12 pl-12 pr-12 rounded-[14px] border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:ring-4 focus:ring-amber-300/40 transition-all outline-none"
                                 required
                             />
                             <svg class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,7 +189,7 @@
                     </div>
 
                     <!-- Submit -->
-                    <button type="submit" class="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/40 transition-all flex items-center justify-center gap-2">
+                    <button type="submit" class="w-full h-12 bg-slate-800 hover:bg-slate-700 text-white rounded-full transition-colors flex items-center justify-center gap-2">
                         Sign in
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
@@ -205,7 +208,7 @@
                 </div>
 
                 <!-- PIN Login -->
-                <a href="{% url 'dashboard:pin_login' %}" class="w-full h-12 flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all">
+                <a href="{% url 'dashboard:pin_login' %}" class="w-full h-12 flex items-center justify-center gap-2 rounded-full border-[1.5px] border-slate-300 text-slate-800 hover:bg-amber-400 hover:border-amber-400 transition-all">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path>
                     </svg>
@@ -219,5 +222,6 @@
             </p>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}

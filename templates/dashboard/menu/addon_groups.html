@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+
+{% block title %}Add-On Groups{% endblock %}
+
+{% block page_title %}Add-On Groups{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <p>Manage customization options like milk types, toppings, extras</p>
+        <div class="kf-actions">
+            <a href="{% url 'dashboard:menu' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                Menu
+            </a>
+            <button onclick="document.getElementById('addGroupModal').classList.remove('hidden')" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Add Group
+            </button>
+        </div>
+    </div>
+
+    <!-- Add-On Groups List -->
+    {% if addon_groups %}
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+        {% for group in addon_groups %}
+        <div class="kf-card p-4 sm:p-5 space-y-3">
+            <div class="kf-cardhead items-start">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="kf-ic">
+                        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                    </span>
+                    <div class="min-w-0">
+                        <h3 class="kf-h truncate">{{ group.name }}</h3>
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600 mt-0.5">
+                            {% if group.is_required %}
+                            <span class="kf-tag r !py-0 !px-2 !text-[11px]">Required</span>
+                            {% else %}
+                            <span class="kf-tag s !py-0 !px-2 !text-[11px]">Optional</span>
+                            {% endif %}
+                            {% if group.is_multi_select %}
+                            <span>Multi-select{% if group.max_selections %} (max {{ group.max_selections }}){% endif %}</span>
+                            {% else %}
+                            <span>Single select</span>
+                            {% endif %}
+                            <span>&bull; {{ group.addons.count }} add-ons</span>
+                            <span>&bull; Linked to {{ group.menu_items.count }} items</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1 flex-none">
+                    <button onclick="openEditGroupModal({{ group.id }}, '{{ group.name|escapejs }}', '{{ group.description|escapejs }}', {{ group.is_required|yesno:'true,false' }}, {{ group.is_multi_select|yesno:'true,false' }}, {{ group.max_selections|default:'null' }}, {{ group.display_order }})" class="w-9 h-9 rounded-full grid place-items-center bg-white/70 hover:bg-white text-slate-600 hover:text-slate-900" aria-label="Edit group">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                        </svg>
+                    </button>
+                    {% if not group.menu_items.exists %}
+                    <form action="{% url 'dashboard:addon_group_delete' group.pk %}" method="POST" onsubmit="return confirm('Delete this group and all its add-ons?')">
+                        {% csrf_token %}
+                        <button type="submit" class="w-9 h-9 rounded-full grid place-items-center bg-white/70 hover:bg-red-50 text-slate-600 hover:text-red-600" aria-label="Delete group">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Add-ons in this group -->
+            <div class="rounded-[20px] bg-white/50 p-3">
+                <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-xs text-slate-600">Add-ons in this group</h4>
+                    <button onclick="openAddAddonModal({{ group.id }}, '{{ group.name|escapejs }}')" class="btn-secondary !h-8 !px-3 !text-[12px]">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Add
+                    </button>
+                </div>
+
+                {% if group.addons.all %}
+                <div class="flex flex-wrap gap-1.5">
+                    {% for addon in group.addons.all %}
+                    <div class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 bg-white rounded-full">
+                        <span class="text-[13px] text-slate-800">{{ addon.name }}</span>
+                        {% if addon.price > 0 %}
+                        <span class="text-[13px] text-emerald-600 tabular">+&#8377;{{ addon.price }}</span>
+                        {% endif %}
+                        {% if not addon.is_available %}
+                        <span class="w-2 h-2 bg-red-500 rounded-full" title="Unavailable"></span>
+                        {% endif %}
+                        <div class="flex items-center">
+                            <button onclick="openEditAddonModal({{ addon.id }}, '{{ addon.name|escapejs }}', '{{ addon.price }}', {{ addon.is_available|yesno:'true,false' }}, {{ addon.display_order }})" class="w-7 h-7 rounded-full grid place-items-center hover:bg-slate-100 text-slate-400 hover:text-slate-700" aria-label="Edit add-on">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                </svg>
+                            </button>
+                            <form action="{% url 'dashboard:addon_delete' addon.pk %}" method="POST" class="inline" onsubmit="return confirm('Delete this add-on?')">
+                                {% csrf_token %}
+                                <button type="submit" class="w-7 h-7 rounded-full grid place-items-center hover:bg-red-50 text-slate-400 hover:text-red-600" aria-label="Delete add-on">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-xs text-slate-500">No add-ons yet. Click "Add" to create one.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="kf-card">
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+            </span>
+            <b>No Add-On Groups Yet</b>
+            <span class="max-w-md">Create groups like "Milk Options", "Extra Toppings", "Sweeteners" to offer customizations.</span>
+            <button onclick="document.getElementById('addGroupModal').classList.remove('hidden')" class="btn-primary !h-9 !px-4 !text-[13px] mt-2">
+                Create First Group
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Group Modal -->
+<div id="addGroupModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('addGroupModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Add Add-On Group</h3>
+            <p class="text-slate-600 text-sm mb-5">Create a new group of customization options.</p>
+
+            <form action="{% url 'dashboard:addon_group_create' %}" method="POST" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="kf-label">Group Name</label>
+                    <input type="text" name="name" placeholder="e.g., Milk Options, Extra Toppings" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900" required>
+                </div>
+                <div>
+                    <label class="kf-label">Description (Optional)</label>
+                    <textarea name="description" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900" placeholder="Describe this group..."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 rounded-2xl hover:bg-slate-100">
+                        <input type="checkbox" name="is_required" class="w-5 h-5 rounded border-slate-300">
+                        <div>
+                            <span class="text-sm font-medium text-slate-700">Required</span>
+                            <p class="text-xs text-slate-500">Must select at least one</p>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 rounded-2xl hover:bg-slate-100">
+                        <input type="checkbox" name="is_multi_select" checked class="w-5 h-5 rounded border-slate-300">
+                        <div>
+                            <span class="text-sm font-medium text-slate-700">Multi-select</span>
+                            <p class="text-xs text-slate-500">Allow multiple choices</p>
+                        </div>
+                    </label>
+                </div>
+                <div>
+                    <label class="kf-label">Max Selections (Optional)</label>
+                    <input type="number" name="max_selections" min="1" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900" placeholder="Leave empty for unlimited">
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('addGroupModal').classList.add('hidden')" class="btn-secondary flex-1 !bg-slate-100 hover:!bg-slate-200">Cancel</button>
+                    <button type="submit" class="btn-primary flex-1">Create Group</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Group Modal -->
+<div id="editGroupModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('editGroupModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Edit Add-On Group</h3>
+            <p class="text-slate-600 text-sm mb-5">Update group settings.</p>
+
+            <form id="editGroupForm" method="POST" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="kf-label">Group Name</label>
+                    <input type="text" name="name" id="editGroupName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900" required>
+                </div>
+                <div>
+                    <label class="kf-label">Description</label>
+                    <textarea name="description" id="editGroupDescription" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 rounded-2xl hover:bg-slate-100">
+                        <input type="checkbox" name="is_required" id="editGroupRequired" class="w-5 h-5 rounded border-slate-300">
+                        <div>
+                            <span class="text-sm font-medium text-slate-700">Required</span>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer p-3 bg-slate-50 rounded-2xl hover:bg-slate-100">
+                        <input type="checkbox" name="is_multi_select" id="editGroupMulti" class="w-5 h-5 rounded border-slate-300">
+                        <div>
+                            <span class="text-sm font-medium text-slate-700">Multi-select</span>
+                        </div>
+                    </label>
+                </div>
+                <div>
+                    <label class="kf-label">Max Selections</label>
+                    <input type="number" name="max_selections" id="editGroupMax" min="1" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900" placeholder="Leave empty for unlimited">
+                </div>
+                <div>
+                    <label class="kf-label">Display Order</label>
+                    <input type="number" name="display_order" id="editGroupOrder" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900">
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('editGroupModal').classList.add('hidden')" class="btn-secondary flex-1 !bg-slate-100 hover:!bg-slate-200">Cancel</button>
+                    <button type="submit" class="btn-primary flex-1">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Add-on Modal -->
+<div id="addAddonModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('addAddonModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Add Add-on</h3>
+            <p class="text-slate-600 text-sm mb-5">Add to: <span id="addAddonGroupName" class="font-medium text-slate-900"></span></p>
+
+            <form id="addAddonForm" method="POST" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="kf-label">Add-on Name</label>
+                    <input type="text" name="name" placeholder="e.g., Oat Milk, Extra Shot" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900" required>
+                </div>
+                <div>
+                    <label class="kf-label">Extra Price (&#8377;)</label>
+                    <input type="number" name="price" step="0.01" min="0" value="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900">
+                    <p class="text-xs text-slate-500 mt-1">Set to 0 for free add-ons</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" name="is_available" checked class="w-5 h-5 rounded border-slate-300">
+                    <span class="text-sm text-slate-700">Available</span>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('addAddonModal').classList.add('hidden')" class="btn-secondary flex-1 !bg-slate-100 hover:!bg-slate-200">Cancel</button>
+                    <button type="submit" class="btn-primary flex-1">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Add-on Modal -->
+<div id="editAddonModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('editAddonModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Edit Add-on</h3>
+            <p class="text-slate-600 text-sm mb-5">Update add-on details.</p>
+
+            <form id="editAddonForm" method="POST" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="kf-label">Add-on Name</label>
+                    <input type="text" name="name" id="editAddonName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900" required>
+                </div>
+                <div>
+                    <label class="kf-label">Extra Price (&#8377;)</label>
+                    <input type="number" name="price" id="editAddonPrice" step="0.01" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900">
+                </div>
+                <div>
+                    <label class="kf-label">Display Order</label>
+                    <input type="number" name="display_order" id="editAddonOrder" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900">
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" name="is_available" id="editAddonAvailable" class="w-5 h-5 rounded border-slate-300">
+                    <span class="text-sm text-slate-700">Available</span>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('editAddonModal').classList.add('hidden')" class="btn-secondary flex-1 !bg-slate-100 hover:!bg-slate-200">Cancel</button>
+                    <button type="submit" class="btn-primary flex-1">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openEditGroupModal(id, name, description, isRequired, isMulti, maxSelections, displayOrder) {
+    document.getElementById('editGroupForm').action = '{% url "dashboard:addon_group_edit" 0 %}'.replace('/0/', '/' + id + '/');
+    document.getElementById('editGroupName').value = name;
+    document.getElementById('editGroupDescription').value = description || '';
+    document.getElementById('editGroupRequired').checked = isRequired;
+    document.getElementById('editGroupMulti').checked = isMulti;
+    document.getElementById('editGroupMax').value = maxSelections || '';
+    document.getElementById('editGroupOrder').value = displayOrder;
+    document.getElementById('editGroupModal').classList.remove('hidden');
+}
+
+function openAddAddonModal(groupId, groupName) {
+    document.getElementById('addAddonForm').action = '{% url "dashboard:addon_create" 0 %}'.replace('/0/', '/' + groupId + '/');
+    document.getElementById('addAddonGroupName').textContent = groupName;
+    document.getElementById('addAddonModal').classList.remove('hidden');
+}
+
+function openEditAddonModal(id, name, price, isAvailable, displayOrder) {
+    document.getElementById('editAddonForm').action = '{% url "dashboard:addon_edit" 0 %}'.replace('/0/', '/' + id + '/');
+    document.getElementById('editAddonName').value = name;
+    document.getElementById('editAddonPrice').value = price;
+    document.getElementById('editAddonAvailable').checked = isAvailable;
+    document.getElementById('editAddonOrder').value = displayOrder;
+    document.getElementById('editAddonModal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

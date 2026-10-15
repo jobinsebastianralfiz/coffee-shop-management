@@ -115,6 +115,16 @@ class RazorpayOrder(models.Model):
         "orders.Order",
         on_delete=models.CASCADE,
         related_name="razorpay_orders",
+        null=True,
+        blank=True,
+    )
+    # A Retail POS sale paid by scanning the QR at the counter (instead of an order)
+    retail_sale = models.ForeignKey(
+        "retail.RetailSale",
+        on_delete=models.CASCADE,
+        related_name="razorpay_orders",
+        null=True,
+        blank=True,
     )
 
     # Razorpay details
@@ -122,8 +132,11 @@ class RazorpayOrder(models.Model):
     razorpay_payment_id = models.CharField(max_length=100, blank=True)
     razorpay_signature = models.CharField(max_length=200, blank=True)
 
-    # Amount (in paise for Razorpay)
+    # Amount (in paise for Razorpay): bill_amount + tip_amount
     amount = models.PositiveIntegerField(help_text="Amount in paise")
+    bill_amount = models.PositiveIntegerField(default=0, help_text="Bill part in paise")
+    tip_amount = models.PositiveIntegerField(default=0, help_text="Tip part in paise")
+    paid_by_guest = models.BooleanField(default=False, help_text="Started from the guest's pay-at-table link")
     currency = models.CharField(max_length=3, default="INR")
 
     # Status

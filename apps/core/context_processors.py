@@ -88,6 +88,10 @@ def app_settings(request):
     return {
         "DEBUG": django_settings.DEBUG,
         "MEDIA_URL": django_settings.MEDIA_URL,
+        # Business module feature flags
+        "enable_cafe": getattr(django_settings, "ENABLE_CAFE", True),
+        "enable_retail": getattr(django_settings, "ENABLE_RETAIL", False),
+        "enable_wholesale": getattr(django_settings, "ENABLE_WHOLESALE", False),
     }
 
 

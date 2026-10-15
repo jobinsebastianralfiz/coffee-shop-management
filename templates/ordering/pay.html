@@ -1,0 +1,200 @@
+{% extends 'ordering/base.html' %}
+
+{% block title %}Pay bill #{{ order.order_number }}{% endblock %}
+
+{% block content %}
+{% with cur=currency_symbol|default:"₹" %}
+<div class="max-w-md mx-auto px-4 pt-6 pb-40 space-y-4" x-data="payBill({{ amount_due|stringformat:'.2f' }})">
+    {% csrf_token %}
+
+    <!-- Header -->
+    <header class="flex items-center gap-3">
+        {% if business.logo %}
+        <img src="{{ business.logo.url }}" alt="" class="w-11 h-11 rounded-full object-contain bg-white">
+        {% else %}
+        <span class="kf-ic is-lg">{{ business.business_name|slice:":1" }}</span>
+        {% endif %}
+        <div class="min-w-0">
+            <p class="text-sm text-slate-600 truncate">{{ business.business_name }}</p>
+            <h1 class="text-2xl font-light leading-tight">
+                {% if order.table %}Table {{ order.all_table_numbers|default:order.table.number }}{% else %}Your bill{% endif %}
+            </h1>
+        </div>
+        <span class="ml-auto kf-tag w tabular">#{{ order.order_number }}</span>
+    </header>
+
+    {% if is_settled %}
+    <!-- Receipt -->
+    <section class="kf-dcard kf-glow-dark p-6 space-y-5" role="status" aria-live="polite">
+        <div class="text-center space-y-2">
+            <span class="kf-ic is-yellow is-lg mx-auto"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></span>
+            <p class="text-sm text-slate-300">Payment successful</p>
+            <p class="text-5xl font-light tabular leading-none">{{ cur }}{{ receipt.total|floatformat:2 }}</p>
+            <p class="text-sm text-slate-300">paid to {{ business.business_name }}</p>
+        </div>
+        <dl class="rounded-2xl bg-white/5 px-4 py-3 space-y-2 text-sm">
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Bill</dt><dd class="tabular">{{ cur }}{{ receipt.bill|floatformat:2 }}</dd></div>
+            {% if receipt.tip > 0 %}<div class="flex justify-between gap-4"><dt class="text-slate-400">Tip</dt><dd class="tabular">{{ cur }}{{ receipt.tip|floatformat:2 }}</dd></div>{% endif %}
+            {% if receipt.last %}
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Paid by</dt><dd>{{ receipt.last.get_method_display }}</dd></div>
+            <div class="flex justify-between gap-4"><dt class="text-slate-400">Date</dt><dd>{{ receipt.last.created_at|date:"d M Y, h:i A" }}</dd></div>
+            {% if receipt.last.transaction_id %}<div class="flex justify-between gap-4"><dt class="text-slate-400">Transaction ID</dt><dd class="tabular text-right break-all">{{ receipt.last.transaction_id }}</dd></div>{% endif %}
+            {% endif %}
+        </dl>
+        <p class="text-center text-base">Thank you for dining with us{% if receipt.tip > 0 %}, and for the tip{% endif %}!<br><span class="text-slate-300 text-sm">We hope to see you again soon.</span></p>
+        <a href="{% url 'payments:pay_receipt' order_uuid=order.uuid %}" target="_blank" class="btn-yellow w-full">Download receipt</a>
+    </section>
+    {% endif %}
+
+    <!-- Bill -->
+    <section class="kf-card p-4 space-y-3" aria-label="Bill">
+        <ul class="divide-y divide-slate-200/70">
+            {% for item in lines %}
+            <li class="flex items-start gap-3 py-2 text-sm">
+                <span class="w-7 text-slate-500 tabular">{{ item.quantity }}×</span>
+                <span class="flex-1 min-w-0">{{ item.item_name }}{% if item.variant_name %} <span class="text-slate-500">({{ item.variant_name }})</span>{% endif %}</span>
+                <span class="tabular">{{ cur }}{{ item.total_price }}</span>
+            </li>
+            {% endfor %}
+            {% for item in shop_lines %}
+            <li class="flex items-start gap-3 py-2 text-sm">
+                <span class="w-7 text-slate-500 tabular">{{ item.quantity|floatformat:"-2" }}×</span>
+                <span class="flex-1 min-w-0">{{ item.product_name }}</span>
+                <span class="tabular">{{ cur }}{{ item.total|floatformat:2 }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        <div class="space-y-1 text-sm border-t border-slate-200/70 pt-3">
+            <div class="flex justify-between"><span class="text-slate-600">Subtotal</span><span class="tabular">{{ cur }}{{ order.subtotal }}</span></div>
+            {% if order.discount_amount > 0 %}<div class="flex justify-between"><span class="text-slate-600">Discount</span><span class="tabular">−{{ cur }}{{ order.discount_amount }}</span></div>{% endif %}
+            {% if order.tax_amount > 0 %}<div class="flex justify-between"><span class="text-slate-600">GST</span><span class="tabular">{{ cur }}{{ order.tax_amount|floatformat:2 }}</span></div>{% endif %}
+            {% if order.service_charge > 0 %}<div class="flex justify-between"><span class="text-slate-600">Service charge</span><span class="tabular">{{ cur }}{{ order.service_charge }}</span></div>{% endif %}
+            {% for p in paid_payments %}
+            <div class="flex justify-between text-emerald-700"><span>Paid · {{ p.get_method_display }}</span><span class="tabular">−{{ cur }}{{ p.amount }}</span></div>
+            {% endfor %}
+        </div>
+        {% if not is_settled %}
+        <div class="flex items-end justify-between border-t border-slate-200/70 pt-3">
+            <span class="text-slate-800">To pay</span>
+            <span class="text-3xl font-light tabular leading-none">{{ cur }}{{ amount_due|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+    </section>
+
+    {% if is_open and amount_due > 0 %}
+    {% if online_enabled %}
+    <!-- Tip -->
+    <section class="kf-card p-4 space-y-3" x-show="!paid" aria-labelledby="tipTitle">
+        <div>
+            <h2 id="tipTitle" class="kf-h">Add a tip?</h2>
+            <p class="text-xs text-slate-600 mt-0.5">Optional. Tips go to the staff who served you.</p>
+        </div>
+        <div class="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Tip">
+            <button type="button" role="radio" :aria-checked="tipMode === 'none'" @click="setTip('none', 0)"
+                    class="h-14 rounded-2xl text-sm transition-colors" :class="tipMode === 'none' ? 'bg-slate-800 text-white' : 'bg-white/80'">No tip</button>
+            {% for pct, amt in tip_options %}
+            <button type="button" role="radio" :aria-checked="tipMode === '{{ pct }}'" @click="setTip('{{ pct }}', {{ amt }})"
+                    class="h-14 rounded-2xl text-sm leading-tight transition-colors" :class="tipMode === '{{ pct }}' ? 'bg-slate-800 text-white' : 'bg-white/80'">
+                {{ pct }}%<span class="block text-xs opacity-70 tabular">{{ cur }}{{ amt }}</span>
+            </button>
+            {% endfor %}
+        </div>
+        <label class="flex items-center gap-2">
+            <span class="text-sm text-slate-600 flex-none">Other amount</span>
+            <input type="number" inputmode="decimal" min="0" step="1" placeholder="0" aria-label="Custom tip amount"
+                   class="kf-input tabular" x-model.number="customTip" @input="tipMode = 'custom'; tip = Math.max(0, Number(customTip) || 0)">
+        </label>
+    </section>
+
+    <!-- Pay bar -->
+    <div class="fixed bottom-0 left-0 right-0 px-3 z-40" x-show="!paid" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
+        <div class="max-w-md mx-auto space-y-2">
+            <p x-show="error" x-cloak x-text="error" class="rounded-2xl bg-red-50 text-red-700 text-sm px-4 py-2.5" role="alert"></p>
+            <button type="button" @click="pay()" :disabled="busy"
+                    class="btn-yellow w-full !h-14 !text-base shadow-[0_18px_40px_rgba(30,30,40,0.22)] disabled:opacity-60">
+                <span x-text="busy ? 'Opening payment…' : 'Pay {{ cur }}' + total.toFixed(2)"></span>
+            </button>
+            <p class="text-center text-xs text-slate-600">UPI, cards and wallets · or pay at the counter with bill #{{ order.order_number }}</p>
+        </div>
+    </div>
+    {% else %}
+    <div class="kf-card p-4 text-center text-sm text-slate-700">
+        Please pay at the billing counter. Show bill <b class="font-medium tabular">#{{ order.order_number }}</b>.
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endwith %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+<script>
+function payBill(due) {
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const post = (url, body) => fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        body: JSON.stringify(body || {}),
+        credentials: 'same-origin',
+    }).then(r => r.json().then(data => ({ ok: r.ok, data })));
+
+    return {
+        due: due,
+        tip: 0,
+        tipMode: 'none',
+        customTip: null,
+        busy: false,
+        paid: false,
+        error: '',
+        get total() { return this.due + (Number(this.tip) || 0); },
+        setTip(mode, amount) { this.tipMode = mode; this.tip = amount; this.customTip = null; },
+
+        async checkStatus() {
+            const r = await fetch('{% url "payments:pay_status" order_uuid=order.uuid %}', { credentials: 'same-origin' });
+            const data = await r.json();
+            if (data.paid) { window.location.reload(); }
+            return data;
+        },
+
+        async pay() {
+            this.error = '';
+            if (this.tip > this.due) { this.error = 'That tip is more than the bill. Please check the amount.'; return; }
+            if (typeof Razorpay === 'undefined') { this.error = 'Payment is still loading. Please try again in a moment.'; return; }
+            this.busy = true;
+            const start = await post('{% url "payments:pay_start" order_uuid=order.uuid %}', { tip: this.tip });
+            if (!start.ok) { this.busy = false; this.error = start.data.error || 'Could not start the payment.'; return; }
+            const s = start.data;
+            const self = this;
+            const checkout = new Razorpay({
+                key: s.key,
+                order_id: s.razorpay_order_id,
+                amount: s.amount,
+                currency: s.currency,
+                name: s.name,
+                description: s.description,
+                prefill: s.prefill,
+                theme: { color: '#2A2A2C' },
+                handler: async function (resp) {
+                    const v = await post('{% url "payments:pay_verify" order_uuid=order.uuid %}', resp);
+                    self.busy = false;
+                    if (v.ok) { window.location.reload(); }  // shows the receipt (or what's left to pay)
+                    else { self.error = v.data.error || 'Payment could not be confirmed.'; }
+                },
+                modal: {
+                    ondismiss: async function () {
+                        self.busy = false;
+                        await self.checkStatus();  // in case it went through anyway
+                    },
+                },
+            });
+            checkout.on('payment.failed', function (resp) {
+                self.busy = false;
+                self.error = (resp.error && resp.error.description) || 'Payment failed. No money was taken. Please try again.';
+            });
+            checkout.open();
+        },
+    };
+}
+</script>
+{% endblock %}

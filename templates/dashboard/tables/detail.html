@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'dashboard:tables' %}" class="kf-arrow kf-arrow-light" aria-label="Back to tables">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <p class="truncate">{% if table.name %}{{ table.name }} · {% endif %}{{ table.floor.name }}{% if table.floor.outlet %} · {{ table.floor.outlet.name }}{% endif %}</p>
+        </div>
+        <div class="kf-actions">
+            <a href="{% url 'dashboard:tables' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                </svg>
+                Floor Map
+            </a>
+            {% if table.is_active %}
+            <a href="{% url 'dashboard:table_take_order' table.pk %}" class="btn-yellow !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Take Order
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Key numbers -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="kf-tile">
+            <span class="kf-ic {% if table.status == 'vacant' %}is-green{% elif table.status == 'occupied' %}is-yellow{% else %}is-soft{% endif %}">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </span>
+            <div class="min-w-0"><span class="v">{{ table.get_status_display }}</span><span class="l">Status</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-light">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+            </span>
+            <div class="min-w-0"><span class="v">{{ table.capacity }}</span><span class="l">Seats · {{ table.get_table_type_display }}</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </span>
+            <div class="min-w-0"><span class="v">{% if current_session %}{{ current_session.duration_minutes }} min{% else %}-{% endif %}</span><span class="l">Current session</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-soft">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+            </span>
+            <div class="min-w-0"><span class="v">{{ recent_sessions|length }}</span><span class="l">Recent sessions</span></div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Main column -->
+        <div class="lg:col-span-2 space-y-4 min-w-0">
+            <!-- Table overview -->
+            <div class="kf-card p-4 sm:p-5">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div class="w-full sm:w-48 h-32 flex-none rounded-[22px] bg-white/65 border-2 flex items-center justify-center
+                        {% if table.status == 'vacant' %}border-emerald-200
+                        {% elif table.status == 'occupied' %}border-amber-300
+                        {% elif table.status == 'reserved' %}border-blue-300
+                        {% else %}border-transparent{% endif %}">
+                        {% if table.status == 'vacant' %}
+                        {% include "dashboard/tables/_table_shape.html" with chair_fill="#A7F3D0" chair_stroke="#10b981" table_fill="#10b981" svg_class="max-h-28 max-w-full w-auto" %}
+                        {% elif table.status == 'occupied' %}
+                        {% include "dashboard/tables/_table_shape.html" with chair_fill="#FBE7A1" chair_stroke="#F5C842" table_fill="#F5C842" label_fill="#1E1E1E" svg_class="max-h-28 max-w-full w-auto" %}
+                        {% elif table.status == 'reserved' %}
+                        {% include "dashboard/tables/_table_shape.html" with chair_fill="#C6C6C8" chair_stroke="#6E6E73" table_fill="#6E6E73" svg_class="max-h-28 max-w-full w-auto" %}
+                        {% else %}
+                        {% include "dashboard/tables/_table_shape.html" with chair_fill="#EBEBE8" chair_stroke="#A9A9AE" table_fill="#A9A9AE" svg_class="max-h-28 max-w-full w-auto" %}
+                        {% endif %}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-center gap-2 mb-3">
+                            <span class="kf-tag {% if table.status == 'vacant' %}g{% elif table.status == 'occupied' %}ys{% elif table.status == 'reserved' %}s{% else %}h{% endif %}"><span class="kf-dot"></span>{{ table.get_status_display }}</span>
+                            {% if not table.is_active %}<span class="kf-tag h">Inactive</span>{% endif %}
+                            {% if table.qr_code %}<span class="kf-tag w">QR ready</span>{% endif %}
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                            <div>
+                                <p class="text-xs text-slate-600">Table number</p>
+                                <p class="text-slate-900">{{ table.number }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-600">Name</p>
+                                <p class="text-slate-900 truncate">{{ table.name|default:"-" }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-600">Type</p>
+                                <p class="text-slate-900">{{ table.get_table_type_display }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-600">Floor</p>
+                                <p class="text-slate-900 truncate">{{ table.floor.name }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-600">Outlet</p>
+                                <p class="text-slate-900 truncate">{{ table.floor.outlet.name|default:"-" }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-600">Capacity</p>
+                                <p class="text-slate-900">{{ table.capacity }} seat{{ table.capacity|pluralize }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current session -->
+            <div class="kf-card p-5">
+                <div class="kf-cardhead mb-3">
+                    <div>
+                        <h3 class="kf-h">Current Session</h3>
+                        <p class="text-xs text-slate-600 mt-0.5">Guests seated at this table right now</p>
+                    </div>
+                    {% if current_session %}<span class="kf-live">Live</span>{% endif %}
+                </div>
+                {% if current_session %}
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div class="px-3.5 py-3 bg-white/70 rounded-2xl min-w-0">
+                        <p class="text-xs text-slate-600">Started</p>
+                        <p class="text-sm text-slate-900 tabular mt-0.5">{{ current_session.started_at|date:"M d, H:i" }}</p>
+                    </div>
+                    <div class="px-3.5 py-3 bg-white/70 rounded-2xl min-w-0">
+                        <p class="text-xs text-slate-600">Duration</p>
+                        <p class="text-sm text-slate-900 tabular mt-0.5">{{ current_session.duration_minutes }} min</p>
+                    </div>
+                    <div class="px-3.5 py-3 bg-white/70 rounded-2xl min-w-0">
+                        <p class="text-xs text-slate-600">Guests</p>
+                        <p class="text-sm text-slate-900 tabular mt-0.5">{{ current_session.guest_count }}</p>
+                    </div>
+                    <div class="px-3.5 py-3 bg-white/70 rounded-2xl min-w-0">
+                        <p class="text-xs text-slate-600">Waiter</p>
+                        <p class="text-sm text-slate-900 truncate mt-0.5">{% if current_session.waiter %}{{ current_session.waiter.get_full_name|default:current_session.waiter.username }}{% else %}-{% endif %}</p>
+                    </div>
+                </div>
+                {% if current_session.customer_name or current_session.customer_phone %}
+                <p class="text-sm text-slate-700 mt-3">Customer: {{ current_session.customer_name|default:"-" }}{% if current_session.customer_phone %} · {{ current_session.customer_phone }}{% endif %}</p>
+                {% endif %}
+                {% if current_session.notes %}
+                <p class="text-sm text-slate-600 mt-2">{{ current_session.notes }}</p>
+                {% endif %}
+                {% else %}
+                <div class="kf-empty">
+                    <span class="kf-ic is-soft is-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </span>
+                    <b>No active session</b>
+                    <span>A session starts when guests are seated</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Recent sessions -->
+            <div class="kf-card p-5">
+                <div class="kf-cardhead mb-3">
+                    <div>
+                        <h3 class="kf-h">Recent Sessions</h3>
+                        <p class="text-xs text-slate-600 mt-0.5">Last 10 sessions at this table</p>
+                    </div>
+                </div>
+                {% if recent_sessions %}
+                <ul class="kf-rows">
+                    {% for session in recent_sessions %}
+                    <li>
+                        <div class="!pl-2">
+                            <span class="kf-tag {% if session.is_active %}ys{% else %}s{% endif %}">{% if session.is_active %}Active{% else %}Ended{% endif %}</span>
+                            <span class="flex-1 min-w-0 text-sm text-slate-800 truncate">
+                                {{ session.started_at|date:"M d, H:i" }}
+                                <span class="text-xs text-slate-500">· {% if session.customer_name %}{{ session.customer_name }} · {% endif %}{% if session.waiter %}{{ session.waiter.get_full_name|default:session.waiter.username }}{% else %}No waiter{% endif %}</span>
+                            </span>
+                            <span class="text-xs text-slate-600 tabular whitespace-nowrap">{{ session.guest_count }} guest{{ session.guest_count|pluralize }}</span>
+                            <span class="text-xs text-slate-500 tabular whitespace-nowrap">{{ session.duration_minutes }} min</span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="kf-empty">
+                    <span class="kf-ic is-soft is-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                    </span>
+                    <b>No sessions yet</b>
+                    <span>Past sessions will appear here</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-4 min-w-0">
+            {% include "partials/_table_code.html" with next_url=request.get_full_path %}
+
+            <!-- QR code -->
+            <div class="kf-card p-5">
+                <div class="kf-cardhead mb-3">
+                    <h3 class="kf-h">QR Code</h3>
+                    <a href="{{ table.qr_url }}" target="_blank" rel="noopener" class="kf-arrow kf-arrow-light" aria-label="Open customer ordering page" title="Open ordering page">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                    </a>
+                </div>
+                {% if user.role == 'super_admin' or user.role == 'outlet_manager' %}
+                <div class="p-3 bg-white rounded-2xl">
+                    <img src="{% url 'dashboard:table_qr_svg' table.pk %}" alt="QR code for table {{ table.number }}" class="w-full max-w-[220px] h-auto mx-auto">
+                </div>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <a href="{% url 'dashboard:table_qr_cards' %}?t={{ table.pk }}" target="_blank" rel="noopener" class="btn-yellow !h-9 !px-4 !text-[13px] flex-1">Print table card</a>
+                    <a href="{% url 'dashboard:table_qr_svg' table.pk %}?download=1" class="btn-secondary !h-9 !px-4 !text-[13px] flex-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        SVG
+                    </a>
+                </div>
+                <p class="text-xs text-slate-500 mt-2">Regenerating gives the table a new code: cards already printed stop working. Use it if a photo of the QR is being misused.</p>
+                {% else %}
+                {% if table.qr_code %}
+                <div class="p-3 bg-white rounded-2xl">
+                    <img src="{{ table.qr_code.url }}" alt="QR code for table {{ table.number }}" class="w-full max-w-[220px] h-auto mx-auto">
+                </div>
+                <p class="text-xs text-slate-500 text-center mt-2 break-all">{{ table.qr_url }}</p>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <a href="{{ table.qr_code.url }}" download class="btn-secondary !h-9 !px-4 !text-[13px] flex-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Download
+                    </a>
+                    <a href="{{ table.qr_code.url }}" target="_blank" rel="noopener" class="btn-secondary !h-9 !px-4 !text-[13px] flex-1">Open</a>
+                </div>
+                {% else %}
+                <div class="kf-empty !py-5">
+                    <span class="kf-ic is-soft is-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                        </svg>
+                    </span>
+                    <b>No QR code yet</b>
+                    <span>Generate one so guests can order from the table</span>
+                </div>
+                {% endif %}
+                {% endif %}
+                {% if user.role == 'super_admin' or user.role == 'outlet_manager' %}
+                <form action="{% url 'dashboard:table_regenerate_qr' table.pk %}" method="POST" class="mt-2">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-primary w-full !h-9 !text-[13px]">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        {% if table.qr_code %}Regenerate QR{% else %}Generate QR{% endif %}
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+
+            <!-- Change status -->
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-3">Change Status</h3>
+                <form action="{% url 'dashboard:table_update_status' table.pk %}" method="POST" class="space-y-2">
+                    {% csrf_token %}
+                    <select name="status" class="kf-input">
+                        {% for value, label in table.Status.choices %}
+                        <option value="{{ value }}" {% if table.status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn-secondary w-full !h-9 !text-[13px]">Update Status</button>
+                </form>
+            </div>
+
+            {% if user.role == 'super_admin' or user.role == 'outlet_manager' %}
+            <!-- Danger zone -->
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-1">Delete Table</h3>
+                <p class="text-xs text-slate-600 mb-3">Occupied tables or tables with an active session cannot be deleted.</p>
+                <form action="{% url 'dashboard:table_delete' table.pk %}" method="POST" onsubmit="return confirm('Delete table {{ table.number }}?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-danger w-full !h-9 !text-[13px]">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                        Delete Table
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

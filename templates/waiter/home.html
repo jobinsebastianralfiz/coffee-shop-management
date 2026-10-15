@@ -3,95 +3,87 @@
 {% block title %}Home{% endblock %}
 
 {% block content %}
-<div class="p-4 space-y-6">
+<div class="px-4 pt-5 space-y-4 max-w-md mx-auto">
     <!-- Header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-xl font-bold text-slate-800">Hello, {{ request.user.first_name|default:request.user.username }}</h1>
-            <p class="text-sm text-slate-500">Welcome back</p>
+    <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+            <h1 class="kf-hello !text-[26px]">Hello, {{ request.user.first_name|default:request.user.username }}</h1>
+            <p class="text-sm text-slate-600 mt-0.5">Welcome back</p>
         </div>
-        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">
+        <span class="kf-av !w-11 !h-11 !text-sm">
             {{ request.user.first_name|slice:":1"|default:request.user.username|slice:":1"|upper }}
-        </div>
+        </span>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-3 gap-3">
-        <div class="bg-white rounded-2xl p-4 shadow-sm">
-            <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center mb-3">
-                <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-2">
+        <div class="kf-tile is-dark !flex-col !items-start !gap-2 !p-3">
+            <span class="kf-ic is-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                 </svg>
-            </div>
-            <p class="text-2xl font-bold text-slate-800">{{ active_orders }}</p>
-            <p class="text-xs text-slate-500">Active</p>
+            </span>
+            <div class="min-w-0"><span class="v">{{ active_orders }}</span><span class="l">Active</span></div>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 shadow-sm">
-            <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center mb-3">
-                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="kf-tile !flex-col !items-start !gap-2 !p-3">
+            <span class="kf-ic is-sm is-green">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
-            </div>
-            <p class="text-2xl font-bold text-slate-800">{{ today_orders }}</p>
-            <p class="text-xs text-slate-500">Today</p>
+            </span>
+            <div class="min-w-0"><span class="v">{{ today_orders }}</span><span class="l">Today</span></div>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 shadow-sm">
-            <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center mb-3">
-                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="kf-tile !flex-col !items-start !gap-2 !p-3">
+            <span class="kf-ic is-sm is-yellow">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"></path>
                 </svg>
-            </div>
-            <p class="text-2xl font-bold text-slate-800">{{ occupied_tables }}</p>
-            <p class="text-xs text-slate-500">Occupied</p>
+            </span>
+            <div class="min-w-0"><span class="v">{{ occupied_tables }}</span><span class="l">Occupied</span></div>
         </div>
     </div>
 
     <!-- Quick Actions -->
-    <div>
-        <h2 class="text-lg font-semibold text-slate-800 mb-3">Quick Actions</h2>
-        <div class="grid grid-cols-2 gap-3">
-            <a href="{% url 'waiter:tables' %}" class="flex items-center gap-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-4 text-white touch-active">
-                <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                </div>
-                <div>
-                    <p class="font-semibold">New Order</p>
-                    <p class="text-xs text-white/80">Select table</p>
-                </div>
-            </a>
+    <div class="grid grid-cols-2 gap-2">
+        <a href="{% url 'waiter:tables' %}" class="flex items-center gap-3 rounded-full bg-amber-400 text-slate-900 p-1.5 pr-4 min-h-[56px] touch-active">
+            <span class="kf-ic is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+            </span>
+            <span class="min-w-0">
+                <span class="block text-[15px] font-medium leading-tight">New Order</span>
+                <span class="block text-[11px] text-yellow-800">Select table</span>
+            </span>
+        </a>
 
-            <a href="{% url 'waiter:orders' %}?status=active" class="flex items-center gap-3 bg-white rounded-2xl p-4 shadow-sm touch-active">
-                <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-                    <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-                <div>
-                    <p class="font-semibold text-slate-800">Pending</p>
-                    <p class="text-xs text-slate-500">View orders</p>
-                </div>
-            </a>
-        </div>
+        <a href="{% url 'waiter:orders' %}?status=active" class="flex items-center gap-3 kf-card !rounded-full p-1.5 pr-4 min-h-[56px] touch-active">
+            <span class="kf-ic is-lg is-light">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </span>
+            <span class="min-w-0">
+                <span class="block text-[15px] leading-tight">Pending</span>
+                <span class="block text-[11px] text-slate-600">View orders</span>
+            </span>
+        </a>
     </div>
 
     <!-- Active Tables -->
     {% if tables_with_orders %}
-    <div>
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-lg font-semibold text-slate-800">Active Tables</h2>
-            <a href="{% url 'waiter:tables' %}" class="text-sm text-indigo-600 font-medium">See all</a>
+    <div class="kf-card p-4 space-y-3">
+        <div class="kf-cardhead">
+            <h2 class="kf-h">Active tables</h2>
+            <a href="{% url 'waiter:tables' %}" class="kf-tag w !py-1.5 !px-3">See all</a>
         </div>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-3 gap-2">
             {% for table in tables_with_orders %}
-            <a href="{% url 'waiter:table_detail' table.pk %}" class="bg-white rounded-2xl p-4 shadow-sm text-center touch-active">
-                <div class="w-12 h-12 mx-auto rounded-xl bg-emerald-100 flex items-center justify-center mb-2">
-                    <span class="text-lg font-bold text-emerald-700">{{ table.number }}</span>
-                </div>
-                <p class="text-xs text-slate-500">{{ table.floor.name }}</p>
+            <a href="{% url 'waiter:table_detail' table.pk %}" class="flex flex-col items-center gap-1 rounded-[20px] bg-white/70 py-3 touch-active">
+                <span class="kf-ic is-lg !text-base">{{ table.number }}</span>
+                <span class="text-[11px] text-slate-600 truncate max-w-full px-1">{{ table.floor.name }}</span>
             </a>
             {% endfor %}
         </div>
@@ -100,43 +92,33 @@
 
     <!-- Recent Orders -->
     {% if recent_orders %}
-    <div>
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-lg font-semibold text-slate-800">Recent Orders</h2>
-            <a href="{% url 'waiter:orders' %}" class="text-sm text-indigo-600 font-medium">See all</a>
+    <div class="kf-card p-4 space-y-3">
+        <div class="kf-cardhead">
+            <h2 class="kf-h">Recent orders</h2>
+            <a href="{% url 'waiter:orders' %}" class="kf-tag w !py-1.5 !px-3">See all</a>
         </div>
-        <div class="space-y-3">
+        <ul class="kf-rows">
             {% for order in recent_orders %}
-            <a href="{% url 'waiter:order_detail' order.pk %}" class="block bg-white rounded-2xl p-4 shadow-sm touch-active">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl
-                            {% if order.status == 'ready' %}bg-emerald-100{% elif order.status == 'preparing' %}bg-blue-100{% else %}bg-slate-100{% endif %}
-                            flex items-center justify-center">
-                            <span class="text-sm font-bold
-                                {% if order.status == 'ready' %}text-emerald-700{% elif order.status == 'preparing' %}text-blue-700{% else %}text-slate-700{% endif %}">
-                                {% if order.table %}{{ order.table.number }}{% else %}#{% endif %}
-                            </span>
-                        </div>
-                        <div>
-                            <p class="font-semibold text-slate-800">{{ order.order_number }}</p>
-                            <p class="text-xs text-slate-500">{{ order.party_name|default:"No seat" }}</p>
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-lg
-                            {% if order.status == 'ready' %}bg-emerald-100 text-emerald-700
-                            {% elif order.status == 'preparing' %}bg-blue-100 text-blue-700
-                            {% elif order.status == 'confirmed' %}bg-amber-100 text-amber-700
-                            {% else %}bg-slate-100 text-slate-700{% endif %}">
-                            {{ order.get_status_display }}
-                        </span>
-                        <p class="text-xs text-slate-400 mt-1">{{ order.created_at|timesince }} ago</p>
-                    </div>
-                </div>
-            </a>
+            <li>
+                <a href="{% url 'waiter:order_detail' order.pk %}" class="touch-active">
+                    <span class="kf-ic {% if order.status == 'ready' %}{% elif order.status == 'preparing' %}is-soft{% else %}is-light{% endif %} text-sm">
+                        {% if order.table %}{{ order.table.number }}{% else %}#{% endif %}
+                    </span>
+                    <span class="flex-1 min-w-0">
+                        <b>{{ order.order_number }}</b>
+                        <small>{{ order.party_name|default:"No seat" }} · {{ order.created_at|timesince }} ago</small>
+                    </span>
+                    <span class="kf-tag
+                        {% if order.status == 'ready' %}d
+                        {% elif order.status == 'preparing' %}s
+                        {% elif order.status == 'confirmed' %}ys
+                        {% else %}o{% endif %}">
+                        {{ order.get_status_display }}
+                    </span>
+                </a>
+            </li>
             {% endfor %}
-        </div>
+        </ul>
     </div>
     {% endif %}
 </div>

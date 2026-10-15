@@ -1,0 +1,127 @@
+{% extends 'ordering/base.html' %}
+
+{% block title %}Pay bill #{{ sale.sale_number }}{% endblock %}
+
+{% block content %}
+{% with cur=currency_symbol|default:"₹" %}
+<div class="max-w-md mx-auto px-4 pt-6 pb-40 space-y-4" x-data="paySale()" x-init="watch()">
+    {% csrf_token %}
+
+    <header class="flex items-center gap-3">
+        {% if business.logo %}
+        <img src="{{ business.logo.url }}" alt="" class="w-11 h-11 rounded-full object-contain bg-white">
+        {% else %}
+        <span class="kf-ic is-lg">{{ business.business_name|slice:":1" }}</span>
+        {% endif %}
+        <div class="min-w-0">
+            <p class="text-sm text-slate-600 truncate">{{ business.business_name }}</p>
+            <h1 class="text-2xl font-light leading-tight">Your bill</h1>
+        </div>
+        <span class="ml-auto kf-tag w tabular">#{{ sale.sale_number }}</span>
+    </header>
+
+    {% if is_settled %}
+    <section class="kf-dcard kf-glow-dark p-6 space-y-4 text-center" role="status" aria-live="polite">
+        <span class="kf-ic is-yellow is-lg mx-auto"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></span>
+        <p class="text-sm text-slate-300">Payment successful</p>
+        <p class="text-5xl font-light tabular leading-none">{{ cur }}{{ sale.paid_amount|floatformat:2 }}</p>
+        <p class="text-sm text-slate-300">paid to {{ business.business_name }}{% if last_payment %} · {{ last_payment.updated_at|date:"d M Y, h:i A" }}{% endif %}</p>
+        {% if last_payment.razorpay_payment_id %}<p class="text-xs text-slate-400 break-all">Transaction ID {{ last_payment.razorpay_payment_id }}</p>{% endif %}
+        <p class="text-base">Thank you for shopping with us!</p>
+    </section>
+    {% elif is_cancelled %}
+    <section class="kf-card p-4 text-center text-sm text-slate-700">This bill was cancelled. Please ask at the counter.</section>
+    {% endif %}
+
+    <section class="kf-card p-4 space-y-3" aria-label="Bill">
+        <ul class="divide-y divide-slate-200/70">
+            {% for item in lines %}
+            <li class="flex items-start gap-3 py-2 text-sm">
+                <span class="w-9 text-slate-500 tabular">{{ item.quantity|floatformat:"-2" }}×</span>
+                <span class="flex-1 min-w-0">{{ item.product_name }}</span>
+                <span class="tabular">{{ cur }}{{ item.total|floatformat:2 }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        <div class="space-y-1 text-sm border-t border-slate-200/70 pt-3">
+            <div class="flex justify-between"><span class="text-slate-600">Subtotal</span><span class="tabular">{{ cur }}{{ sale.subtotal|floatformat:2 }}</span></div>
+            {% if sale.discount_amount > 0 %}<div class="flex justify-between"><span class="text-slate-600">Discount</span><span class="tabular">−{{ cur }}{{ sale.discount_amount|floatformat:2 }}</span></div>{% endif %}
+            {% if sale.cgst_amount or sale.sgst_amount %}<div class="flex justify-between"><span class="text-slate-600">GST</span><span class="tabular">{{ cur }}{{ sale.cgst_amount|add:sale.sgst_amount|floatformat:2 }}</span></div>{% endif %}
+        </div>
+        {% if amount_due > 0 %}
+        <div class="flex items-end justify-between border-t border-slate-200/70 pt-3">
+            <span class="text-slate-800">To pay</span>
+            <span class="text-3xl font-light tabular leading-none">{{ cur }}{{ amount_due|floatformat:2 }}</span>
+        </div>
+        {% endif %}
+    </section>
+
+    {% if amount_due > 0 %}
+    {% if online_enabled %}
+    <div class="fixed bottom-0 left-0 right-0 px-3 z-40" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
+        <div class="max-w-md mx-auto space-y-2">
+            <p x-show="error" x-cloak x-text="error" class="rounded-2xl bg-red-50 text-red-700 text-sm px-4 py-2.5" role="alert"></p>
+            <button type="button" @click="pay()" :disabled="busy" class="btn-yellow w-full !h-14 !text-base shadow-[0_18px_40px_rgba(30,30,40,0.22)] disabled:opacity-60">
+                <span x-text="busy ? 'Opening payment…' : 'Pay {{ cur }}{{ amount_due|floatformat:2 }}'"></span>
+            </button>
+            <p class="text-center text-xs text-slate-600">UPI, cards and wallets</p>
+        </div>
+    </div>
+    {% else %}
+    <div class="kf-card p-4 text-center text-sm text-slate-700">Please pay at the counter.</div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endwith %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+<script>
+function paySale() {
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const post = (url, body) => fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        body: JSON.stringify(body || {}), credentials: 'same-origin',
+    }).then(r => r.json().then(data => ({ ok: r.ok, data })));
+    return {
+        busy: false,
+        error: '',
+        watch() {
+            {% if amount_due > 0 %}
+            setInterval(async () => {
+                try {
+                    const r = await fetch('{% url "payments:pay_sale_status" sale_uuid=sale.uuid %}', { credentials: 'same-origin', cache: 'no-store' });
+                    const d = await r.json();
+                    if (d.paid) window.location.reload();
+                } catch (e) {}
+            }, 5000);
+            {% endif %}
+        },
+        async pay() {
+            this.error = '';
+            if (typeof Razorpay === 'undefined') { this.error = 'Payment is still loading. Please try again in a moment.'; return; }
+            this.busy = true;
+            const start = await post('{% url "payments:pay_sale_start" sale_uuid=sale.uuid %}');
+            if (!start.ok) { this.busy = false; this.error = start.data.error || 'Could not start the payment.'; return; }
+            const s = start.data, self = this;
+            const checkout = new Razorpay({
+                key: s.key, order_id: s.razorpay_order_id, amount: s.amount, currency: s.currency,
+                name: s.name, description: s.description, prefill: s.prefill, theme: { color: '#2A2A2C' },
+                handler: async function (resp) {
+                    const v = await post('{% url "payments:pay_sale_verify" sale_uuid=sale.uuid %}', resp);
+                    self.busy = false;
+                    if (v.ok) window.location.reload(); else self.error = v.data.error || 'Payment could not be confirmed.';
+                },
+                modal: { ondismiss: function () { self.busy = false; } },
+            });
+            checkout.on('payment.failed', function (resp) {
+                self.busy = false;
+                self.error = (resp.error && resp.error.description) || 'Payment failed. No money was taken. Please try again.';
+            });
+            checkout.open();
+        },
+    };
+}
+</script>
+{% endblock %}

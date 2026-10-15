@@ -4,23 +4,20 @@
 {% block page_title %}Cash Drawer History{% endblock %}
 
 {% block content %}
-<div class="space-y-6 fade-in">
+<div class="space-y-4 fade-in">
     <!-- Header -->
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div class="flex items-center gap-4">
-            <a href="{% url 'dashboard:cash_drawer' %}" class="p-2 rounded-xl hover:bg-slate-100 transition-colors">
-                <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'dashboard:cash_drawer' %}" class="kf-arrow kf-arrow-light" aria-label="Back to cash drawer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
                 </svg>
             </a>
-            <div>
-                <h1 class="text-2xl font-bold text-slate-800">Cash Drawer History</h1>
-                <p class="text-slate-500 mt-1">View past cash drawer records</p>
-            </div>
+            <p>View past cash drawer records</p>
         </div>
         {% if outlets and user.role == 'super_admin' %}
-        <div class="flex items-center gap-3">
-            <select onchange="filterByOutlet(this.value)" class="px-4 py-2 border border-slate-200 rounded-xl bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <div class="kf-actions">
+            <select onchange="filterByOutlet(this.value)" class="kf-input !h-9 !w-auto !text-[13px] !rounded-full">
                 <option value="">All Outlets</option>
                 {% for outlet in outlets %}
                 <option value="{{ outlet.id }}" {% if selected_outlet == outlet.id|stringformat:"s" %}selected{% endif %}>{{ outlet.name }}</option>
@@ -30,110 +27,98 @@
         {% endif %}
     </div>
 
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="premium-card bg-white rounded-2xl p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-slate-500">This Month</p>
-                    <p class="text-2xl font-bold text-slate-800 mt-1">{{ currency_symbol }}{{ month_total|floatformat:2 }}</p>
-                    <p class="text-xs text-slate-400 mt-1">Total cash sales</p>
-                </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
+    <!-- Summary Tiles -->
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="kf-tile is-dark">
+            <span class="kf-ic is-yellow">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </span>
+            <div class="min-w-0">
+                <span class="v">{{ currency_symbol }}{{ month_total|floatformat:2 }}</span>
+                <span class="l">This month · Total cash sales</span>
             </div>
         </div>
 
-        <div class="premium-card bg-white rounded-2xl p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-slate-500">Average Daily</p>
-                    <p class="text-2xl font-bold text-slate-800 mt-1">{{ currency_symbol }}{{ avg_daily|floatformat:2 }}</p>
-                    <p class="text-xs text-slate-400 mt-1">Cash sales per day</p>
-                </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                    </svg>
-                </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-light">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </span>
+            <div class="min-w-0">
+                <span class="v">{{ currency_symbol }}{{ avg_daily|floatformat:2 }}</span>
+                <span class="l">Average daily · Cash sales per day</span>
             </div>
         </div>
 
-        <div class="premium-card bg-white rounded-2xl p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-slate-500">Total Variance</p>
-                    <p class="text-2xl font-bold {% if total_variance >= 0 %}text-emerald-600{% else %}text-red-600{% endif %} mt-1">
-                        {% if total_variance >= 0 %}+{% endif %}{{ currency_symbol }}{{ total_variance|floatformat:2 }}
-                    </p>
-                    <p class="text-xs text-slate-400 mt-1">This month</p>
-                </div>
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br {% if total_variance >= 0 %}from-emerald-500 to-teal-600{% else %}from-red-500 to-pink-600{% endif %} flex items-center justify-center">
-                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                    </svg>
-                </div>
+        <div class="kf-tile col-span-2 lg:col-span-1">
+            <span class="kf-ic {% if total_variance >= 0 %}is-green{% else %}is-red{% endif %}">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                </svg>
+            </span>
+            <div class="min-w-0">
+                <span class="v {% if total_variance >= 0 %}!text-emerald-600{% else %}!text-red-600{% endif %}">{% if total_variance >= 0 %}+{% endif %}{{ currency_symbol }}{{ total_variance|floatformat:2 }}</span>
+                <span class="l">Total variance · This month</span>
             </div>
         </div>
     </div>
 
     <!-- History Table -->
-    <div class="premium-card bg-white rounded-2xl overflow-hidden">
+    <div class="kf-card overflow-hidden">
         {% if drawers %}
         <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
+            <table class="w-full text-sm">
+                <thead class="border-b border-slate-200/70">
+                    <tr class="text-left text-xs text-slate-600">
+                        <th class="px-5 py-3 font-normal">Date</th>
                         {% if user.role == 'super_admin' %}
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Outlet</th>
+                        <th class="px-5 py-3 font-normal">Outlet</th>
                         {% endif %}
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Opening</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Cash Sales</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">In/Out</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Closing</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Variance</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                        <th class="px-5 py-3 font-normal">Opening</th>
+                        <th class="px-5 py-3 font-normal">Cash Sales</th>
+                        <th class="px-5 py-3 font-normal">In/Out</th>
+                        <th class="px-5 py-3 font-normal">Closing</th>
+                        <th class="px-5 py-3 font-normal">Variance</th>
+                        <th class="px-5 py-3 font-normal">Status</th>
+                        <th class="px-5 py-3 font-normal text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="divide-y divide-slate-200/60">
                     {% for drawer in drawers %}
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-6 py-4">
-                            <p class="font-semibold text-slate-800">{{ drawer.date|date:"M d, Y" }}</p>
-                            <p class="text-xs text-slate-500">{{ drawer.date|date:"l" }}</p>
+                    <tr class="hover:bg-white/60 transition-colors">
+                        <td class="px-5 py-2.5 whitespace-nowrap">
+                            <p class="text-slate-900">{{ drawer.date|date:"M d, Y" }}</p>
+                            <p class="text-[11px] text-slate-500">{{ drawer.date|date:"l" }}</p>
                         </td>
                         {% if user.role == 'super_admin' %}
-                        <td class="px-6 py-4 text-slate-600">{{ drawer.outlet.name|default:"-" }}</td>
+                        <td class="px-5 py-2.5 text-slate-600">{{ drawer.outlet.name|default:"-" }}</td>
                         {% endif %}
-                        <td class="px-6 py-4 text-slate-600">{{ currency_symbol }}{{ drawer.opening_balance|floatformat:2 }}</td>
-                        <td class="px-6 py-4 font-semibold text-emerald-600">+{{ currency_symbol }}{{ drawer.total_cash_sales|floatformat:2 }}</td>
-                        <td class="px-6 py-4">
-                            <span class="text-blue-600">+{{ currency_symbol }}{{ drawer.total_cash_in|floatformat:2 }}</span>
+                        <td class="px-5 py-2.5 text-slate-600 whitespace-nowrap">{{ currency_symbol }}{{ drawer.opening_balance|floatformat:2 }}</td>
+                        <td class="px-5 py-2.5 text-emerald-600 whitespace-nowrap">+{{ currency_symbol }}{{ drawer.total_cash_sales|floatformat:2 }}</td>
+                        <td class="px-5 py-2.5 whitespace-nowrap">
+                            <span class="text-emerald-600">+{{ currency_symbol }}{{ drawer.total_cash_in|floatformat:2 }}</span>
                             <span class="text-slate-400 mx-1">/</span>
                             <span class="text-red-600">-{{ currency_symbol }}{{ drawer.total_cash_out|floatformat:2 }}</span>
                         </td>
-                        <td class="px-6 py-4 font-semibold text-slate-800">{{ currency_symbol }}{{ drawer.actual_balance|floatformat:2 }}</td>
-                        <td class="px-6 py-4">
-                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-lg
-                                {% if drawer.variance >= 0 %}bg-emerald-100 text-emerald-700{% else %}bg-red-100 text-red-700{% endif %}">
+                        <td class="px-5 py-2.5 text-slate-900 whitespace-nowrap">{{ currency_symbol }}{{ drawer.actual_balance|floatformat:2 }}</td>
+                        <td class="px-5 py-2.5">
+                            <span class="kf-tag tabular {% if drawer.variance >= 0 %}g{% else %}r{% endif %}">
                                 {% if drawer.variance >= 0 %}+{% endif %}{{ currency_symbol }}{{ drawer.variance|floatformat:2 }}
                             </span>
                         </td>
-                        <td class="px-6 py-4">
+                        <td class="px-5 py-2.5">
                             {% if drawer.is_closed %}
-                            <span class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">Closed</span>
+                            <span class="kf-tag s">Closed</span>
                             {% else %}
-                            <span class="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700">Open</span>
+                            <span class="kf-tag g"><span class="kf-dot"></span>Open</span>
                             {% endif %}
                         </td>
-                        <td class="px-6 py-4 text-right">
-                            <a href="{% url 'dashboard:cash_drawer_detail' drawer.pk %}" class="p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-700 inline-flex">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <td class="px-5 py-2.5 text-right">
+                            <a href="{% url 'dashboard:cash_drawer_detail' drawer.pk %}" class="p-2 rounded-full hover:bg-white transition-colors text-slate-600 hover:text-slate-900 inline-flex" aria-label="View">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                 </svg>
@@ -147,29 +132,29 @@
 
         <!-- Pagination -->
         {% if drawers.has_other_pages %}
-        <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
-            <p class="text-sm text-slate-600">
+        <div class="px-5 py-3 border-t border-slate-200/70 flex flex-wrap items-center justify-between gap-3">
+            <p class="text-xs text-slate-600">
                 Showing {{ drawers.start_index }} to {{ drawers.end_index }} of {{ drawers.paginator.count }} records
             </p>
-            <div class="flex items-center gap-2">
+            <div class="kf-seg">
                 {% if drawers.has_previous %}
-                <a href="?page={{ drawers.previous_page_number }}" class="px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-sm font-medium text-slate-600 transition-colors">Previous</a>
+                <a href="?page={{ drawers.previous_page_number }}">Previous</a>
                 {% endif %}
                 {% if drawers.has_next %}
-                <a href="?page={{ drawers.next_page_number }}" class="px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-sm font-medium text-slate-600 transition-colors">Next</a>
+                <a href="?page={{ drawers.next_page_number }}">Next</a>
                 {% endif %}
             </div>
         </div>
         {% endif %}
         {% else %}
-        <div class="px-6 py-16 text-center">
-            <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-slate-100 flex items-center justify-center">
-                <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
-            </div>
-            <h3 class="text-lg font-semibold text-slate-800 mb-2">No history yet</h3>
-            <p class="text-slate-500">Cash drawer history will appear here once you start using the drawer</p>
+            </span>
+            <b>No history yet</b>
+            <span>Cash drawer history will appear here once you start using the drawer</span>
         </div>
         {% endif %}
     </div>

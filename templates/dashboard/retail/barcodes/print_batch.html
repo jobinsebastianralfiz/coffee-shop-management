@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+
+{% block title %}Print Barcodes{% endblock %}
+{% block page_title %}Print Barcodes{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <p>Batch print labels: select products and generate printable barcode labels</p>
+        <a href="{% url 'retail:products' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to Products
+        </a>
+    </div>
+
+    <form method="POST" id="printForm">
+        {% csrf_token %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Product Selection -->
+            <div class="lg:col-span-2 min-w-0">
+                <div class="kf-card overflow-hidden">
+                    <div class="kf-cardhead px-5 pt-4 pb-3">
+                        <h3 class="kf-h">Select Products</h3>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="selectAll()" class="btn-secondary !h-8 !px-3 !text-[12px]">Select All</button>
+                            <button type="button" onclick="clearAll()" class="btn-secondary !h-8 !px-3 !text-[12px]">Clear</button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto max-h-96 overflow-y-auto">
+                        <table class="w-full">
+                            <thead class="sticky top-0 bg-white/90 backdrop-blur">
+                                <tr>
+                                    <th class="px-4 py-2.5 text-left">
+                                        <input type="checkbox" id="selectAllCheckbox" onchange="toggleAll(this)" class="rounded border-slate-300 text-slate-800 focus:ring-amber-300">
+                                    </th>
+                                    <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Product</th>
+                                    <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Barcode</th>
+                                    <th class="px-4 py-2.5 text-center text-xs font-normal text-slate-600 whitespace-nowrap">Stock</th>
+                                    <th class="px-4 py-2.5 text-center text-xs font-normal text-slate-600 whitespace-nowrap">Labels</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200/60">
+                                {% for product in products %}
+                                {% with barcode=product.primary_barcode %}
+                                <tr class="hover:bg-white/50 {% if not barcode %}opacity-50{% endif %}" data-stock="{{ product.current_stock|floatformat:0 }}">
+                                    <td class="px-4 py-2.5">
+                                        {% if barcode %}
+                                        <input type="checkbox" name="products" value="{{ product.pk }}"
+                                               class="product-checkbox rounded border-slate-300 text-slate-800 focus:ring-amber-300"
+                                               data-product-id="{{ product.pk }}">
+                                        {% else %}
+                                        <span class="kf-tag ys !text-[11px]">No barcode</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-2.5">
+                                        <div class="flex items-center gap-3">
+                                            {% if product.image %}
+                                            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-9 h-9 rounded-full object-cover flex-none">
+                                            {% else %}
+                                            <div class="kf-ic is-soft !w-9 !h-9">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                                </svg>
+                                            </div>
+                                            {% endif %}
+                                            <div class="min-w-0">
+                                                <p class="text-slate-900">{{ product.name }}</p>
+                                                <p class="text-xs text-slate-500">{{ product.sku }} · {{ product.selling_price }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-2.5">
+                                        {% if barcode %}
+                                        <div class="flex items-center gap-2">
+                                            {% if barcode.barcode_image %}
+                                            <img src="{{ barcode.barcode_image.url }}" alt="Barcode" class="h-8">
+                                            {% endif %}
+                                            <span class="text-xs font-mono text-slate-600 whitespace-nowrap">{{ barcode.barcode_value }}</span>
+                                        </div>
+                                        {% else %}
+                                        <a href="{% url 'retail:barcode_generate' product.pk %}" class="btn-secondary !h-8 !px-3 !text-[12px]">Generate</a>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-2.5 text-center">
+                                        <span class="kf-tag tabular {% if product.current_stock <= 0 %}r{% elif product.current_stock <= product.minimum_stock %}ys{% else %}g{% endif %}">
+                                            {{ product.current_stock|floatformat:0 }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-2.5 text-center">
+                                        {% if barcode %}
+                                        <input type="number" name="qty_{{ product.pk }}" value="1" min="0" max="500"
+                                               class="qty-input w-16 h-9 px-2 text-center border border-slate-200 !rounded-full text-sm bg-white"
+                                               data-product-id="{{ product.pk }}" data-stock="{{ product.current_stock|floatformat:0 }}">
+                                        {% else %}
+                                        <span class="text-slate-400">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endwith %}
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="px-4">
+                                        <div class="kf-empty">
+                                            <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></span>
+                                            <b>No products found</b>
+                                            <span>Create products first.</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Print Options -->
+            <div class="lg:col-span-1 min-w-0">
+                <div class="kf-card p-5 space-y-4 sticky top-4">
+                    <h3 class="kf-h">Print Options</h3>
+
+                    <!-- Label Size -->
+                    <div>
+                        <label class="kf-label">Label Size</label>
+                        <select name="label_size" class="kf-input">
+                            {% for size, dimensions in label_sizes.items %}
+                            <option value="{{ size }}" {% if size == 'medium' %}selected{% endif %}>
+                                {{ size|title }} ({{ dimensions.0 }}mm x {{ dimensions.1 }}mm)
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Quick Fill Options -->
+                    <div>
+                        <label class="kf-label">Quick Fill Labels</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" onclick="fillWithStock()" class="btn-secondary w-full !h-10 !px-3 !text-[13px]">
+                                Use Stock Qty
+                            </button>
+                            <button type="button" onclick="fillCustom()" class="btn-secondary w-full !h-10 !px-3 !text-[13px]">
+                                Set All to...
+                            </button>
+                        </div>
+                        <p class="mt-2 text-xs text-slate-500">Set label quantities for selected products, or enter manually in the Labels column</p>
+                    </div>
+
+                    <!-- Summary -->
+                    <div class="px-4 py-3 bg-white/70 rounded-2xl space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-slate-600">Selected Products</span>
+                            <span id="selectedCount" class="tabular text-slate-900">0</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-slate-600">Total Labels</span>
+                            <span id="totalLabels" class="tabular text-slate-900">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Print Button -->
+                    <button type="submit" id="printBtn" disabled
+                            class="btn-yellow w-full !h-11 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                        </svg>
+                        Generate PDF Labels
+                    </button>
+
+                    <p class="text-xs text-slate-500 text-center">
+                        Labels will be downloaded as a PDF file ready for printing
+                    </p>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+    const qtyInputs = document.querySelectorAll('.qty-input');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const selectedCount = document.getElementById('selectedCount');
+    const totalLabels = document.getElementById('totalLabels');
+    const printBtn = document.getElementById('printBtn');
+
+    function updateCount() {
+        const checkedBoxes = document.querySelectorAll('.product-checkbox:checked');
+        const count = checkedBoxes.length;
+        selectedCount.textContent = count;
+
+        // Calculate total labels for selected products
+        let total = 0;
+        checkedBoxes.forEach(cb => {
+            const productId = cb.dataset.productId;
+            const qtyInput = document.querySelector(`.qty-input[data-product-id="${productId}"]`);
+            if (qtyInput) {
+                total += parseInt(qtyInput.value) || 0;
+            }
+        });
+        totalLabels.textContent = total;
+
+        printBtn.disabled = count === 0 || total === 0;
+
+        // Update select all checkbox
+        selectAllCheckbox.checked = count === checkboxes.length && checkboxes.length > 0;
+        selectAllCheckbox.indeterminate = count > 0 && count < checkboxes.length;
+    }
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateCount));
+    qtyInputs.forEach(input => input.addEventListener('input', updateCount));
+
+    function toggleAll(checkbox) {
+        checkboxes.forEach(cb => cb.checked = checkbox.checked);
+        updateCount();
+    }
+
+    function selectAll() {
+        checkboxes.forEach(cb => cb.checked = true);
+        updateCount();
+    }
+
+    function clearAll() {
+        checkboxes.forEach(cb => cb.checked = false);
+        updateCount();
+    }
+
+    function fillWithStock() {
+        // Fill quantity inputs with stock values for selected products
+        const checkedBoxes = document.querySelectorAll('.product-checkbox:checked');
+        if (checkedBoxes.length === 0) {
+            alert('Please select products first');
+            return;
+        }
+        checkedBoxes.forEach(cb => {
+            const productId = cb.dataset.productId;
+            const qtyInput = document.querySelector(`.qty-input[data-product-id="${productId}"]`);
+            if (qtyInput) {
+                const stock = parseInt(qtyInput.dataset.stock) || 0;
+                qtyInput.value = Math.max(1, stock);
+            }
+        });
+        updateCount();
+    }
+
+    function fillCustom() {
+        const checkedBoxes = document.querySelectorAll('.product-checkbox:checked');
+        if (checkedBoxes.length === 0) {
+            alert('Please select products first');
+            return;
+        }
+        const qty = prompt('Enter quantity for all selected products:', '1');
+        if (qty !== null) {
+            const qtyNum = Math.max(0, parseInt(qty) || 0);
+            checkedBoxes.forEach(cb => {
+                const productId = cb.dataset.productId;
+                const qtyInput = document.querySelector(`.qty-input[data-product-id="${productId}"]`);
+                if (qtyInput) {
+                    qtyInput.value = qtyNum;
+                }
+            });
+            updateCount();
+        }
+    }
+
+    // Initial count
+    updateCount();
+</script>
+{% endblock %}

@@ -8,16 +8,25 @@ from django.contrib.auth.decorators import login_required
 from django.db import models
 from django.db.models import Count, Sum, Q
 from django.http import HttpResponseRedirect
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
+
+from django.conf import settings as django_settings
 
 from apps.accounts.models import User
 from apps.core.models import Outlet
-from apps.menu.models import Category, MenuItem
+from apps.menu.models import Category, MenuItem, MenuItemVariant, AddOnGroup, AddOn
 from apps.orders.models import Order, OrderItem, Payment, KitchenOrderTicket
 from apps.tables.models import Floor, Table, TableSession
+
+# Import retail models conditionally
+try:
+    from apps.retail.models import RetailProduct, RetailCategory, RetailSale, RetailSaleItem, RetailStockMovement
+    RETAIL_AVAILABLE = True
+except ImportError:
+    RETAIL_AVAILABLE = False
 
 
 # ============================================================================
@@ -160,7 +169,7 @@ def dashboard_home(request):
         # Get all outlets
         outlets = Outlet.objects.filter(is_active=True)
 
-        # Overall stats across all outlets
+        # Overall cafe stats across all outlets
         all_orders = Order.objects.all()
         today_orders = all_orders.filter(created_at__date=today)
         completed_today = today_orders.filter(status__in=[Order.Status.COMPLETED, Order.Status.SERVED])
@@ -170,20 +179,58 @@ def dashboard_home(request):
         month_orders = all_orders.filter(created_at__date__gte=month_start)
         completed_month = month_orders.filter(status__in=[Order.Status.COMPLETED, Order.Status.SERVED])
 
-        # Revenue for last 7 days (for chart)
+        # Cafe revenue
+        cafe_revenue_today = completed_today.aggregate(total=Sum("total_amount"))["total"] or 0
+        cafe_revenue_month = completed_month.aggregate(total=Sum("total_amount"))["total"] or 0
+
+        # Retail stats (if enabled)
+        enable_retail = getattr(django_settings, 'ENABLE_RETAIL', False) and RETAIL_AVAILABLE
+        retail_revenue_today = 0
+        retail_revenue_month = 0
+        retail_sales_today = 0
+
+        if enable_retail:
+            retail_today = RetailSale.objects.filter(
+                created_at__date=today,
+                payment_status=RetailSale.PaymentStatus.PAID
+            )
+            retail_month = RetailSale.objects.filter(
+                created_at__date__gte=month_start,
+                payment_status=RetailSale.PaymentStatus.PAID
+            )
+            retail_revenue_today = retail_today.aggregate(total=Sum("total_amount"))["total"] or 0
+            retail_revenue_month = retail_month.aggregate(total=Sum("total_amount"))["total"] or 0
+            retail_sales_today = retail_today.count()
+
+        # Combined revenue
+        total_revenue_today = cafe_revenue_today + retail_revenue_today
+        total_revenue_month = cafe_revenue_month + retail_revenue_month
+
+        # Revenue for last 7 days (for chart) - combined
         revenue_data = []
+        retail_revenue_data = []
         order_count_data = []
         labels = []
         for i in range(6, -1, -1):
             day = today - timedelta(days=i)
             day_orders = all_orders.filter(created_at__date=day)
             day_completed = day_orders.filter(status__in=[Order.Status.COMPLETED, Order.Status.SERVED])
-            day_revenue = day_completed.aggregate(total=Sum("total_amount"))["total"] or 0
-            revenue_data.append(float(day_revenue))
+            day_cafe_revenue = day_completed.aggregate(total=Sum("total_amount"))["total"] or 0
+
+            day_retail_revenue = 0
+            if enable_retail:
+                day_retail = RetailSale.objects.filter(
+                    created_at__date=day,
+                    payment_status=RetailSale.PaymentStatus.PAID
+                )
+                day_retail_revenue = day_retail.aggregate(total=Sum("total_amount"))["total"] or 0
+
+            revenue_data.append(float(day_cafe_revenue + day_retail_revenue))
+            retail_revenue_data.append(float(day_retail_revenue))
             order_count_data.append(day_orders.count())
             labels.append(day.strftime("%a"))
 
-        # Outlet-wise performance
+        # Outlet-wise performance (with retail)
         outlet_stats = []
         for outlet in outlets:
             outlet_orders = all_orders.filter(
@@ -192,11 +239,26 @@ def dashboard_home(request):
             )
             outlet_today = outlet_orders.filter(created_at__date=today)
             outlet_completed = outlet_today.filter(status__in=[Order.Status.COMPLETED, Order.Status.SERVED])
-            outlet_revenue = outlet_completed.aggregate(total=Sum("total_amount"))["total"] or 0
+            outlet_cafe_revenue = outlet_completed.aggregate(total=Sum("total_amount"))["total"] or 0
+
+            outlet_retail_revenue = 0
+            outlet_retail_sales = 0
+            if enable_retail:
+                outlet_retail = RetailSale.objects.filter(
+                    outlet=outlet,
+                    created_at__date=today,
+                    payment_status=RetailSale.PaymentStatus.PAID
+                )
+                outlet_retail_revenue = outlet_retail.aggregate(total=Sum("total_amount"))["total"] or 0
+                outlet_retail_sales = outlet_retail.count()
+
             outlet_stats.append({
                 "outlet": outlet,
                 "orders_today": outlet_today.count(),
-                "revenue_today": outlet_revenue,
+                "cafe_revenue_today": outlet_cafe_revenue,
+                "retail_sales_today": outlet_retail_sales,
+                "retail_revenue_today": outlet_retail_revenue,
+                "revenue_today": outlet_cafe_revenue + outlet_retail_revenue,
                 "pending_orders": outlet_today.filter(
                     status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING]
                 ).count(),
@@ -219,11 +281,17 @@ def dashboard_home(request):
             "page_title": "Dashboard",
             "is_super_admin": True,
             "plan_info": plan_info,
+            "enable_retail": enable_retail,
             "stats": {
                 "total_orders_today": today_orders.count(),
-                "revenue_today": completed_today.aggregate(total=Sum("total_amount"))["total"] or 0,
+                "cafe_revenue_today": cafe_revenue_today,
+                "retail_revenue_today": retail_revenue_today,
+                "retail_sales_today": retail_sales_today,
+                "revenue_today": total_revenue_today,
                 "total_orders_month": month_orders.count(),
-                "revenue_month": completed_month.aggregate(total=Sum("total_amount"))["total"] or 0,
+                "cafe_revenue_month": cafe_revenue_month,
+                "retail_revenue_month": retail_revenue_month,
+                "revenue_month": total_revenue_month,
                 "total_outlets": outlets.count(),
                 "total_staff": User.objects.filter(is_active=True).exclude(role=User.Role.SUPER_ADMIN).count(),
             },
@@ -231,6 +299,7 @@ def dashboard_home(request):
             "chart_data": {
                 "labels": json.dumps(labels),
                 "revenue": json.dumps(revenue_data),
+                "retail_revenue": json.dumps(retail_revenue_data),
                 "orders": json.dumps(order_count_data),
             },
             "top_items": top_items,
@@ -248,6 +317,8 @@ def dashboard_home(request):
 
     # Outlet Manager / Staff Dashboard - Show operational data
     else:
+        from apps.accounts.models import EmployeePoints
+
         # Filter by outlet for outlet manager
         user_outlet = user.outlet
 
@@ -265,16 +336,55 @@ def dashboard_home(request):
             tables_qs = Table.objects.filter(is_active=True)
 
         completed_orders = today_orders.filter(status__in=[Order.Status.COMPLETED, Order.Status.SERVED])
+        cafe_revenue_today = completed_orders.aggregate(total=Sum("total_amount"))["total"] or 0
+
+        # Retail stats (if enabled)
+        enable_retail = getattr(django_settings, 'ENABLE_RETAIL', False) and RETAIL_AVAILABLE
+        retail_revenue_today = 0
+        retail_sales_today = 0
+        low_stock_count = 0
+
+        if enable_retail and user_outlet:
+            retail_today = RetailSale.objects.filter(
+                outlet=user_outlet,
+                created_at__date=today,
+                payment_status=RetailSale.PaymentStatus.PAID
+            )
+            retail_revenue_today = retail_today.aggregate(total=Sum("total_amount"))["total"] or 0
+            retail_sales_today = retail_today.count()
+
+            # Low stock products
+            low_stock_count = RetailProduct.objects.filter(
+                outlet=user_outlet,
+                is_active=True,
+                track_inventory=True,
+                current_stock__lte=models.F('minimum_stock')
+            ).count()
+
+        total_revenue_today = cafe_revenue_today + retail_revenue_today
+
+        # Get current user's points for this month
+        month_start = today.replace(day=1)
+        my_points = EmployeePoints.objects.filter(
+            employee=user,
+            month=month_start
+        ).aggregate(total=Sum("points"))["total"] or 0
 
         # Get stats
         context = {
             "page_title": "Dashboard",
             "is_super_admin": False,
+            "enable_retail": enable_retail,
+            "my_points": my_points,
             "stats": {
                 "total_orders_today": today_orders.count(),
-                "revenue_today": completed_orders.aggregate(total=Sum("total_amount"))["total"] or 0,
+                "cafe_revenue_today": cafe_revenue_today,
+                "retail_sales_today": retail_sales_today,
+                "retail_revenue_today": retail_revenue_today,
+                "revenue_today": total_revenue_today,
                 "active_tables": tables_qs.filter(status=Table.Status.OCCUPIED).count(),
                 "pending_orders": today_orders.filter(status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING]).count(),
+                "low_stock_count": low_stock_count,
             },
             "tables": {
                 "total": tables_qs.count(),
@@ -347,6 +457,37 @@ def change_password_view(request):
 # ============================================================================
 
 
+def _active_kitchen_stations(user=None):
+    """Active kitchen stations a menu editor can route to (outlet manager: own outlet)."""
+    from apps.kitchen.models import KitchenStation
+
+    stations = KitchenStation.objects.filter(is_active=True).select_related("outlet").order_by(
+        "outlet__name", "display_order", "name"
+    )
+    if user is not None and user.role != User.Role.SUPER_ADMIN:
+        stations = stations.filter(outlet_id=user.outlet_id) if user.outlet_id else stations.none()
+    return stations
+
+
+def _parse_kitchen_station(raw, outlet):
+    """
+    Validate a posted kitchen_station value. Returns (ok, station_or_None).
+    Empty means "no station" (inherit). The station must be active and, when the
+    category has an outlet, belong to that outlet (routing ignores other outlets' stations).
+    """
+    from apps.kitchen.models import KitchenStation
+
+    raw = (raw or "").strip()
+    if not raw:
+        return True, None
+    if not raw.isdigit():
+        return False, None
+    station = KitchenStation.objects.filter(pk=int(raw), is_active=True).first()
+    if station is None or (outlet is not None and station.outlet_id != outlet.pk):
+        return False, None
+    return True, station
+
+
 @login_required
 def menu_list(request):
     """Menu management - list categories and items."""
@@ -362,7 +503,7 @@ def menu_list(request):
     if user.role == User.Role.SUPER_ADMIN:
         outlets = Outlet.objects.filter(is_active=True).order_by("name")
 
-    categories = Category.objects.select_related("outlet").prefetch_related("items").order_by("display_order")
+    categories = Category.objects.select_related("outlet", "kitchen_station").prefetch_related("items").order_by("display_order")
     menu_items = MenuItem.objects.all()
 
     # Get all categories for modal dropdowns (for super admin, includes outlet info)
@@ -390,6 +531,7 @@ def menu_list(request):
         "food_types": MenuItem.FoodType.choices,
         "outlets": outlets,
         "selected_outlet": selected_outlet,
+        "kitchen_stations": _active_kitchen_stations(user),
     }
     return render(request, "dashboard/menu/list.html", context)
 
@@ -415,18 +557,40 @@ def category_detail(request, pk):
 def menu_item_detail(request, pk):
     """View menu item details."""
     try:
-        item = MenuItem.objects.select_related("category").prefetch_related(
+        item = MenuItem.objects.select_related(
+            "category", "category__outlet", "category__kitchen_station", "kitchen_station"
+        ).prefetch_related(
             "variants", "addon_groups__addons"
         ).get(pk=pk)
     except MenuItem.DoesNotExist:
         messages.error(request, "Menu item not found.")
         return redirect("dashboard:menu")
 
+    # Get add-on groups not yet linked to this item
+    linked_group_ids = item.addon_groups.values_list("id", flat=True)
+    available_addon_groups = AddOnGroup.objects.exclude(id__in=linked_group_ids).order_by("name")
+
+    # Kitchen station: the item's own override, else its category's
+    station_choices = _active_kitchen_stations()
+    if item.category.outlet_id:
+        station_choices = station_choices.filter(outlet_id=item.category.outlet_id)
+    effective_station = None
+    station_from_category = False
+    if item.kitchen_station_id and item.kitchen_station.is_active:
+        effective_station = item.kitchen_station
+    elif item.category.kitchen_station_id and item.category.kitchen_station.is_active:
+        effective_station = item.category.kitchen_station
+        station_from_category = True
+
     context = {
         "page_title": item.name,
         "item": item,
+        "station_choices": station_choices,
+        "effective_station": effective_station,
+        "station_from_category": station_from_category,
         "categories": Category.objects.filter(is_active=True).order_by("display_order"),
         "food_types": MenuItem.FoodType.choices,
+        "available_addon_groups": available_addon_groups,
     }
     return render(request, "dashboard/menu/item_detail.html", context)
 
@@ -520,11 +684,18 @@ def category_edit(request, pk):
                     messages.error(request, "Selected outlet not found.")
                     return redirect("dashboard:menu")
 
+        station_ok, station = True, category.kitchen_station
+        if "kitchen_station" in request.POST:
+            station_ok, station = _parse_kitchen_station(request.POST.get("kitchen_station"), outlet)
+
         if not name:
             messages.error(request, "Category name is required.")
+        elif not station_ok:
+            messages.error(request, "Choose an active kitchen station of this category's outlet.")
         elif Category.objects.filter(name=name, outlet=outlet).exclude(pk=pk).exists():
             messages.error(request, "A category with this name already exists for this outlet.")
         else:
+            category.kitchen_station = station
             category.name = name
             category.description = description
             category.display_order = int(display_order) if display_order else 0
@@ -629,10 +800,21 @@ def menu_item_edit(request, pk):
         return redirect("dashboard:menu")
 
     try:
-        item = MenuItem.objects.get(pk=pk)
+        item = MenuItem.objects.select_related("category__outlet").get(pk=pk)
     except MenuItem.DoesNotExist:
         messages.error(request, "Menu item not found.")
         return redirect("dashboard:menu")
+
+    # Kitchen station only (from the item detail page)
+    if request.method == "POST" and request.POST.get("station_only"):
+        ok, station = _parse_kitchen_station(request.POST.get("kitchen_station"), item.category.outlet)
+        if ok:
+            item.kitchen_station = station
+            item.save(update_fields=["kitchen_station", "updated_at"])
+            messages.success(request, f"Kitchen station for '{item.name}' updated.")
+        else:
+            messages.error(request, "Choose an active kitchen station of this item's outlet.")
+        return redirect("dashboard:menu_item_detail", pk=item.pk)
 
     if request.method == "POST":
         category_id = request.POST.get("category")
@@ -652,7 +834,13 @@ def menu_item_edit(request, pk):
             messages.error(request, "Base price is required.")
         else:
             try:
-                category = Category.objects.get(pk=category_id)
+                category = Category.objects.select_related("outlet").get(pk=category_id)
+                if "kitchen_station" in request.POST:
+                    station_ok, station = _parse_kitchen_station(request.POST.get("kitchen_station"), category.outlet)
+                    if not station_ok:
+                        messages.error(request, "Choose an active kitchen station of this item's outlet.")
+                        return redirect("dashboard:menu")
+                    item.kitchen_station = station
                 item.category = category
                 item.name = name
                 item.description = description
@@ -720,8 +908,494 @@ def menu_item_toggle_availability(request, pk):
 
 
 # ============================================================================
+# Menu Item Variants Management
+# ============================================================================
+
+
+@login_required
+@require_http_methods(["POST"])
+def menu_item_variant_add(request, pk):
+    """Add a variant to a menu item."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    try:
+        item = MenuItem.objects.get(pk=pk)
+        name = request.POST.get("name", "").strip()
+        price = request.POST.get("price", "0")
+        is_default = request.POST.get("is_default") == "on"
+
+        if not name:
+            messages.error(request, "Variant name is required.")
+            return redirect("dashboard:menu_item_detail", pk=pk)
+
+        try:
+            price = float(price)
+        except ValueError:
+            price = 0
+
+        # If this is set as default, unset other defaults
+        if is_default:
+            MenuItemVariant.objects.filter(menu_item=item, is_default=True).update(is_default=False)
+
+        MenuItemVariant.objects.create(
+            menu_item=item,
+            name=name,
+            price=price,
+            is_default=is_default,
+            is_available=True
+        )
+        messages.success(request, f"Variant '{name}' added successfully.")
+    except MenuItem.DoesNotExist:
+        messages.error(request, "Menu item not found.")
+
+    return redirect("dashboard:menu_item_detail", pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def menu_item_variant_edit(request, pk, variant_pk):
+    """Edit a menu item variant."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    try:
+        variant = MenuItemVariant.objects.get(pk=variant_pk, menu_item_id=pk)
+        name = request.POST.get("name", "").strip()
+        price = request.POST.get("price", "0")
+        is_default = request.POST.get("is_default") == "on"
+        is_available = request.POST.get("is_available") == "on"
+
+        if not name:
+            messages.error(request, "Variant name is required.")
+            return redirect("dashboard:menu_item_detail", pk=pk)
+
+        try:
+            price = float(price)
+        except ValueError:
+            price = variant.price
+
+        # If this is set as default, unset other defaults
+        if is_default:
+            MenuItemVariant.objects.filter(menu_item_id=pk, is_default=True).exclude(pk=variant_pk).update(is_default=False)
+
+        variant.name = name
+        variant.price = price
+        variant.is_default = is_default
+        variant.is_available = is_available
+        variant.save()
+        messages.success(request, f"Variant '{name}' updated successfully.")
+    except MenuItemVariant.DoesNotExist:
+        messages.error(request, "Variant not found.")
+
+    return redirect("dashboard:menu_item_detail", pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def menu_item_variant_delete(request, pk, variant_pk):
+    """Delete a menu item variant."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    try:
+        variant = MenuItemVariant.objects.get(pk=variant_pk, menu_item_id=pk)
+        name = variant.name
+        variant.delete()
+        messages.success(request, f"Variant '{name}' deleted successfully.")
+    except MenuItemVariant.DoesNotExist:
+        messages.error(request, "Variant not found.")
+
+    return redirect("dashboard:menu_item_detail", pk=pk)
+
+
+# ============================================================================
+# Menu Item Add-on Groups Linking
+# ============================================================================
+
+
+@login_required
+@require_http_methods(["POST"])
+def menu_item_link_addon(request, pk):
+    """Link an add-on group to a menu item."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    try:
+        item = MenuItem.objects.get(pk=pk)
+        group_id = request.POST.get("addon_group")
+
+        if not group_id:
+            messages.error(request, "Please select an add-on group.")
+            return redirect("dashboard:menu_item_detail", pk=pk)
+
+        try:
+            group = AddOnGroup.objects.get(pk=group_id)
+            group.menu_items.add(item)
+            messages.success(request, f"Add-on group '{group.name}' linked successfully.")
+        except AddOnGroup.DoesNotExist:
+            messages.error(request, "Add-on group not found.")
+    except MenuItem.DoesNotExist:
+        messages.error(request, "Menu item not found.")
+
+    return redirect("dashboard:menu_item_detail", pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def menu_item_unlink_addon(request, pk, group_pk):
+    """Unlink an add-on group from a menu item."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    try:
+        item = MenuItem.objects.get(pk=pk)
+        group = AddOnGroup.objects.get(pk=group_pk)
+        group.menu_items.remove(item)
+        messages.success(request, f"Add-on group '{group.name}' unlinked successfully.")
+    except MenuItem.DoesNotExist:
+        messages.error(request, "Menu item not found.")
+    except AddOnGroup.DoesNotExist:
+        messages.error(request, "Add-on group not found.")
+
+    return redirect("dashboard:menu_item_detail", pk=pk)
+
+
+# ============================================================================
+# Add-On Groups Management
+# ============================================================================
+
+
+@login_required
+def addon_groups(request):
+    """List all add-on groups."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    addon_groups = AddOnGroup.objects.prefetch_related("addons", "menu_items").order_by("name")
+
+    context = {
+        "page_title": "Add-On Groups",
+        "addon_groups": addon_groups,
+    }
+    return render(request, "dashboard/menu/addon_groups.html", context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def addon_group_create(request):
+    """Create a new add-on group."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    name = request.POST.get("name", "").strip()
+    is_required = request.POST.get("is_required") == "on"
+    is_multi_select = request.POST.get("is_multi_select") == "on"
+    max_selections = request.POST.get("max_selections", "0")
+
+    if not name:
+        messages.error(request, "Group name is required.")
+        return redirect("dashboard:addon_groups")
+
+    try:
+        max_selections = int(max_selections)
+    except ValueError:
+        max_selections = 0
+
+    AddOnGroup.objects.create(
+        name=name,
+        is_required=is_required,
+        is_multi_select=is_multi_select,
+        max_selections=max_selections if is_multi_select else 0
+    )
+    messages.success(request, f"Add-on group '{name}' created successfully.")
+    return redirect("dashboard:addon_groups")
+
+
+@login_required
+@require_http_methods(["POST"])
+def addon_group_edit(request, pk):
+    """Edit an add-on group."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    try:
+        group = AddOnGroup.objects.get(pk=pk)
+        name = request.POST.get("name", "").strip()
+        is_required = request.POST.get("is_required") == "on"
+        is_multi_select = request.POST.get("is_multi_select") == "on"
+        max_selections = request.POST.get("max_selections", "0")
+
+        if not name:
+            messages.error(request, "Group name is required.")
+            return redirect("dashboard:addon_groups")
+
+        try:
+            max_selections = int(max_selections)
+        except ValueError:
+            max_selections = group.max_selections
+
+        group.name = name
+        group.is_required = is_required
+        group.is_multi_select = is_multi_select
+        group.max_selections = max_selections if is_multi_select else 0
+        group.save()
+        messages.success(request, f"Add-on group '{name}' updated successfully.")
+    except AddOnGroup.DoesNotExist:
+        messages.error(request, "Add-on group not found.")
+
+    return redirect("dashboard:addon_groups")
+
+
+@login_required
+@require_http_methods(["POST"])
+def addon_group_delete(request, pk):
+    """Delete an add-on group."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    try:
+        group = AddOnGroup.objects.get(pk=pk)
+        name = group.name
+        group.delete()
+        messages.success(request, f"Add-on group '{name}' deleted successfully.")
+    except AddOnGroup.DoesNotExist:
+        messages.error(request, "Add-on group not found.")
+
+    return redirect("dashboard:addon_groups")
+
+
+# ============================================================================
+# Add-Ons Management
+# ============================================================================
+
+
+@login_required
+@require_http_methods(["POST"])
+def addon_create(request, group_pk):
+    """Create a new add-on in a group."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    try:
+        group = AddOnGroup.objects.get(pk=group_pk)
+        name = request.POST.get("name", "").strip()
+        price = request.POST.get("price", "0")
+
+        if not name:
+            messages.error(request, "Add-on name is required.")
+            return redirect("dashboard:addon_groups")
+
+        try:
+            price = float(price)
+        except ValueError:
+            price = 0
+
+        AddOn.objects.create(
+            group=group,
+            name=name,
+            price=price,
+            is_available=True
+        )
+        messages.success(request, f"Add-on '{name}' created successfully.")
+    except AddOnGroup.DoesNotExist:
+        messages.error(request, "Add-on group not found.")
+
+    return redirect("dashboard:addon_groups")
+
+
+@login_required
+@require_http_methods(["POST"])
+def addon_edit(request, pk):
+    """Edit an add-on."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    try:
+        addon = AddOn.objects.get(pk=pk)
+        name = request.POST.get("name", "").strip()
+        price = request.POST.get("price", "0")
+        is_available = request.POST.get("is_available") == "on"
+
+        if not name:
+            messages.error(request, "Add-on name is required.")
+            return redirect("dashboard:addon_groups")
+
+        try:
+            price = float(price)
+        except ValueError:
+            price = addon.price
+
+        addon.name = name
+        addon.price = price
+        addon.is_available = is_available
+        addon.save()
+        messages.success(request, f"Add-on '{name}' updated successfully.")
+    except AddOn.DoesNotExist:
+        messages.error(request, "Add-on not found.")
+
+    return redirect("dashboard:addon_groups")
+
+
+@login_required
+@require_http_methods(["POST"])
+def addon_delete(request, pk):
+    """Delete an add-on."""
+    if request.user.role != User.Role.SUPER_ADMIN:
+        messages.error(request, "You do not have permission.")
+        return redirect("dashboard:menu")
+
+    try:
+        addon = AddOn.objects.get(pk=pk)
+        name = addon.name
+        addon.delete()
+        messages.success(request, f"Add-on '{name}' deleted successfully.")
+    except AddOn.DoesNotExist:
+        messages.error(request, "Add-on not found.")
+
+    return redirect("dashboard:addon_groups")
+
+
+# ============================================================================
 # Table Management
 # ============================================================================
+
+# Orders in these states keep their tables occupied
+ACTIVE_ORDER_STATUSES = [
+    Order.Status.PENDING,
+    Order.Status.CONFIRMED,
+    Order.Status.PREPARING,
+    Order.Status.READY,
+    Order.Status.SERVED,
+]
+
+# Floor map colour precedence when a table holds several parties
+FLOOR_STATUS_PRIORITY = ["ready", "served", "preparing", "confirmed", "pending"]
+
+
+def _table_active_orders(table):
+    """Active orders on a table, as primary table or merged-in table."""
+    return Order.objects.filter(
+        Q(table=table) | Q(combined_tables=table),
+        status__in=ACTIVE_ORDER_STATUSES,
+    ).distinct()
+
+
+def _annotate_floor_tables(floors):
+    """
+    Attach floor-map display data to every table and return it as a dict for the
+    drag-to-merge script. Status reflects every party on the table, not just the first.
+    """
+    tables_data = {}
+    for floor in floors:
+        for table in floor.tables.all():
+            orders = {o.pk: o for o in table.active_orders}
+            for o in table.active_combined_orders:
+                orders.setdefault(o.pk, o)
+            orders = sorted(orders.values(), key=lambda o: o.created_at)
+
+            statuses = {o.status for o in orders}
+            order_status = next((st for st in FLOOR_STATUS_PRIORITY if st in statuses), "")
+            if order_status == "confirmed":
+                order_status = "preparing"
+            if order_status:
+                kf_status = order_status
+            elif table.status == Table.Status.VACANT:
+                kf_status = "vacant"
+            elif table.status == Table.Status.RESERVED:
+                kf_status = "reserved"
+            else:
+                kf_status = "unavailable"
+
+            partners = []
+            merge_primary = False
+            for o in orders:
+                others = [str(t.number) for t in o.all_tables if t.pk != table.pk]
+                if others and o.table_id == table.pk:
+                    merge_primary = True
+                partners.extend(n for n in others if n not in partners)
+
+            table.kf_status = kf_status
+            table.kf_party_count = len(orders)
+            table.kf_partners = partners
+            table.kf_partners_label = ", T".join(partners)
+            table.kf_merge_primary = merge_primary
+
+            tables_data[table.pk] = {
+                "id": table.pk,
+                "number": str(table.number),
+                "floor": floor.pk,
+                "status": kf_status,
+                "free": not orders and table.status == Table.Status.VACANT,
+                "orders": [
+                    {
+                        "id": o.pk,
+                        "number": o.order_number,
+                        "party": o.party_name or f"Order #{o.order_number}",
+                        "tables": o.all_table_numbers,
+                    }
+                    for o in orders
+                ],
+                "partners": partners,
+            }
+    return tables_data
+
+
+def _qr_switch_outlets(user, selected_outlet=""):
+    """Outlets whose QR ordering this user can switch on/off from the tables page."""
+    from apps.core.models import Outlet, OrderSettings
+
+    if user.role == User.Role.OUTLET_MANAGER and user.outlet_id:
+        outlets = [user.outlet]
+    elif user.role == User.Role.SUPER_ADMIN:
+        qs = Outlet.objects.filter(is_active=True).order_by("name")
+        outlets = list(qs.filter(pk=selected_outlet) if selected_outlet else qs)
+    else:
+        return []
+    master_on = OrderSettings.load().allow_qr_ordering
+    return [{"outlet": o, "on": master_on and o.allow_qr_ordering} for o in outlets]
+
+
+@login_required
+@require_POST
+def qr_ordering_toggle(request, pk):
+    """Quick on/off for ordering from the table QR. The menu stays viewable either way."""
+    from apps.core.models import Outlet, OrderSettings
+
+    if request.user.role not in (User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER):
+        messages.error(request, "Only managers can switch QR ordering.")
+        return redirect("dashboard:tables")
+    outlet = get_object_or_404(Outlet, pk=pk)
+    if request.user.role == User.Role.OUTLET_MANAGER and outlet.pk != request.user.outlet_id:
+        messages.error(request, "You can only manage your own outlet.")
+        return redirect("dashboard:tables")
+    turn_on = request.POST.get("on") == "1"
+    outlet.allow_qr_ordering = turn_on
+    outlet.save(update_fields=["allow_qr_ordering", "updated_at"])
+    if turn_on:
+        # The global switch is a master switch: make sure it doesn't silently block this outlet
+        order_settings = OrderSettings.load()
+        if not order_settings.allow_qr_ordering:
+            order_settings.allow_qr_ordering = True
+            order_settings.save()
+    messages.success(
+        request,
+        f"QR ordering is {'ON' if turn_on else 'OFF'} for {outlet.name}."
+        + ("" if turn_on else " Guests can still scan to view the menu and call a waiter."),
+    )
+    back = request.POST.get("next", "")
+    return redirect(back if back.startswith("/") else "dashboard:tables")
 
 
 @login_required
@@ -750,8 +1424,8 @@ def table_list(request):
     active_order_prefetch = Prefetch(
         "orders",
         queryset=Order.objects.filter(
-            status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING, Order.Status.READY, Order.Status.SERVED]
-        ).order_by("-created_at"),
+            status__in=ACTIVE_ORDER_STATUSES
+        ).select_related("table").prefetch_related("combined_tables").order_by("-created_at"),
         to_attr="active_orders"
     )
 
@@ -759,8 +1433,8 @@ def table_list(request):
     combined_order_prefetch = Prefetch(
         "combined_orders",
         queryset=Order.objects.filter(
-            status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING, Order.Status.READY, Order.Status.SERVED]
-        ).order_by("-created_at"),
+            status__in=ACTIVE_ORDER_STATUSES
+        ).select_related("table").prefetch_related("combined_tables").order_by("-created_at"),
         to_attr="active_combined_orders"
     )
 
@@ -774,8 +1448,12 @@ def table_list(request):
         floors = floors.filter(outlet_id=selected_outlet)
         tables_qs = tables_qs.filter(floor__outlet_id=selected_outlet)
 
+    floors = list(floors)
+    tables_data = _annotate_floor_tables(floors)
+
     context = {
         "page_title": "Tables",
+        "tables_data": tables_data,
         "floors": floors,
         "stats": {
             "total": tables_qs.count(),
@@ -785,6 +1463,7 @@ def table_list(request):
         },
         "outlets": outlets,
         "selected_outlet": selected_outlet,
+        "qr_switch": _qr_switch_outlets(user, selected_outlet),
     }
 
     # Route to different templates based on role
@@ -808,8 +1487,7 @@ def table_list(request):
 
     # Cashier: Table-wise billing view
     elif user.role == User.Role.STAFF_CASHIER:
-        context["page_title"] = "Table Billing"
-        return render(request, "dashboard/tables/billing_view.html", context)
+        return redirect("dashboard:billing_counter")
 
     # Waiter: Floor map view for taking orders
     elif user.role == User.Role.WAITER:
@@ -819,6 +1497,153 @@ def table_list(request):
     # Default: Floor map view
     else:
         return render(request, "dashboard/tables/floor_map.html", context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def table_merge(request):
+    """
+    Merge two tables dragged together on the floor map (JSON response).
+
+    - free table onto free table: start one new order across both tables
+    - free table onto busy table (or busy onto free): add the free table to that order
+    - busy onto busy: refused, two open bills are never combined silently
+    """
+    from django.db import transaction
+    from django.http import JsonResponse
+
+    def fail(message, status=400):
+        return JsonResponse({"ok": False, "error": message}, status=status)
+
+    if request.user.role == User.Role.STAFF_KITCHEN:
+        return fail("You do not have permission to merge tables.", status=403)
+
+    try:
+        source_id = int(request.POST.get("source", ""))
+        target_id = int(request.POST.get("target", ""))
+    except ValueError:
+        return fail("Choose two tables to merge.")
+    if source_id == target_id:
+        return fail("Drop the table onto a different table.")
+
+    tables = {
+        t.pk: t
+        for t in Table.objects.select_related("floor").filter(pk__in=[source_id, target_id], is_active=True)
+    }
+    if len(tables) != 2:
+        return fail("Table not found.", status=404)
+    source, target = tables[source_id], tables[target_id]
+
+    if source.floor_id != target.floor_id:
+        return fail("Only tables on the same floor can be merged.")
+    if request.user.role != User.Role.SUPER_ADMIN and request.user.outlet_id:
+        if source.floor.outlet_id and source.floor.outlet_id != request.user.outlet_id:
+            return fail("You can only merge tables in your outlet.", status=403)
+
+    source_orders = list(_table_active_orders(source))
+    target_orders = list(_table_active_orders(target))
+    if source_orders and target_orders:
+        return fail(
+            f"Tables {source.number} and {target.number} both have open orders. "
+            "Settle or cancel one of them before merging."
+        )
+
+    with transaction.atomic():
+        if not source_orders and not target_orders:
+            for t in (source, target):
+                if t.status != Table.Status.VACANT:
+                    return fail(f"Table {t.number} is {t.get_status_display().lower()}.")
+            party_name = request.POST.get("party_name", "").strip()[:50] or "Party A"
+            order = Order.objects.create(
+                table=target,
+                created_by=request.user,
+                order_type=Order.OrderType.DINE_IN,
+                order_source=Order.OrderSource.POS,
+                party_name=party_name,
+            )
+            order.combined_tables.add(source)
+            KitchenOrderTicket.objects.create(order=order)
+            Table.objects.filter(pk__in=[source.pk, target.pk]).update(status=Table.Status.OCCUPIED)
+            message = f"Tables {order.all_table_numbers} merged for {party_name}."
+            messages.success(request, message)
+            return JsonResponse({
+                "ok": True,
+                "message": message,
+                "redirect": reverse("dashboard:order_detail", args=[order.pk]),
+            })
+
+        busy_orders, free_table = (target_orders, source) if target_orders else (source_orders, target)
+        if free_table.status != Table.Status.VACANT:
+            return fail(f"Table {free_table.number} is {free_table.get_status_display().lower()}.")
+
+        order = busy_orders[0]
+        if len(busy_orders) > 1:
+            chosen = request.POST.get("order", "")
+            order = next((o for o in busy_orders if str(o.pk) == chosen), None)
+            if order is None:
+                return fail("This table has more than one party. Choose which party to extend.")
+
+        order.combined_tables.add(free_table)
+        free_table.status = Table.Status.OCCUPIED
+        free_table.save(update_fields=["status", "updated_at"])
+
+    party = order.party_name or f"order #{order.order_number}"
+    message = f"Table {free_table.number} added to {party} (Tables {order.all_table_numbers})."
+    messages.success(request, message)
+    return JsonResponse({"ok": True, "message": message, "reload": True})
+
+
+@login_required
+@require_http_methods(["POST"])
+def table_unmerge(request, pk):
+    """
+    Undo a merge from the floor map. On a merged-in table this releases just that
+    table; on the main table of a merged order it releases every merged-in table.
+    """
+    from django.db import transaction
+
+    redirect_url = request.META.get("HTTP_REFERER") or reverse("dashboard:tables")
+
+    if request.user.role == User.Role.STAFF_KITCHEN:
+        messages.error(request, "You do not have permission to unmerge tables.")
+        return redirect(redirect_url)
+
+    try:
+        table = Table.objects.get(pk=pk)
+    except Table.DoesNotExist:
+        messages.error(request, "Table not found.")
+        return redirect(redirect_url)
+
+    merged_into = Order.objects.filter(combined_tables=table, status__in=ACTIVE_ORDER_STATUSES).distinct()
+    leading = Order.objects.filter(
+        table=table, status__in=ACTIVE_ORDER_STATUSES, combined_tables__isnull=False
+    ).distinct()
+
+    released = []
+    with transaction.atomic():
+        for order in merged_into:
+            order.combined_tables.remove(table)
+            if table not in released:
+                released.append(table)
+        for order in leading:
+            for partner in list(order.combined_tables.all()):
+                order.combined_tables.remove(partner)
+                if partner not in released:
+                    released.append(partner)
+
+        freed = []
+        for t in released:
+            if not _table_active_orders(t).exists():
+                t.status = Table.Status.VACANT
+                t.save(update_fields=["status", "updated_at"])
+                freed.append(str(t.number))
+
+    if released:
+        names = ", ".join(str(t.number) for t in released)
+        messages.success(request, f"Table {names} unmerged." + (f" Table {', '.join(freed)} is free." if freed else ""))
+    else:
+        messages.info(request, f"Table {table.number} is not merged.")
+    return redirect(redirect_url)
 
 
 @login_required
@@ -1005,7 +1830,16 @@ def user_list(request):
         pin = request.POST.get("pin", "").strip()
         outlet_id = request.POST.get("outlet", "").strip()
 
-        # Outlet managers can only create staff roles
+        # Determine outlet first (needed for limit checks)
+        target_outlet = None
+        if is_outlet_mgr:
+            target_outlet = user_outlet
+        elif outlet_id:
+            try:
+                target_outlet = Outlet.objects.get(pk=outlet_id)
+            except Outlet.DoesNotExist:
+                pass
+
         # Validation
         validation_error = None
 
@@ -1019,28 +1853,25 @@ def user_list(request):
             validation_error = "A user with this phone number already exists."
         elif pin and User.objects.filter(pin=pin).exists():
             validation_error = "This PIN is already in use by another user. Please choose a different PIN."
-        # Check user limit (only for non-super_admin users)
-        elif role != User.Role.SUPER_ADMIN and not User.can_create_user():
-            max_users = User.get_max_users()
-            plan_name = getattr(settings, "PLAN_NAME", "current")
-            validation_error = (
-                f"Cannot create more users. Your {plan_name} plan allows maximum {max_users} user(s). "
-                f"Contact your vendor to upgrade."
-            )
+        # Check user limit based on role and outlet
+        elif not User.can_create_user(outlet=target_outlet, role=role):
+            plan_name = getattr(django_settings, "PLAN_NAME", "current")
+            if role == User.Role.OUTLET_MANAGER:
+                max_limit = User.get_max_managers()
+                validation_error = (
+                    f"Cannot create more outlet managers. Your {plan_name} plan allows maximum "
+                    f"{max_limit} manager(s) per outlet. Contact your vendor to upgrade."
+                )
+            else:
+                max_limit = User.get_max_staff()
+                validation_error = (
+                    f"Cannot create more staff. Your {plan_name} plan allows maximum "
+                    f"{max_limit} staff per outlet. Contact your vendor to upgrade."
+                )
 
         if validation_error:
             messages.error(request, validation_error)
         else:
-            # Get outlet - for outlet managers, force their outlet
-            outlet = None
-            if is_outlet_mgr:
-                outlet = user_outlet
-            elif outlet_id:
-                try:
-                    outlet = Outlet.objects.get(pk=outlet_id)
-                except Outlet.DoesNotExist:
-                    pass
-
             # Create user
             user = User.objects.create_user(
                 username=username,
@@ -1050,7 +1881,7 @@ def user_list(request):
                 phone=phone if phone else None,
                 role=role,
                 pin=pin if pin else None,
-                outlet=outlet,
+                outlet=target_outlet,
             )
             # Set a default password
             user.set_password("changeme123")
@@ -1454,7 +2285,7 @@ def table_create(request):
                 # Check table limit for the outlet
                 if floor.outlet and not Table.can_create_table(floor.outlet):
                     max_tables = Table.get_max_tables()
-                    plan_name = getattr(settings, "PLAN_NAME", "current")
+                    plan_name = getattr(django_settings, "PLAN_NAME", "current")
                     messages.error(
                         request,
                         f"Cannot create more tables. Your {plan_name} plan allows maximum {max_tables} table(s) per outlet. "
@@ -1653,33 +2484,167 @@ def kitchen_display(request):
         except Order.DoesNotExist:
             messages.error(request, "Order not found.")
 
+        station_param = request.POST.get("station", "")
+        if station_param.isdigit():
+            return HttpResponseRedirect(reverse("dashboard:kitchen") + f"?station={station_param}")
         return redirect("dashboard:kitchen")
+
+    from apps.kitchen.models import KitchenStation
+    from apps.kitchen.services import station_column
+
+    # Station filter: the user's outlet's stations (super admin: every outlet's)
+    stations = KitchenStation.objects.filter(is_active=True).select_related("outlet").order_by(
+        "outlet__name", "display_order", "name"
+    )
+    if request.user.role != User.Role.SUPER_ADMIN:
+        stations = stations.filter(outlet_id=request.user.outlet_id) if request.user.outlet_id else stations.none()
+    stations = list(stations)
+    multi_outlet = len({st.outlet_id for st in stations}) > 1
+    for st in stations:
+        st.filter_label = f"{st.name} · {st.outlet.code}" if multi_outlet else st.name
+
+    selected_station = None
+    station_param = request.GET.get("station", "")
+    if station_param.isdigit():
+        selected_station = next((st for st in stations if st.pk == int(station_param)), None)
 
     # Get orders by status
     today = timezone.now().date()
+    order_qs = Order.objects.filter(created_at__date=today).select_related(
+        "table", "kitchen_ticket"
+    ).prefetch_related("items__station")
 
-    pending_orders = Order.objects.filter(
-        status=Order.Status.CONFIRMED,
-        created_at__date=today
-    ).select_related("table", "kitchen_ticket").prefetch_related("items").order_by("created_at")
-
-    preparing_orders = Order.objects.filter(
-        status=Order.Status.PREPARING,
-        created_at__date=today
-    ).select_related("table", "kitchen_ticket").prefetch_related("items").order_by("created_at")
-
-    ready_orders = Order.objects.filter(
-        status=Order.Status.READY,
-        created_at__date=today
-    ).select_related("table", "kitchen_ticket").prefetch_related("items").order_by("-prepared_at")[:10]
+    if selected_station is None:
+        pending_orders = order_qs.filter(status=Order.Status.CONFIRMED).order_by("created_at")
+        preparing_orders = order_qs.filter(status=Order.Status.PREPARING).order_by("created_at")
+        ready_orders = order_qs.filter(status=Order.Status.READY).order_by("-prepared_at")[:10]
+        for order in [*pending_orders, *preparing_orders, *ready_orders]:
+            # Items served in an earlier round are summarised, not listed
+            items = list(order.items.all())
+            order.kds_items = [i for i in items if i.status != OrderItem.Status.SERVED]
+            order.kds_earlier_count = len(items) - len(order.kds_items)
+            order.kds_other_count = 0
+            order.kds_order_ready = order.status == Order.Status.READY
+    else:
+        # Only orders with items at this station; each card shows only those items,
+        # and sits in the column matching this station's progress.
+        columns = {"pending": [], "preparing": [], "ready": []}
+        station_orders = order_qs.filter(
+            status__in=[Order.Status.CONFIRMED, Order.Status.PREPARING, Order.Status.READY],
+            items__station=selected_station,
+        ).distinct().order_by("created_at")
+        for order in station_orders:
+            column = station_column(order, selected_station.pk)
+            if column is None:
+                continue
+            mine = [i for i in order.items.all() if i.station_id == selected_station.pk]
+            order.kds_items = [i for i in mine if i.status != OrderItem.Status.SERVED]
+            order.kds_earlier_count = len(mine) - len(order.kds_items)
+            order.kds_other_count = sum(
+                1 for i in order.items.all()
+                if i.station_id != selected_station.pk
+                and i.status not in (OrderItem.Status.CANCELLED, OrderItem.Status.SERVED)
+            )
+            order.kds_order_ready = order.status == Order.Status.READY
+            columns[column].append(order)
+        pending_orders = columns["pending"]
+        preparing_orders = columns["preparing"]
+        ready_orders = columns["ready"][::-1][:10]
 
     context = {
         "page_title": "Kitchen Display",
         "pending_orders": pending_orders,
         "preparing_orders": preparing_orders,
         "ready_orders": ready_orders,
+        "stations": stations,
+        "selected_station": selected_station,
     }
     return render(request, "dashboard/kitchen/display.html", context)
+
+
+KITCHEN_DISPLAY_ROLES = (User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_KITCHEN)
+
+
+def _kitchen_board_json(station_id=None):
+    """Kitchen board in the same shape as the websocket "orders_list" payload."""
+    from apps.kitchen import services as kitchen_services
+
+    board = {}
+    for column, queryset in kitchen_services.get_kitchen_orders().items():
+        if station_id:
+            # Station screens only need orders that have items at that station
+            queryset = queryset.filter(items__station_id=station_id).distinct()
+        board[column] = [kitchen_services.get_order_data(order) for order in queryset]
+    return board
+
+
+@require_http_methods(["GET", "POST"])
+def kitchen_action(request):
+    """
+    HTTP fallback for the kitchen display when the websocket is unavailable
+    (WSGI deployments). GET returns the board; POST runs one action and returns it.
+
+    POST fields: order_id, action (start | bump | recall | priority),
+    priority (for action=priority), station_id (optional: act on that station's items).
+    Response: {"ok": bool, "message": str, "orders": {"pending": [...], "preparing": [...], "ready": [...]}}
+    """
+    from django.http import JsonResponse
+
+    from apps.kitchen import services as kitchen_services
+
+    user = request.user
+    if not user.is_authenticated:
+        return JsonResponse({"ok": False, "message": "Please sign in again."}, status=401)
+    if user.role not in KITCHEN_DISPLAY_ROLES:
+        return JsonResponse({"ok": False, "message": "You do not have access to the kitchen display."}, status=403)
+
+    raw_station = request.POST.get("station_id") if request.method == "POST" else request.GET.get("station_id")
+    station_id = int(raw_station) if raw_station and str(raw_station).isdigit() else None
+
+    if request.method == "GET":
+        return JsonResponse({"ok": True, "message": "", "orders": _kitchen_board_json(station_id)})
+
+    action = request.POST.get("action", "")
+    order_id = request.POST.get("order_id", "")
+    order = None
+    if order_id.isdigit():
+        order = Order.objects.select_related("table", "kitchen_ticket").filter(pk=int(order_id)).first()
+    # Staff tied to an outlet may only act on that outlet's orders
+    if order is not None and user.role != User.Role.SUPER_ADMIN and user.outlet_id and order.outlet_id \
+            and order.outlet_id != user.outlet_id:
+        order = None
+
+    if order is None:
+        ok, message, status = False, "Order not found.", 404
+    elif action == "start":
+        if station_id:
+            ok, message = kitchen_services.start_preparing_station(order, station_id, user)
+        else:
+            ok, message = kitchen_services.start_preparing(order, user)
+        status = 200 if ok else 400
+    elif action == "bump":
+        if station_id:
+            ok, message = kitchen_services.bump_station(order, station_id, user)
+        else:
+            ok, message = kitchen_services.bump_order(order, user)
+        status = 200 if ok else 400
+    elif action == "recall":
+        if station_id:
+            ok, message = kitchen_services.recall_station(order, station_id, user)
+        else:
+            ok, message = kitchen_services.recall_order(order, user)
+        status = 200 if ok else 400
+    elif action == "priority":
+        if not hasattr(order, "kitchen_ticket"):
+            # Orders placed through some flows have no ticket yet; priority lives on it
+            KitchenOrderTicket.objects.create(order=order)
+            order = Order.objects.select_related("table", "kitchen_ticket").get(pk=order.pk)
+        ok, message = kitchen_services.set_order_priority(order, request.POST.get("priority", ""), user)
+        status = 200 if ok else 400
+    else:
+        ok, message, status = False, "Unknown action.", 400
+
+    return JsonResponse({"ok": ok, "message": message, "orders": _kitchen_board_json(station_id)}, status=status)
 
 
 # ============================================================================
@@ -1967,6 +2932,24 @@ def settings_view(request):
                 outlet_to_edit.auto_accept_orders = request.POST.get("auto_accept_orders") == "on"
                 outlet_to_edit.allow_qr_ordering = request.POST.get("allow_qr_ordering") == "on"
 
+                # QR order protection
+                guard_mode = request.POST.get("qr_guard", outlet_to_edit.qr_guard)
+                if guard_mode in Outlet.QRGuard.values:
+                    outlet_to_edit.qr_guard = guard_mode
+                try:
+                    outlet_to_edit.qr_radius_m = max(30, min(int(request.POST.get("qr_radius_m") or 150), 2000))
+                except ValueError:
+                    pass
+                for field, limit in (("latitude", 90), ("longitude", 180)):
+                    raw = (request.POST.get(field) or "").strip()
+                    if field in request.POST:
+                        try:
+                            value = Decimal(raw).quantize(Decimal("0.000001")) if raw else None
+                        except Exception:
+                            value = getattr(outlet_to_edit, field)
+                        if value is None or abs(value) <= limit:
+                            setattr(outlet_to_edit, field, value)
+
                 # Currency Settings
                 outlet_to_edit.currency_code = request.POST.get("currency_code", outlet_to_edit.currency_code)
                 outlet_to_edit.currency_symbol = request.POST.get("currency_symbol", outlet_to_edit.currency_symbol)
@@ -1992,6 +2975,7 @@ def settings_view(request):
         "outlets": outlets,
         "selected_outlet": selected_outlet,
         "current_outlet": current_outlet,
+        "qr_guard_choices": Outlet.QRGuard.choices,
         "can_edit": request.user.role == User.Role.SUPER_ADMIN,
         "can_edit_outlet": request.user.role in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER],
     }
@@ -2110,30 +3094,178 @@ def pos_view(request, table_pk=None):
         action = request.POST.get("action")
 
         if action == "create_order":
-            # Create new order
+            import json
+            from decimal import Decimal
+            from django.db import transaction as db_transaction
+
+            # Parse cart items
+            cart_items_json = request.POST.get("cart_items", "[]")
+            try:
+                cart_items = json.loads(cart_items_json)
+            except json.JSONDecodeError:
+                cart_items = []
+
+            if not cart_items:
+                messages.error(request, "No items in cart.")
+                return redirect("dashboard:pos")
+
+            # Separate menu and retail items
+            menu_items = [item for item in cart_items if item.get("type") == "menu"]
+            retail_items = [item for item in cart_items if item.get("type") == "retail"]
+
             order_type = request.POST.get("order_type", Order.OrderType.DINE_IN)
             customer_name = request.POST.get("customer_name", "").strip()
             customer_phone = request.POST.get("customer_phone", "").strip()
+            selected_table = request.POST.get("selected_table", "")
 
-            order = Order.objects.create(
-                table=table,
-                created_by=request.user,
-                order_type=order_type,
-                order_source=Order.OrderSource.POS,
-                customer_name=customer_name,
-                customer_phone=customer_phone,
-            )
+            # Get table if selected
+            if selected_table and not table:
+                try:
+                    table = Table.objects.get(pk=int(selected_table))
+                except (Table.DoesNotExist, ValueError):
+                    pass
 
-            # Create kitchen ticket
-            KitchenOrderTicket.objects.create(order=order)
+            created_order = None
+            created_retail_sale = None
 
-            # Update table status
-            if table:
-                table.status = Table.Status.OCCUPIED
-                table.save(update_fields=["status", "updated_at"])
+            with db_transaction.atomic():
+                # Create cafe order if there are menu items
+                if menu_items:
+                    order = Order.objects.create(
+                        table=table,
+                        created_by=request.user,
+                        order_type=order_type,
+                        order_source=Order.OrderSource.POS,
+                        customer_name=customer_name,
+                        customer_phone=customer_phone,
+                    )
 
-            messages.success(request, f"Order #{order.order_number} created.")
-            return redirect("dashboard:order_detail", pk=order.pk)
+                    # Add order items
+                    for item in menu_items:
+                        menu_item = MenuItem.objects.get(pk=item["id"])
+                        OrderItem.objects.create(
+                            order=order,
+                            menu_item=menu_item,
+                            quantity=item.get("quantity", 1),
+                            unit_price=Decimal(str(item["price"])),
+                            total_price=Decimal(str(item["price"])) * item.get("quantity", 1),
+                        )
+
+                    # Update order totals
+                    order.calculate_totals()
+
+                    # Create kitchen ticket
+                    KitchenOrderTicket.objects.create(order=order)
+
+                    # Update table status
+                    if table:
+                        table.status = Table.Status.OCCUPIED
+                        table.save(update_fields=["status", "updated_at"])
+
+                    created_order = order
+
+                # Create retail sale if there are retail items
+                if retail_items and RETAIL_AVAILABLE:
+                    user_outlet = get_user_outlet(request.user)
+                    if not user_outlet:
+                        # For super admin, use the first product's outlet
+                        first_product = RetailProduct.objects.get(pk=retail_items[0]["id"])
+                        user_outlet = first_product.outlet
+
+                    # Determine which order to link to (for combined billing)
+                    # Priority: newly created order > existing order for the table
+                    order_to_link = created_order or current_order
+
+                    retail_sale = RetailSale.objects.create(
+                        outlet=user_outlet,
+                        sale_type=RetailSale.SaleType.RETAIL,
+                        created_by=request.user,
+                        payment_status=RetailSale.PaymentStatus.PENDING,
+                        payment_method=RetailSale.PaymentMethod.CASH,
+                        linked_order=order_to_link,  # Link to cafe order for combined billing
+                    )
+
+                    subtotal = Decimal("0")
+                    total_cgst = Decimal("0")
+                    total_sgst = Decimal("0")
+
+                    for item in retail_items:
+                        product = RetailProduct.objects.get(pk=item["id"])
+                        quantity = item.get("quantity", 1)
+                        unit_price = Decimal(str(item["price"]))
+                        line_subtotal = unit_price * quantity
+
+                        # Calculate tax (assuming 5% GST split into CGST and SGST)
+                        tax_rate = Decimal("5")  # TODO: Get from product.tax_type
+                        tax_amount = line_subtotal * tax_rate / 100
+                        cgst = tax_amount / 2
+                        sgst = tax_amount / 2
+                        line_total = line_subtotal + tax_amount
+
+                        RetailSaleItem.objects.create(
+                            sale=retail_sale,
+                            product=product,
+                            product_name=product.name,
+                            product_sku=product.sku or "",
+                            hsn_code=product.hsn_code or "",
+                            quantity=quantity,
+                            unit_price=unit_price,
+                            discount_amount=Decimal("0"),
+                            subtotal=line_subtotal,
+                            tax_rate=tax_rate,
+                            cgst_amount=cgst,
+                            sgst_amount=sgst,
+                            total=line_total,
+                        )
+
+                        subtotal += line_subtotal
+                        total_cgst += cgst
+                        total_sgst += sgst
+
+                        # Deduct stock if tracking inventory
+                        if product.track_inventory:
+                            stock_before = product.current_stock
+                            product.current_stock -= quantity
+                            product.save(update_fields=["current_stock", "updated_at"])
+
+                            # Record stock movement
+                            RetailStockMovement.objects.create(
+                                product=product,
+                                movement_type=RetailStockMovement.MovementType.SALE,
+                                quantity=-quantity,
+                                stock_before=stock_before,
+                                stock_after=product.current_stock,
+                                reference_type="RetailSale",
+                                reference_id=retail_sale.pk,
+                                reason=f"Sale {retail_sale.sale_number}",
+                                created_by=request.user,
+                            )
+
+                    # Update sale totals
+                    retail_sale.subtotal = subtotal
+                    retail_sale.cgst_amount = total_cgst
+                    retail_sale.sgst_amount = total_sgst
+                    retail_sale.total_amount = subtotal + total_cgst + total_sgst
+                    retail_sale.save()
+
+                    created_retail_sale = retail_sale
+
+            # Determine redirect
+            if created_order and created_retail_sale:
+                messages.success(
+                    request,
+                    f"Order #{created_order.order_number} and Retail Sale #{created_retail_sale.sale_number} created."
+                )
+                return redirect("dashboard:order_detail", pk=created_order.pk)
+            elif created_order:
+                messages.success(request, f"Order #{created_order.order_number} created.")
+                return redirect("dashboard:order_detail", pk=created_order.pk)
+            elif created_retail_sale:
+                messages.success(request, f"Retail Sale #{created_retail_sale.sale_number} created.")
+                return redirect("retail:sale_detail", pk=created_retail_sale.pk)
+            else:
+                messages.error(request, "Failed to create order.")
+                return redirect("dashboard:pos")
 
     # Get menu categories and items
     categories = Category.objects.filter(is_active=True).prefetch_related(
@@ -2143,6 +3275,31 @@ def pos_view(request, table_pk=None):
     # Get tables for selection
     floors = Floor.objects.filter(is_active=True).prefetch_related("tables").order_by("display_order")
 
+    # Check if retail is enabled and get retail products
+    enable_retail = getattr(django_settings, 'ENABLE_RETAIL', False) and RETAIL_AVAILABLE
+    retail_products = []
+    retail_categories = []
+
+    if enable_retail:
+        user_outlet = get_user_outlet(request.user)
+        if user_outlet:
+            retail_products = RetailProduct.objects.filter(
+                outlet=user_outlet,
+                is_active=True
+            ).select_related('category').order_by('category__name', 'name')
+            retail_categories = RetailCategory.objects.filter(
+                outlet=user_outlet,
+                is_active=True
+            ).order_by('display_order', 'name')
+        else:
+            # Super admin - show all products (you may want to filter by selected outlet)
+            retail_products = RetailProduct.objects.filter(
+                is_active=True
+            ).select_related('category').order_by('category__name', 'name')
+            retail_categories = RetailCategory.objects.filter(
+                is_active=True
+            ).order_by('display_order', 'name')
+
     context = {
         "page_title": "POS",
         "table": table,
@@ -2150,6 +3307,9 @@ def pos_view(request, table_pk=None):
         "categories": categories,
         "floors": floors,
         "order_types": Order.OrderType.choices,
+        "enable_retail": enable_retail,
+        "retail_products": retail_products,
+        "retail_categories": retail_categories,
     }
     return render(request, "dashboard/orders/pos.html", context)
 
@@ -2157,11 +3317,15 @@ def pos_view(request, table_pk=None):
 @login_required
 def order_detail(request, pk):
     """View and manage a specific order."""
+    from apps.kitchen.routing import OPEN_STATUSES
+
+    from decimal import Decimal
+
     try:
         order = Order.objects.select_related(
             "table", "created_by", "served_by"
         ).prefetch_related(
-            "items__menu_item", "payments"
+            "items__menu_item", "payments", "retail_sales__items"
         ).get(pk=pk)
     except Order.DoesNotExist:
         messages.error(request, "Order not found.")
@@ -2176,6 +3340,19 @@ def order_detail(request, pk):
     seat_count = order.table.capacity if order.table else 4
     seat_numbers = list(range(1, seat_count + 1))
 
+    # Calculate combined total with linked retail sales
+    linked_retail_sales = order.retail_sales.all()
+    retail_total = sum(sale.total_amount for sale in linked_retail_sales)
+    # Only count unpaid retail sales in balance calculation
+    retail_unpaid = sum(
+        sale.total_amount for sale in linked_retail_sales
+        if RETAIL_AVAILABLE and sale.payment_status != RetailSale.PaymentStatus.PAID
+    )
+    combined_total = order.total_amount + retail_total
+    total_paid = sum(p.amount for p in order.payments.all())
+    # Balance due is cafe balance + unpaid retail
+    balance_due = float(order.balance_due) + float(retail_unpaid)
+
     context = {
         "page_title": f"Order #{order.order_number}",
         "order": order,
@@ -2183,6 +3360,16 @@ def order_detail(request, pk):
         "status_choices": Order.Status.choices,
         "payment_methods": Payment.Method.choices,
         "seat_numbers": seat_numbers,
+        "linked_retail_sales": linked_retail_sales,
+        "retail_total": retail_total,
+        "combined_total": combined_total,
+        "total_paid": total_paid,
+        "balance_due": balance_due,
+        # Running tab: new rounds, voids and parcels
+        "is_open": order.status in OPEN_STATUSES,
+        "unsent_count": order.items.filter(kot_sent_at__isnull=True).exclude(status=OrderItem.Status.CANCELLED).count(),
+        "can_void": request.user.role in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER],
+        "parcel_items": order.items.filter(kot_sent_at__isnull=False).exclude(status=OrderItem.Status.CANCELLED),
     }
     return render(request, "dashboard/orders/detail.html", context)
 
@@ -2195,6 +3382,17 @@ def order_update_status(request, pk):
         order = Order.objects.get(pk=pk)
         new_status = request.POST.get("status")
 
+        if new_status == Order.Status.CONFIRMED:
+            # "Send to Kitchen": first round or any later one
+            from apps.kitchen.routing import send_order_to_kitchen
+
+            sent = send_order_to_kitchen(order, user=request.user)
+            if sent:
+                messages.success(request, f"Sent {sent} item{'s' if sent != 1 else ''} to the kitchen.")
+            else:
+                messages.info(request, "Nothing new to send to the kitchen.")
+            # Back to the floor, as before
+            return redirect("dashboard:tables")
         if new_status in dict(Order.Status.choices):
             order.update_status(new_status, user=request.user)
             messages.success(request, f"Order status updated to {order.get_status_display()}.")
@@ -2213,13 +3411,22 @@ def order_update_status(request, pk):
 @login_required
 @require_http_methods(["POST"])
 def order_add_item(request, pk):
-    """Add item to an order."""
+    """
+    Add an item to an open order (any time until it is paid).
+
+    With direct=1 the item goes straight onto the bill without a kitchen ticket,
+    for ready-made things picked up at the counter (sweets, bottled drinks...).
+    Otherwise it waits for "Send to Kitchen" like any other new item.
+    """
+    from apps.kitchen.routing import OPEN_STATUSES
+
     try:
         order = Order.objects.get(pk=pk)
 
-        if order.status not in [Order.Status.PENDING, Order.Status.CONFIRMED]:
-            messages.error(request, "Cannot modify this order.")
+        if order.status not in OPEN_STATUSES:
+            messages.error(request, "This order is closed. Start a new order for more items.")
             return redirect("dashboard:order_detail", pk=pk)
+        direct = request.POST.get("direct") == "1"
 
         menu_item_id = request.POST.get("menu_item")
         quantity = int(request.POST.get("quantity", 1))
@@ -2238,7 +3445,7 @@ def order_add_item(request, pk):
         try:
             menu_item = MenuItem.objects.get(pk=menu_item_id, is_available=True)
 
-            # Create order item
+            # Always a new line: lines already sent to the kitchen are never changed
             OrderItem.objects.create(
                 order=order,
                 menu_item=menu_item,
@@ -2248,6 +3455,9 @@ def order_add_item(request, pk):
                 total_price=menu_item.base_price * quantity,
                 special_instructions=special_instructions,
                 seat_number=seat_number,
+                # Counter items are handed over directly: no kitchen ticket
+                status=OrderItem.Status.SERVED if direct else OrderItem.Status.PENDING,
+                kot_sent_at=timezone.now() if direct else None,
             )
 
             # Recalculate totals
@@ -2255,12 +3465,60 @@ def order_add_item(request, pk):
             order.save()
 
             seat_info = f" (Seat {seat_number})" if seat_number else ""
-            messages.success(request, f"Added {quantity}x {menu_item.name}{seat_info} to order.")
+            if direct:
+                messages.success(request, f"Added {quantity}x {menu_item.name} to the bill.")
+            elif order.status == Order.Status.PENDING:
+                messages.success(request, f"Added {quantity}x {menu_item.name}{seat_info} to order.")
+            else:
+                messages.success(request, f"Added {quantity}x {menu_item.name}{seat_info}. Press Send to Kitchen when the round is ready.")
         except MenuItem.DoesNotExist:
             messages.error(request, "Menu item not found or unavailable.")
     except Order.DoesNotExist:
         messages.error(request, "Order not found.")
 
+    back = request.POST.get("next", "")
+    if back.startswith("/"):
+        return redirect(back)
+    return redirect("dashboard:order_detail", pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def order_parcel(request, pk):
+    """
+    Pack the guests' leftovers to take away (no charge): prints a PARCEL ticket
+    at each chosen dish's station and notes it on the order.
+    """
+    from apps.kitchen.routing import OPEN_STATUSES, queue_parcel_tickets
+
+    try:
+        order = Order.objects.get(pk=pk)
+    except Order.DoesNotExist:
+        messages.error(request, "Order not found.")
+        return redirect("dashboard:orders")
+
+    if order.status not in OPEN_STATUSES:
+        messages.error(request, "This order is closed.")
+        return redirect("dashboard:order_detail", pk=pk)
+
+    ids = request.POST.getlist("items")
+    items = list(
+        order.items.filter(pk__in=ids, kot_sent_at__isnull=False).exclude(status=OrderItem.Status.CANCELLED).select_related("station")
+    )
+    if not items:
+        messages.error(request, "Choose the dishes to pack.")
+        return redirect("dashboard:order_detail", pk=pk)
+
+    note = request.POST.get("note", "").strip()[:120]
+    jobs = queue_parcel_tickets(order, items, note)
+    names = ", ".join(i.item_name for i in items)
+    record = f"Parcel (no charge): {names}" + (f" - {note}" if note else "")
+    order.customer_notes = (order.customer_notes + "\n" if order.customer_notes else "") + record
+    order.save(update_fields=["customer_notes", "updated_at"])
+    if jobs:
+        messages.success(request, f"Parcel ticket sent to the kitchen: {names}.")
+    else:
+        messages.success(request, f"Parcel noted for {names}. No kitchen printer is set up, so tell the kitchen directly.")
     return redirect("dashboard:order_detail", pk=pk)
 
 
@@ -2268,23 +3526,42 @@ def order_add_item(request, pk):
 @require_http_methods(["POST"])
 def order_remove_item(request, pk, item_pk):
     """Remove item from an order."""
+    from apps.kitchen.routing import OPEN_STATUSES, queue_void_ticket
+
     try:
         order = Order.objects.get(pk=pk)
 
-        if order.status not in [Order.Status.PENDING, Order.Status.CONFIRMED]:
-            messages.error(request, "Cannot modify this order.")
+        if order.status not in OPEN_STATUSES:
+            messages.error(request, "This order is closed and cannot be changed.")
             return redirect("dashboard:order_detail", pk=pk)
 
         try:
             item = order.items.get(pk=item_pk)
             item_name = item.item_name
-            item.delete()
+
+            if item.kot_sent_at is None:
+                # Not in the kitchen yet: just take it off
+                item.delete()
+                messages.success(request, f"Removed {item_name} from order.")
+            elif item.status == OrderItem.Status.CANCELLED:
+                messages.info(request, f"{item_name} is already voided.")
+            else:
+                if request.user.role not in [User.Role.SUPER_ADMIN, User.Role.OUTLET_MANAGER, User.Role.STAFF_CASHIER]:
+                    messages.error(request, f"{item_name} is already with the kitchen. Ask a cashier or manager to void it.")
+                    return redirect("dashboard:order_detail", pk=pk)
+                reason = request.POST.get("reason", "").strip()[:120]
+                item.status = OrderItem.Status.CANCELLED
+                note = f"Voided by {request.user.get_full_name() or request.user.username}" + (f": {reason}" if reason else "")
+                item.special_instructions = (item.special_instructions + "\n" if item.special_instructions else "") + note
+                item.save(update_fields=["status", "special_instructions", "updated_at"])
+                # Kitchen stops making it (printed only if it had not been served yet)
+                if order.status not in [Order.Status.SERVED]:
+                    queue_void_ticket(item, reason)
+                messages.success(request, f"Voided {item_name}. It is off the bill.")
 
             # Recalculate totals
             order.calculate_totals()
             order.save()
-
-            messages.success(request, f"Removed {item_name} from order.")
         except OrderItem.DoesNotExist:
             messages.error(request, "Item not found in order.")
     except Order.DoesNotExist:
@@ -2297,16 +3574,43 @@ def order_remove_item(request, pk, item_pk):
 @require_http_methods(["POST"])
 def order_update_item_qty(request, pk, item_pk):
     """Update quantity of an item in an order (+/-)."""
+    from apps.kitchen.routing import OPEN_STATUSES
+
     try:
         order = Order.objects.get(pk=pk)
 
-        if order.status not in [Order.Status.PENDING, Order.Status.CONFIRMED]:
-            messages.error(request, "Cannot modify this order.")
+        if order.status not in OPEN_STATUSES:
+            messages.error(request, "This order is closed and cannot be changed.")
             return redirect("dashboard:order_detail", pk=pk)
 
         try:
             item = order.items.get(pk=item_pk)
             action = request.POST.get("action")
+
+            if item.kot_sent_at is not None:
+                from decimal import Decimal
+
+                # Lines already with the kitchen are never edited in place
+                if action == "increase" and item.status != OrderItem.Status.CANCELLED:
+                    OrderItem.objects.create(
+                        order=order,
+                        menu_item=item.menu_item,
+                        variant=item.variant,
+                        item_name=item.item_name,
+                        variant_name=item.variant_name,
+                        unit_price=item.unit_price,
+                        quantity=1,
+                        addons=item.addons,
+                        addons_total=Decimal(item.addons_total) / max(item.quantity, 1),
+                        total_price=item.unit_price,
+                        seat_number=item.seat_number,
+                    )
+                    messages.success(request, f"Added another {item.item_name}. Press Send to Kitchen to send it.")
+                else:
+                    messages.error(request, f"{item.item_name} is already with the kitchen. Use Void to take it off.")
+                order.calculate_totals()
+                order.save()
+                return redirect("dashboard:order_detail", pk=pk)
 
             if action == "increase":
                 item.quantity += 1
@@ -2334,24 +3638,28 @@ def order_update_item_qty(request, pk, item_pk):
 @login_required
 @require_http_methods(["POST"])
 def order_payment(request, pk):
-    """Process payment for an order."""
+    """Process payment for an order (includes combined billing with retail items)."""
     from decimal import Decimal
 
     try:
-        order = Order.objects.get(pk=pk)
+        order = Order.objects.prefetch_related("retail_sales", "retail_sales__items").get(pk=pk)
 
         amount = request.POST.get("amount")
         method = request.POST.get("method", Payment.Method.CASH)
         amount_tendered = request.POST.get("amount_tendered")
         transaction_id = request.POST.get("transaction_id", "")
         seat_number = request.POST.get("seat_number")
+        include_retail = request.POST.get("include_retail") == "true"
+
+        # Get linked retail sales
+        linked_retail_sales = order.retail_sales.all() if RETAIL_AVAILABLE else []
 
         # Handle split bill by seat
         if seat_number and seat_number not in ["", "None", "null"]:
             try:
                 seat_number = int(seat_number)
                 # Calculate amount for this seat's items
-                seat_items = order.items.filter(seat_number=seat_number)
+                seat_items = order.items.filter(seat_number=seat_number).exclude(status=OrderItem.Status.CANCELLED)
                 amount = sum(item.total_price for item in seat_items)
                 notes = f"Split bill - Seat {seat_number}"
             except (ValueError, TypeError):
@@ -2359,35 +3667,97 @@ def order_payment(request, pk):
                 notes = ""
         elif seat_number in ["None", "null", ""]:
             # Items with no seat assigned
-            seat_items = order.items.filter(seat_number__isnull=True)
+            seat_items = order.items.filter(seat_number__isnull=True).exclude(status=OrderItem.Status.CANCELLED)
             amount = sum(item.total_price for item in seat_items)
             notes = "Split bill - No seat assigned"
         else:
             notes = ""
 
+        # The posted amount arrives as text; seat splits compute a Decimal
+        try:
+            amount = float(amount) if amount not in (None, "") else 0
+        except (TypeError, ValueError):
+            amount = 0
+
         if not amount:
             try:
                 amount = float(request.POST.get("amount", 0))
             except (TypeError, ValueError):
-                amount = float(order.balance_due)
+                # Calculate combined balance if retail items are included
+                if include_retail and linked_retail_sales:
+                    retail_total = sum(sale.total_amount for sale in linked_retail_sales)
+                    amount = float(order.balance_due) + float(retail_total)
+                else:
+                    amount = float(order.balance_due)
 
         if amount <= 0:
             messages.error(request, "Invalid payment amount.")
             return redirect("dashboard:order_detail", pk=pk)
 
-        payment = Payment.objects.create(
-            order=order,
-            amount=amount,
-            method=method,
-            status=Payment.Status.COMPLETED,
-            amount_tendered=float(amount_tendered) if amount_tendered else None,
-            transaction_id=transaction_id,
-            processed_by=request.user,
-            notes=notes,
-        )
+        # Calculate how much goes to cafe order vs retail
+        cafe_balance = float(order.balance_due)
+        retail_payment_amount = 0
+
+        if include_retail and linked_retail_sales:
+            # Calculate retail total that needs payment
+            retail_total = sum(
+                float(sale.total_amount) for sale in linked_retail_sales
+                if sale.payment_status != RetailSale.PaymentStatus.PAID
+            )
+            retail_payment_amount = min(retail_total, max(0, float(amount) - cafe_balance))
+
+            # Add note about combined payment
+            if not notes:
+                notes = "Combined cafe + retail payment"
+
+        # Create payment record for the cafe order portion
+        cafe_payment_amount = min(cafe_balance, float(amount))
+        if cafe_payment_amount > 0:
+            payment = Payment.objects.create(
+                order=order,
+                amount=cafe_payment_amount,
+                method=method,
+                status=Payment.Status.COMPLETED,
+                amount_tendered=float(amount_tendered) if amount_tendered else None,
+                transaction_id=transaction_id,
+                processed_by=request.user,
+                notes=notes,
+            )
+
+        # Mark linked retail sales as PAID
+        if include_retail and linked_retail_sales and retail_payment_amount > 0:
+            for sale in linked_retail_sales:
+                if sale.payment_status != RetailSale.PaymentStatus.PAID:
+                    sale.payment_status = RetailSale.PaymentStatus.PAID
+                    # Set payment method to match cafe payment
+                    if method == Payment.Method.CASH:
+                        sale.payment_method = RetailSale.PaymentMethod.CASH
+                    elif method == Payment.Method.CARD:
+                        sale.payment_method = RetailSale.PaymentMethod.CARD
+                    elif method == Payment.Method.UPI:
+                        sale.payment_method = RetailSale.PaymentMethod.UPI
+                    elif method == Payment.Method.WALLET:
+                        sale.payment_method = "wallet"
+                    sale.paid_amount = sale.total_amount
+                    sale.save(update_fields=["payment_status", "payment_method", "paid_amount", "updated_at"])
+
+        # Calculate new combined balance
+        total_paid = sum(p.amount for p in order.payments.all())
+        cafe_paid = order.is_paid
+
+        # Check if retail is also fully paid
+        retail_paid = True
+        if include_retail and linked_retail_sales:
+            for sale in linked_retail_sales:
+                sale.refresh_from_db()
+                if sale.payment_status != RetailSale.PaymentStatus.PAID:
+                    retail_paid = False
+                    break
+
+        fully_paid = cafe_paid and retail_paid
 
         # Check if fully paid
-        if order.is_paid:
+        if fully_paid:
             from django.db.models import Q
 
             if order.status in [Order.Status.SERVED, Order.Status.READY]:
@@ -2410,11 +3780,25 @@ def order_payment(request, pk):
 
             messages.success(request, f"Payment of ₹{amount} processed. Order fully paid!")
         else:
-            messages.success(request, f"Payment of ₹{amount} processed. Balance: ₹{order.balance_due}")
+            # Calculate remaining balance
+            if include_retail and linked_retail_sales:
+                retail_remaining = sum(
+                    float(sale.total_amount) for sale in linked_retail_sales
+                    if sale.payment_status != RetailSale.PaymentStatus.PAID
+                )
+                combined_balance = float(order.balance_due) + retail_remaining
+                messages.success(request, f"Payment of ₹{amount} processed. Balance: ₹{combined_balance:.2f}")
+            else:
+                messages.success(request, f"Payment of ₹{amount} processed. Balance: ₹{order.balance_due}")
 
     except Order.DoesNotExist:
         messages.error(request, "Order not found.")
 
+    # The billing counter posts here and wants to come back to its own screen
+    back = request.POST.get("next", "")
+    if back.startswith("/") and not back.startswith("//"):
+        sep = "&" if "?" in back else "?"
+        return redirect(f"{back}{sep}paid={pk}")
     return redirect("dashboard:order_detail", pk=pk)
 
 
@@ -2423,16 +3807,27 @@ def order_payment(request, pk):
 def order_cancel(request, pk):
     """Cancel an order."""
     from django.db.models import Q
+    from decimal import Decimal
 
     try:
-        order = Order.objects.prefetch_related("combined_tables").get(pk=pk)
+        order = Order.objects.prefetch_related("combined_tables", "retail_sales").get(pk=pk)
 
         if order.status == Order.Status.COMPLETED:
             messages.error(request, "Cannot cancel a completed order.")
-        elif order.is_paid:
+        elif order.status == Order.Status.CANCELLED:
+            messages.error(request, "Order is already cancelled.")
+        elif order.paid_amount > Decimal("0"):
+            # Only block if actual payment was made (not just $0 total orders)
             messages.error(request, "Cannot cancel a paid order. Process refund first.")
         else:
             order.update_status(Order.Status.CANCELLED)
+
+            # Also cancel any linked retail sales
+            if RETAIL_AVAILABLE:
+                for sale in order.retail_sales.all():
+                    if sale.payment_status != RetailSale.PaymentStatus.PAID:
+                        sale.payment_status = RetailSale.PaymentStatus.CANCELLED
+                        sale.save(update_fields=["payment_status", "updated_at"])
 
             # Free up all tables if dine-in
             if order.order_type == Order.OrderType.DINE_IN:
@@ -2442,7 +3837,7 @@ def order_cancel(request, pk):
                     # Check if there are other active orders for this table
                     other_orders = Order.objects.filter(
                         Q(table=tbl) | Q(combined_tables=tbl),
-                        status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING, Order.Status.READY]
+                        status__in=ACTIVE_ORDER_STATUSES
                     ).exclude(pk=pk).exists()
 
                     if not other_orders:
@@ -2507,18 +3902,42 @@ def order_print(request, pk):
         order = Order.objects.select_related(
             "table", "created_by"
         ).prefetch_related(
-            "items", "payments"
+            "items", "payments", "retail_sales__items"
         ).get(pk=pk)
     except Order.DoesNotExist:
         messages.error(request, "Order not found.")
         return redirect("dashboard:orders")
 
     from apps.core.models import BusinessSettings
+    from apps.kitchen.routing import OPEN_STATUSES
+    from apps.payments.models import PaymentSettings
+
     business = BusinessSettings.load()
+
+    # Printing an unpaid bill = the waiter is handing it to the guests to pay at the counter
+    if order.status in OPEN_STATUSES and not order.bill_printed_at and order.balance_due > 0:
+        order.bill_printed_at = timezone.now()
+        order.save(update_fields=["bill_printed_at", "updated_at"])
+
+    # Get linked retail sales for combined billing
+    linked_retail_sales = order.retail_sales.all() if RETAIL_AVAILABLE else []
+    retail_total = sum(sale.total_amount for sale in linked_retail_sales)
+    combined_total = order.total_amount + retail_total
 
     context = {
         "order": order,
         "business": business,
+        "linked_retail_sales": linked_retail_sales,
+        "retail_total": retail_total,
+        "combined_total": combined_total,
+        # Guests can scan to pay (and tip) from their seat when Razorpay is set up
+        "online_pay": PaymentSettings.load().get_razorpay_client() is not None,
+        # What the guest pays at the counter: cafe balance plus unpaid shop items
+        "amount_to_pay": order.balance_due + sum(
+            (sale.total_amount - sale.paid_amount for sale in linked_retail_sales
+             if sale.payment_status not in ["paid", "cancelled"]),
+            0,
+        ),
     }
     return render(request, "dashboard/orders/print.html", context)
 
@@ -3556,47 +4975,20 @@ def verify_razorpay_payment(request, pk):
     if expected_signature != razorpay_signature:
         return JsonResponse({"error": "Invalid payment signature"}, status=400)
 
-    # Update Razorpay order
+    # Record once, however many times the browser or status check reports it
+    from apps.payments.services import amount_due, record_razorpay_payment
+
     try:
-        rzp_order = RazorpayOrder.objects.get(razorpay_order_id=razorpay_order_id)
-        rzp_order.razorpay_payment_id = razorpay_payment_id
-        rzp_order.razorpay_signature = razorpay_signature
-        rzp_order.status = RazorpayOrder.Status.PAID
-        rzp_order.save()
-
-        # Record payment in our system
-        amount = rzp_order.amount / 100  # Convert paise to rupees
-
-        payment = Payment.objects.create(
-            order=order,
-            amount=amount,
-            method=Payment.Method.UPI,
-            status=Payment.Status.COMPLETED,
-            transaction_id=razorpay_payment_id,
-            reference_number=razorpay_order_id,
-            processed_by=request.user,
-        )
-
-        # Check if fully paid and update order
-        if order.is_paid:
-            if order.status in [Order.Status.SERVED, Order.Status.READY]:
-                order.update_status(Order.Status.COMPLETED)
-
-            # Auto-release table
-            if order.table and order.order_type == Order.OrderType.DINE_IN:
-                other_orders = Order.objects.filter(
-                    table=order.table,
-                    status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING, Order.Status.READY, Order.Status.SERVED]
-                ).exclude(pk=pk).exists()
-
-                if not other_orders:
-                    order.table.status = Table.Status.VACANT
-                    order.table.save(update_fields=["status", "updated_at"])
-
+        rzp_order = RazorpayOrder.objects.get(razorpay_order_id=razorpay_order_id, order=order)
+        if not rzp_order.bill_amount:
+            rzp_order.bill_amount = rzp_order.amount
+            rzp_order.save(update_fields=["bill_amount"])
+        record_razorpay_payment(rzp_order, razorpay_payment_id, method="upi", signature=razorpay_signature, processed_by=request.user)
+        order.refresh_from_db()
         return JsonResponse({
             "success": True,
             "message": "Payment recorded successfully",
-            "is_paid": order.is_paid,
+            "is_paid": amount_due(order) <= 0,
             "balance_due": str(order.balance_due),
         })
 
@@ -3629,50 +5021,22 @@ def check_payment_status(request, pk):
                 # Fetch payment status from Razorpay
                 payments = client.order.payments(razorpay_order_id)
 
+                from apps.payments.services import record_razorpay_payment
+
                 for payment in payments.get("items", []):
                     if payment.get("status") == "captured":
-                        # Payment successful - record it
-                        try:
-                            rzp_order = RazorpayOrder.objects.get(razorpay_order_id=razorpay_order_id)
-                            if rzp_order.status != RazorpayOrder.Status.PAID:
-                                rzp_order.razorpay_payment_id = payment["id"]
-                                rzp_order.status = RazorpayOrder.Status.PAID
-                                rzp_order.save()
-
-                                # Record payment
-                                amount = rzp_order.amount / 100
-                                Payment.objects.create(
-                                    order=order,
-                                    amount=amount,
-                                    method=Payment.Method.UPI,
-                                    status=Payment.Status.COMPLETED,
-                                    transaction_id=payment["id"],
-                                    reference_number=razorpay_order_id,
-                                    processed_by=request.user,
-                                )
-
-                                # Update order status
-                                if order.is_paid:
-                                    if order.status in [Order.Status.SERVED, Order.Status.READY]:
-                                        order.update_status(Order.Status.COMPLETED)
-
-                                    if order.table and order.order_type == Order.OrderType.DINE_IN:
-                                        other_orders = Order.objects.filter(
-                                            table=order.table,
-                                            status__in=[Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING, Order.Status.READY, Order.Status.SERVED]
-                                        ).exclude(pk=pk).exists()
-
-                                        if not other_orders:
-                                            order.table.status = Table.Status.VACANT
-                                            order.table.save(update_fields=["status", "updated_at"])
-
-                                return JsonResponse({
-                                    "status": "paid",
-                                    "is_paid": order.is_paid,
-                                    "balance_due": str(order.balance_due),
-                                })
-                        except RazorpayOrder.DoesNotExist:
-                            pass
+                        rzp_order = RazorpayOrder.objects.filter(razorpay_order_id=razorpay_order_id, order=order).first()
+                        if rzp_order is not None:
+                            if not rzp_order.bill_amount:
+                                rzp_order.bill_amount = rzp_order.amount
+                                rzp_order.save(update_fields=["bill_amount"])
+                            record_razorpay_payment(rzp_order, payment["id"], method=payment.get("method", "upi"), processed_by=request.user)
+                            order.refresh_from_db()
+                            return JsonResponse({
+                                "status": "paid",
+                                "is_paid": order.is_paid,
+                                "balance_due": str(order.balance_due),
+                            })
 
                 return JsonResponse({
                     "status": "pending",
@@ -5105,3 +6469,202 @@ def _get_time_ago(dt):
         return f"{minutes}m ago"
     else:
         return "Just now"
+
+
+# ============================================================================
+# Employee Points / Incentives
+# ============================================================================
+
+
+@login_required
+def points_leaderboard(request):
+    """Display employee points leaderboard for the current month."""
+    from apps.accounts.models import EmployeePoints
+    from datetime import date
+    from dateutil.relativedelta import relativedelta
+
+    user = request.user
+
+    # Get month from query params (default: current month)
+    month_str = request.GET.get("month")
+    if month_str:
+        try:
+            selected_month = date.fromisoformat(month_str + "-01")
+        except ValueError:
+            selected_month = date.today().replace(day=1)
+    else:
+        selected_month = date.today().replace(day=1)
+
+    # Get outlet filter
+    selected_outlet = request.GET.get("outlet", "")
+    outlet = None
+
+    if user.role == User.Role.SUPER_ADMIN:
+        outlets = Outlet.objects.filter(is_active=True).order_by("name")
+        if selected_outlet:
+            try:
+                outlet = Outlet.objects.get(pk=selected_outlet)
+            except Outlet.DoesNotExist:
+                pass
+    else:
+        outlets = None
+        outlet = user.outlet
+
+    # Get leaderboard
+    leaderboard = EmployeePoints.get_monthly_leaderboard(
+        outlet=outlet,
+        month=selected_month,
+        limit=20
+    )
+
+    # Add rank and format names
+    for i, entry in enumerate(leaderboard, 1):
+        entry["rank"] = i
+        first_name = entry.get("employee__first_name", "")
+        last_name = entry.get("employee__last_name", "")
+        entry["display_name"] = f"{first_name} {last_name}".strip() or entry.get("employee__username", "Unknown")
+        entry["role_display"] = dict(User.Role.choices).get(entry.get("employee__role"), "Staff")
+
+    # Generate month options (last 6 months)
+    month_options = []
+    today = date.today()
+    for i in range(6):
+        m = (today.replace(day=1) - relativedelta(months=i))
+        month_options.append({
+            "value": m.strftime("%Y-%m"),
+            "label": m.strftime("%B %Y"),
+            "selected": m == selected_month,
+        })
+
+    # Get current user's points and rank
+    my_points = EmployeePoints.get_employee_points_for_month(user, selected_month)
+    my_rank = None
+    for entry in leaderboard:
+        if entry.get("employee__id") == user.id:
+            my_rank = entry["rank"]
+            break
+
+    context = {
+        "page_title": "Points Leaderboard",
+        "leaderboard": leaderboard,
+        "selected_month": selected_month,
+        "month_options": month_options,
+        "outlets": outlets,
+        "selected_outlet": selected_outlet,
+        "my_points": my_points,
+        "my_rank": my_rank,
+    }
+    return render(request, "dashboard/points/leaderboard.html", context)
+
+
+@login_required
+def points_history(request):
+    """Display points history for the current user or a specific employee."""
+    from apps.accounts.models import EmployeePoints
+    from datetime import date
+
+    user = request.user
+
+    # Admin can view any employee's history
+    employee_id = request.GET.get("employee")
+    if employee_id and is_admin_user(user):
+        try:
+            employee = User.objects.get(pk=employee_id)
+            # Check outlet access
+            if user.role == User.Role.OUTLET_MANAGER and employee.outlet != user.outlet:
+                employee = user
+        except User.DoesNotExist:
+            employee = user
+    else:
+        employee = user
+
+    # Get month filter
+    month_str = request.GET.get("month")
+    if month_str:
+        try:
+            selected_month = date.fromisoformat(month_str + "-01")
+        except ValueError:
+            selected_month = None
+    else:
+        selected_month = None
+
+    # Get points history
+    queryset = EmployeePoints.objects.filter(employee=employee).select_related("order")
+
+    if selected_month:
+        queryset = queryset.filter(month=selected_month)
+
+    points_list = queryset.order_by("-created_at")[:50]
+
+    # Get monthly summary
+    current_month = date.today().replace(day=1)
+    monthly_total = EmployeePoints.get_employee_points_for_month(employee, current_month)
+
+    # Count orders this month
+    orders_count = EmployeePoints.objects.filter(
+        employee=employee,
+        month=current_month,
+        reason=EmployeePoints.Reason.ORDER_COMPLETED
+    ).count()
+
+    context = {
+        "page_title": "Points History",
+        "employee": employee,
+        "points_list": points_list,
+        "monthly_total": monthly_total,
+        "orders_count": orders_count,
+        "current_month": current_month,
+        "is_own_history": employee == user,
+    }
+    return render(request, "dashboard/points/history.html", context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def points_adjust(request):
+    """Manually adjust employee points (admin only)."""
+    from apps.accounts.models import EmployeePoints
+    from datetime import date
+
+    if not is_admin_user(request.user):
+        messages.error(request, "You do not have permission to adjust points.")
+        return redirect("dashboard:points_leaderboard")
+
+    employee_id = request.POST.get("employee_id")
+    points = request.POST.get("points", "0")
+    reason = request.POST.get("reason", "")
+
+    try:
+        employee = User.objects.get(pk=employee_id)
+
+        # Check outlet access for outlet managers
+        if request.user.role == User.Role.OUTLET_MANAGER:
+            if employee.outlet != request.user.outlet:
+                messages.error(request, "You cannot adjust points for employees outside your outlet.")
+                return redirect("dashboard:points_leaderboard")
+
+        points_value = int(points)
+        if points_value == 0:
+            messages.error(request, "Points value cannot be zero.")
+            return redirect("dashboard:points_leaderboard")
+
+        # Create adjustment record
+        today = date.today()
+        EmployeePoints.objects.create(
+            employee=employee,
+            points=points_value,
+            reason=EmployeePoints.Reason.MANUAL_ADJUSTMENT if points_value > 0 else EmployeePoints.Reason.DEDUCTION,
+            description=reason or ("Manual bonus" if points_value > 0 else "Manual deduction"),
+            month=today.replace(day=1),
+            created_by=request.user,
+        )
+
+        action = "added to" if points_value > 0 else "deducted from"
+        messages.success(request, f"{abs(points_value)} points {action} {employee.get_full_name() or employee.username}.")
+
+    except User.DoesNotExist:
+        messages.error(request, "Employee not found.")
+    except ValueError:
+        messages.error(request, "Invalid points value.")
+
+    return redirect("dashboard:points_leaderboard")

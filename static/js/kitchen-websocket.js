@@ -173,6 +173,9 @@ class KitchenWebSocket {
     send(data) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(data));
+        } else if (this.httpFallback && data.command !== 'ping') {
+            // No socket (e.g. WSGI server without websockets): use the HTTP endpoint
+            this.httpFallback(data);
         } else {
             console.warn('WebSocket not connected, cannot send:', data);
         }
@@ -247,16 +250,22 @@ class KitchenWebSocket {
         this.send({ command: 'request_orders' });
     }
 
-    bumpOrder(orderId) {
-        this.send({ command: 'bump', order_id: orderId });
+    // stationId (optional): act only on that station's items
+    bumpOrder(orderId, stationId) {
+        this.send(this.withStation({ command: 'bump', order_id: orderId }, stationId));
     }
 
-    recallOrder(orderId) {
-        this.send({ command: 'recall', order_id: orderId });
+    recallOrder(orderId, stationId) {
+        this.send(this.withStation({ command: 'recall', order_id: orderId }, stationId));
     }
 
-    startPreparing(orderId) {
-        this.send({ command: 'start_preparing', order_id: orderId });
+    startPreparing(orderId, stationId) {
+        this.send(this.withStation({ command: 'start_preparing', order_id: orderId }, stationId));
+    }
+
+    withStation(message, stationId) {
+        if (stationId) message.station_id = stationId;
+        return message;
     }
 
     setPriority(orderId, priority) {
@@ -285,46 +294,226 @@ class KitchenDisplayManager {
             ready: []
         };
 
+        // Station filter (set by the template on #kitchen-display)
+        const root = document.getElementById('kitchen-display');
+        const stationAttr = root?.dataset.stationId || '';
+        this.stationId = /^\d+$/.test(stationAttr) ? parseInt(stationAttr, 10) : null;
+        this.hasStations = !!(root?.dataset.hasStations);
+        this.actionUrl = root?.dataset.actionUrl || '';
+        this.csrfToken = root?.dataset.csrf || '';
+        this.pollTimer = null;
+        this.pollInterval = 5000;
+        this.pollFailed = false;
+        if (this.actionUrl) {
+            this.ws.httpFallback = (message) => this.sendViaHttp(message);
+        }
+
         // Bind WebSocket events
         this.ws.onOrdersList = (orders) => this.handleOrdersList(orders);
         this.ws.onNewOrder = (data) => this.handleNewOrder(data);
         this.ws.onOrderStatusChanged = (data) => this.handleOrderStatusChanged(data);
         this.ws.onOrderBumped = (data) => this.handleOrderBumped(data);
         this.ws.onPriorityChanged = (data) => this.handlePriorityChanged(data);
+        this.ws.onOrderUpdated = (data) => this.handleOrderUpdated(data);
         this.ws.onConnect = () => this.handleConnect();
         this.ws.onDisconnect = () => this.handleDisconnect();
     }
 
     handleConnect() {
+        this.stopPolling();
         this.updateConnectionStatus(true);
     }
 
     handleDisconnect() {
+        this.startPolling();
         this.updateConnectionStatus(false);
     }
 
+    // state: true = live socket; false = no socket (polling over HTTP when available)
     updateConnectionStatus(connected) {
         const indicator = document.getElementById('connection-status');
-        if (indicator) {
-            if (connected) {
-                indicator.classList.remove('bg-red-500');
-                indicator.classList.add('bg-green-500');
-                indicator.title = 'Connected';
+        const label = document.getElementById('connection-label');
+        let color = 'bg-green-500', text = 'Live', title = 'Connected';
+        if (!connected) {
+            if (this.actionUrl && !this.pollFailed) {
+                color = 'bg-amber-400'; text = 'Polling'; title = 'Live updates unavailable - refreshing every few seconds';
             } else {
-                indicator.classList.remove('bg-green-500');
-                indicator.classList.add('bg-red-500');
-                indicator.title = 'Disconnected - Reconnecting...';
+                color = 'bg-red-500'; text = 'Offline'; title = 'Disconnected - Reconnecting...';
             }
+        }
+        if (indicator) {
+            indicator.classList.remove('bg-green-500', 'bg-red-500', 'bg-amber-400');
+            indicator.classList.add(color);
+            indicator.title = title;
+        }
+        if (label) label.textContent = text;
+    }
+
+    // --- HTTP fallback (no websocket) -----------------------------------
+    startPolling() {
+        if (!this.actionUrl || this.pollTimer) return;
+        this.pollTimer = setInterval(() => this.pollOnce(), this.pollInterval);
+        this.pollOnce();
+    }
+
+    stopPolling() {
+        if (this.pollTimer) {
+            clearInterval(this.pollTimer);
+            this.pollTimer = null;
         }
     }
 
+    stationQuery() {
+        return this.stationId ? `?station_id=${this.stationId}` : '';
+    }
+
+    async pollOnce() {
+        if (this.ws.isConnected) return this.stopPolling();
+        try {
+            const res = await fetch(this.actionUrl + this.stationQuery(), {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin',
+                cache: 'no-store',
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.message || `HTTP ${res.status}`);
+            if (this.ws.isConnected) return;
+            this.pollFailed = false;
+            this.handleOrdersList(data.orders);
+        } catch (e) {
+            console.warn('Kitchen board refresh failed:', e);
+            this.pollFailed = true;
+        }
+        if (!this.ws.isConnected) this.updateConnectionStatus(false);
+    }
+
+    async sendViaHttp(message) {
+        const actions = { start_preparing: 'start', bump: 'bump', recall: 'recall', set_priority: 'priority' };
+        if (message.command === 'request_orders') return this.pollOnce();
+        const action = actions[message.command];
+        if (!action) return;
+
+        const body = new URLSearchParams({ action, order_id: message.order_id });
+        if (message.priority) body.set('priority', message.priority);
+        if (message.station_id) body.set('station_id', message.station_id);
+        try {
+            const res = await fetch(this.actionUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': this.csrfToken, 'Accept': 'application/json' },
+                credentials: 'same-origin',
+                body,
+            });
+            let data = {};
+            try { data = await res.json(); } catch (e) { /* non-JSON error page */ }
+            if (data.orders) this.handleOrdersList(data.orders);
+            if (!res.ok || !data.ok) {
+                this.showToast(data.message || `Action failed (HTTP ${res.status})`, 'error');
+            }
+        } catch (e) {
+            this.showToast('Could not reach the server. Check the connection and try again.', 'error');
+        }
+    }
+
+    showToast(text, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const styles = {
+            error: 'bg-red-50 border-red-200 text-red-800',
+            success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+            info: 'bg-blue-50 border-blue-200 text-blue-800',
+        };
+        const toast = document.createElement('div');
+        toast.className = `toast-item fade-in flex items-center gap-3 px-5 py-4 rounded-xl shadow-lg border ${styles[type] || styles.info}`;
+        toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+        const msg = document.createElement('p');
+        msg.className = 'text-sm font-medium';
+        msg.textContent = text;
+        toast.appendChild(msg);
+        if (container) {
+            container.appendChild(toast);
+        } else {
+            toast.classList.add('fixed', 'top-6', 'right-6', 'z-50');
+            document.body.appendChild(toast);
+        }
+        setTimeout(() => toast.remove(), 4000);
+    }
+
     handleOrdersList(orders) {
+        if (this.stationId) {
+            // Re-bucket every order by this station's progress
+            this.orders = { pending: [], preparing: [], ready: [] };
+            const all = [...(orders.pending || []), ...(orders.preparing || []), ...(orders.ready || [])];
+            all.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            all.forEach(order => {
+                const column = this.stationColumn(order);
+                if (column) this.orders[column].push(order);
+            });
+            this.orders.ready.reverse();
+            this.renderAllColumns();
+            return;
+        }
         this.orders = orders;
         this.renderAllColumns();
     }
 
+    // --- Station mode helpers -------------------------------------------
+    // Mirrors station_column() in apps/kitchen/services.py
+    stationColumn(order) {
+        if (!['confirmed', 'preparing', 'ready'].includes(order.status)) return null;
+        // Items served in an earlier round are done with; only this round counts
+        const items = (order.items || []).filter(i => i.status !== 'cancelled' && i.status !== 'served');
+        const mine = items.filter(i => i.station_id === this.stationId);
+        if (!mine.length) return null;
+        const done = s => s === 'ready' || s === 'served';
+        if (order.status === 'ready' || mine.every(i => done(i.status))) return 'ready';
+        if (mine.some(i => i.status === 'preparing')) return 'preparing';
+        if (order.status === 'preparing' && items.every(i => i.status === 'pending')) return 'preparing';
+        if (mine.some(i => done(i.status))) return 'preparing';
+        return 'pending';
+    }
+
+    upsertStationOrder(order, flash = false) {
+        for (const column of ['pending', 'preparing', 'ready']) {
+            this.orders[column] = (this.orders[column] || []).filter(o => o.id !== order.id);
+        }
+        const column = this.stationColumn(order);
+        if (column) {
+            if (column === 'ready') {
+                this.orders.ready.unshift(order);
+            } else {
+                this.orders[column].push(order);
+                this.orders[column].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            }
+        }
+        this.renderAllColumns();
+        if (column && flash) this.flashColumn(column);
+    }
+
+    handleOrderUpdated(data) {
+        const order = data.order;
+        if (!order) return;
+        if (this.stationId) {
+            const wasShown = ['pending', 'preparing', 'ready'].some(c => (this.orders[c] || []).some(o => o.id === order.id));
+            this.upsertStationOrder(order, !wasShown);
+            return;
+        }
+        // All stations: refresh the card in place (item ready/station tags)
+        for (const column of ['pending', 'preparing', 'ready']) {
+            const index = (this.orders[column] || []).findIndex(o => o.id === order.id);
+            if (index !== -1) {
+                this.orders[column][index] = order;
+                this.renderColumn(column);
+                break;
+            }
+        }
+    }
+
     handleNewOrder(data) {
         const order = data.order;
+
+        if (this.stationId) {
+            this.upsertStationOrder(order, true);
+            return;
+        }
 
         // Add to pending if status is confirmed
         if (order.status === 'confirmed') {
@@ -336,6 +525,10 @@ class KitchenDisplayManager {
 
     handleOrderStatusChanged(data) {
         const order = data.order;
+        if (this.stationId) {
+            this.upsertStationOrder(order);
+            return;
+        }
         const oldStatus = data.old_status;
         const newStatus = data.new_status;
 
@@ -368,6 +561,10 @@ class KitchenDisplayManager {
 
     handleOrderBumped(data) {
         const order = data.order;
+        if (this.stationId) {
+            this.upsertStationOrder(order, true);
+            return;
+        }
 
         // Remove from preparing
         this.removeOrderFromColumn(order.id, 'preparing');
@@ -459,13 +656,18 @@ class KitchenDisplayManager {
     }
 
     getPriorityColor(priority) {
+        // kf-tag variants from static/css/theme.css
         const colors = {
-            'low': 'bg-slate-100 text-slate-700',
-            'normal': 'bg-blue-100 text-blue-700',
-            'high': 'bg-orange-100 text-orange-700',
-            'rush': 'bg-red-100 text-red-700 animate-pulse'
+            'low': 'o',
+            'normal': 's',
+            'high': 'y',
+            'rush': 'r animate-pulse'
         };
         return colors[priority] || colors['normal'];
+    }
+
+    escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
     getOrderCardHtml(order, column) {
@@ -473,43 +675,62 @@ class KitchenDisplayManager {
         const priorityLabel = order.ticket?.priority?.toUpperCase() || 'NORMAL';
         const elapsed = this.getElapsedTime(order.created_at);
 
-        const itemsHtml = order.items.map(item => `
-            <div class="flex justify-between items-start py-1 border-b border-slate-100 last:border-0">
-                <div class="flex-1">
-                    <span class="font-medium">${item.quantity}x</span>
-                    <span class="ml-1">${item.name}</span>
-                    ${item.variant ? `<span class="text-slate-500 text-sm ml-1">(${item.variant})</span>` : ''}
-                    ${item.special_instructions ? `<p class="text-xs text-orange-600 mt-0.5">${item.special_instructions}</p>` : ''}
-                </div>
-            </div>
+        // Station view: only this station's items; All view: station tag per item.
+        // Items served in an earlier round are summarised, voided ones crossed out.
+        let items = order.items || [];
+        if (this.stationId) items = items.filter(i => i.station_id === this.stationId);
+        const earlierCount = items.filter(i => i.status === 'served').length;
+        items = items.filter(i => i.status !== 'served');
+        let otherCount = 0;
+        if (this.stationId) {
+            otherCount = (order.items || []).filter(i => i.station_id !== this.stationId && i.status !== 'cancelled' && i.status !== 'served').length;
+        }
+        const showStationTags = this.hasStations && !this.stationId;
+
+        const itemsHtml = items.map(item => `
+            <li class="${item.status === 'cancelled' ? 'opacity-60' : ''}">
+                <span class="q">${item.quantity}×</span>
+                <span class="flex-1 min-w-0 ${item.status === 'cancelled' ? 'line-through' : ''}">
+                    ${item.status === 'cancelled' ? '<span class="kf-tag r !py-0 !px-2 !text-[11px] no-underline mr-1">VOID</span>' : ''}${item.name}
+                    ${item.variant ? `<small>(${item.variant})</small>` : ''}
+                    ${item.special_instructions ? `<em>${item.special_instructions}</em>` : ''}
+                </span>
+                ${showStationTags && item.station_name ? `<span class="kf-tag ${item.status === 'ready' || item.status === 'served' ? 'g' : 's'} !py-0 !px-2 !text-[11px] flex-none self-start">${this.escapeHtml(item.station_name)}</span>` : ''}
+            </li>
         `).join('');
+        const otherHtml = (otherCount
+            ? `<p class="text-xs text-slate-500 px-1 -mt-1">+${otherCount} item${otherCount === 1 ? '' : 's'} at other stations</p>`
+            : '') + (earlierCount
+            ? `<p class="text-xs text-slate-500 px-1 -mt-1">${earlierCount} item${earlierCount === 1 ? '' : 's'} served earlier</p>`
+            : '');
+        const waitingHtml = this.stationId && column === 'ready' && order.status !== 'ready'
+            ? '<p class="text-xs text-slate-500 px-1 -mt-1">Waiting on other stations</p>'
+            : '';
 
         const actionsHtml = this.getActionsHtml(order, column);
+        const badgeHtml = column === 'ready'
+            ? '<span class="kf-tag g">Ready</span>'
+            : (order.ticket ? `<span class="kf-tag ${priorityClass}">${priorityLabel}</span>` : '');
 
         return `
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden order-card" data-order-id="${order.id}">
-                <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center">
+            <div class="kf-kcard order-card" data-order-id="${order.id}">
+                <div class="kf-kcard-head">
                     <div>
-                        <span class="font-bold text-lg">#${order.order_number}</span>
-                        ${order.table_name ? `<span class="ml-2 text-slate-500">Table ${order.table_number || order.table_name}</span>` : ''}
+                        <b>#${order.order_number}</b>
+                        <small>${order.table_number ? `Table ${order.table_number}` : 'Takeaway'} · ${elapsed}</small>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-sm text-slate-500">${elapsed}</span>
-                        ${order.ticket ? `<span class="px-2 py-0.5 rounded text-xs font-medium ${priorityClass}">${priorityLabel}</span>` : ''}
-                    </div>
+                    ${badgeHtml}
                 </div>
 
-                <div class="px-4 py-3">
+                <ul class="kf-kcard-items">
                     ${itemsHtml}
-                </div>
+                </ul>
+                ${otherHtml}
 
-                ${order.kitchen_notes ? `
-                    <div class="px-4 py-2 bg-amber-50 border-t border-amber-100">
-                        <p class="text-sm text-amber-800"><strong>Note:</strong> ${order.kitchen_notes}</p>
-                    </div>
-                ` : ''}
+                ${order.kitchen_notes ? `<div class="kf-kcard-note"><strong class="font-medium">Note:</strong> ${order.kitchen_notes}</div>` : ''}
+                ${waitingHtml}
 
-                <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+                <div class="kf-kcard-actions">
                     ${actionsHtml}
                 </div>
             </div>
@@ -519,32 +740,40 @@ class KitchenDisplayManager {
     getActionsHtml(order, column) {
         if (column === 'pending') {
             return `
-                <button onclick="kitchenManager.startPreparing(${order.id})"
-                        class="flex-1 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-colors">
+                <button onclick="kitchenManager.startPreparing(${order.id})" class="btn-yellow">
                     Start Preparing
                 </button>
-                <button onclick="kitchenManager.showPriorityMenu(${order.id})"
-                        class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition-colors">
+                <button onclick="kitchenManager.showPriorityMenu(${order.id})" class="btn-secondary is-narrow">
                     Priority
                 </button>
             `;
         } else if (column === 'preparing') {
             return `
-                <button onclick="kitchenManager.bumpOrder(${order.id})"
-                        class="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors">
+                <button onclick="kitchenManager.bumpOrder(${order.id})" class="btn-primary">
                     Bump (Ready)
                 </button>
-                <button onclick="kitchenManager.showPriorityMenu(${order.id})"
-                        class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition-colors">
+                <button onclick="kitchenManager.showPriorityMenu(${order.id})" class="btn-secondary is-narrow">
                     Priority
                 </button>
             `;
         } else if (column === 'ready') {
+            // Mark Served posts to the kitchen page itself (same as the server-rendered card)
+            const servedHtml = order.status === 'ready' && this.csrfToken ? `
+                <form method="POST" action="${window.location.pathname}">
+                    <input type="hidden" name="csrfmiddlewaretoken" value="${this.escapeHtml(this.csrfToken)}">
+                    <input type="hidden" name="order_id" value="${order.id}">
+                    <input type="hidden" name="status" value="served">
+                    ${this.stationId ? `<input type="hidden" name="station" value="${this.stationId}">` : ''}
+                    <button type="submit" class="btn-primary">
+                        Mark Served
+                    </button>
+                </form>
+            ` : '';
             return `
-                <button onclick="kitchenManager.recallOrder(${order.id})"
-                        class="flex-1 px-4 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors">
+                <button onclick="kitchenManager.recallOrder(${order.id})" class="btn-secondary">
                     Recall
                 </button>
+                ${servedHtml}
             `;
         }
         return '';
@@ -558,35 +787,88 @@ class KitchenDisplayManager {
         };
 
         return `
-            <div class="flex flex-col items-center justify-center py-12 text-slate-400">
-                <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                </svg>
-                <p class="text-lg">${messages[column]}</p>
+            <div class="kf-empty">
+                <span class="kf-ic is-soft is-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                </span>
+                <span>${messages[column]}</span>
             </div>
         `;
     }
 
     // Actions
     startPreparing(orderId) {
-        this.ws.startPreparing(orderId);
+        this.ws.startPreparing(orderId, this.stationId);
     }
 
     bumpOrder(orderId) {
-        this.ws.bumpOrder(orderId);
+        this.ws.bumpOrder(orderId, this.stationId);
     }
 
     recallOrder(orderId) {
-        this.ws.recallOrder(orderId);
+        this.ws.recallOrder(orderId, this.stationId);
     }
 
     showPriorityMenu(orderId) {
-        const priorities = ['low', 'normal', 'high', 'rush'];
-        const selected = prompt('Set priority (low, normal, high, rush):');
-        if (selected && priorities.includes(selected.toLowerCase())) {
-            this.ws.setPriority(orderId, selected.toLowerCase());
+        const options = [
+            { value: 'low', label: 'Low', hint: 'Can wait', tag: 'o' },
+            { value: 'normal', label: 'Normal', hint: 'Usual order', tag: 's' },
+            { value: 'high', label: 'High', hint: 'Do this next', tag: 'y' },
+            { value: 'rush', label: 'Rush', hint: 'Drop everything', tag: 'r' },
+        ];
+        const card = document.querySelector(`.order-card[data-order-id="${orderId}"]`);
+        const orderNo = card?.querySelector('.kf-kcard-head b')?.textContent || '';
+        const current = (card?.querySelector('.kf-kcard-head .kf-tag')?.textContent || 'normal').trim().toLowerCase();
+
+        let sheet = document.getElementById('kfPrioritySheet');
+        if (!sheet) {
+            sheet = document.createElement('div');
+            sheet.id = 'kfPrioritySheet';
+            sheet.className = 'fixed inset-0 z-50';
+            sheet.setAttribute('role', 'dialog');
+            sheet.setAttribute('aria-modal', 'true');
+            sheet.setAttribute('aria-labelledby', 'kfPriorityTitle');
+            sheet.innerHTML = `
+                <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" data-close></div>
+                <div class="absolute inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[400px] bg-white rounded-t-[28px] sm:rounded-[28px] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl">
+                    <h3 id="kfPriorityTitle" class="kf-h">Set priority</h3>
+                    <p class="text-sm text-slate-600 mt-1" data-subtitle></p>
+                    <div class="grid grid-cols-2 gap-2 mt-4" data-options></div>
+                    <button type="button" class="btn-secondary w-full mt-3" data-close>Cancel</button>
+                </div>`;
+            document.body.appendChild(sheet);
+            sheet.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => sheet.classList.add('hidden')));
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') sheet.classList.add('hidden'); });
         }
+
+        sheet.querySelector('[data-subtitle]').textContent = orderNo ? `Order ${orderNo}` : '';
+        const grid = sheet.querySelector('[data-options]');
+        grid.replaceChildren();
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const isCurrent = opt.value === current;
+            btn.className = 'flex flex-col items-start gap-1.5 rounded-2xl p-3 min-h-[76px] text-left transition-colors '
+                + (isCurrent ? 'bg-slate-800 text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-900');
+            btn.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+            const tag = document.createElement('span');
+            tag.className = `kf-tag ${opt.tag}`;
+            tag.textContent = opt.label;
+            const hint = document.createElement('span');
+            hint.className = 'text-xs ' + (isCurrent ? 'text-slate-300' : 'text-slate-500');
+            hint.textContent = isCurrent ? 'Current' : opt.hint;
+            btn.append(tag, hint);
+            btn.addEventListener('click', () => {
+                sheet.classList.add('hidden');
+                if (!isCurrent) this.ws.setPriority(orderId, opt.value);
+            });
+            grid.appendChild(btn);
+        });
+        sheet.classList.remove('hidden');
+        grid.querySelector('[aria-pressed="true"]')?.focus();
     }
 
     toggleAudio() {

@@ -1,0 +1,49 @@
+<script>
+function guestWait() {
+    const csrf = (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+    return {
+        busy: false,
+        error: '',
+        code: '',
+        async sendCode() {
+            this.busy = true; this.error = '';
+            try {
+                const r = await fetch('{% url "ordering:guest_code" table_uuid=table.uuid %}', {
+                    method: 'POST', body: new URLSearchParams({ code: this.code }), credentials: 'same-origin', headers: { 'X-CSRFToken': csrf },
+                });
+                const d = await r.json();
+                if (d.ok) { window.location.reload(); return; }
+                this.error = d.error || 'That code isn\'t right.';
+                this.code = '';
+            } catch (e) { this.error = 'Network problem. Please try again.'; }
+            this.busy = false;
+        },
+        start() {
+            setInterval(async () => {
+                try {
+                    const r = await fetch('{% url "ordering:guest_status" table_uuid=table.uuid %}', { cache: 'no-store', credentials: 'same-origin' });
+                    const s = await r.json();
+                    if (s.state === 'confirmed' || s.state === 'rejected') window.location.reload();
+                } catch (e) {}
+            }, 4000);
+        },
+        locate() {
+            if (!navigator.geolocation) { this.error = 'Location is not available on this phone.'; return; }
+            this.busy = true; this.error = '';
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const body = new URLSearchParams({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy || 0) });
+                try {
+                    const r = await fetch('{% url "ordering:guest_locate" table_uuid=table.uuid %}', {
+                        method: 'POST', body, credentials: 'same-origin', headers: { 'X-CSRFToken': csrf },
+                    });
+                    const d = await r.json();
+                    if (d.ok) { window.location.reload(); return; }
+                    this.error = d.error || 'Could not confirm your location.';
+                } catch (e) { this.error = 'Network problem. Please try again.'; }
+                this.busy = false;
+            }, () => { this.busy = false; this.error = 'Location permission was not given. A staff member will confirm instead.'; },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+        },
+    };
+}
+</script>

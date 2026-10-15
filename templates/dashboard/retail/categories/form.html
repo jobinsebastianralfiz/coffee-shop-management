@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_create %}Add Category{% else %}Edit Category{% endif %}{% endblock %}
+{% block page_title %}{% if is_create %}Add Category{% else %}Edit {{ category.name }}{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kf-fields :is(input:not([type="checkbox"]), select, textarea) { width: 100%; border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: 0 14px; font-size: 14px; }
+    .kf-fields :is(input:not([type="checkbox"]), select) { height: 42px; }
+    .kf-fields textarea { padding: 10px 14px; }
+    .kf-fields input[type="checkbox"] { width: 18px; height: 18px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in max-w-2xl mx-auto space-y-4">
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'retail:categories' %}" class="kf-arrow kf-arrow-light" aria-label="Back to categories">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <p class="truncate">{% if is_create %}Group retail products into a new category{% else %}Update this product category{% endif %}</p>
+        </div>
+    </div>
+
+    <form method="POST" class="space-y-4">
+        {% csrf_token %}
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+
+        {% if form.non_field_errors %}
+        <div class="kf-card p-4 text-sm text-red-600">{{ form.non_field_errors }}</div>
+        {% endif %}
+        {% for hidden in form.hidden_fields %}{% if hidden.errors %}<div class="kf-card p-4 text-sm text-red-600">{{ hidden.label }}: {{ hidden.errors.0 }}</div>{% endif %}{% endfor %}
+
+        <div class="kf-card p-5 kf-fields">
+            <h3 class="kf-h mb-3">Category Details</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {% if not form.outlet.is_hidden %}
+                <div class="sm:col-span-2">
+                    <label class="kf-label" for="{{ form.outlet.id_for_label }}">Outlet</label>
+                    {{ form.outlet }}
+                    {% if form.outlet.errors %}<p class="text-red-500 text-xs mt-1">{{ form.outlet.errors.0 }}</p>{% endif %}
+                </div>
+                {% endif %}
+                <div class="sm:col-span-2">
+                    <label class="kf-label" for="{{ form.name.id_for_label }}">Category Name *</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}<p class="text-red-500 text-xs mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="kf-label" for="{{ form.description.id_for_label }}">Description</label>
+                    {{ form.description }}
+                    {% if form.description.errors %}<p class="text-red-500 text-xs mt-1">{{ form.description.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.parent.id_for_label }}">Parent Category</label>
+                    {{ form.parent }}
+                    {% if form.parent.errors %}<p class="text-red-500 text-xs mt-1">{{ form.parent.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.display_order.id_for_label }}">Display Order</label>
+                    {{ form.display_order }}
+                    {% if form.display_order.errors %}<p class="text-red-500 text-xs mt-1">{{ form.display_order.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="flex items-center gap-2">
+                        {{ form.is_active }}
+                        <span class="text-sm text-slate-800">Active</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2">
+            <a href="{% url 'retail:categories' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">{% if is_create %}Create Category{% else %}Save Changes{% endif %}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -116,6 +116,29 @@ class KitchenConsumer(BaseConsumer):
             })
             return
 
+        # Optional: a station-filtered display acts on that station's items only
+        station_id = content.get("station_id")
+        try:
+            station_id = int(station_id) if station_id not in (None, "") else None
+        except (TypeError, ValueError):
+            station_id = None
+
+        if station_id and command in ("bump", "start_preparing", "recall"):
+            handler = {
+                "bump": kitchen_services.bump_station,
+                "start_preparing": kitchen_services.start_preparing_station,
+                "recall": kitchen_services.recall_station,
+            }[command]
+            success, message = await sync_to_async(handler)(order, station_id)
+            await self.send_json({
+                "type": "command_result",
+                "command": command,
+                "station_id": station_id,
+                "success": success,
+                "message": message
+            })
+            return
+
         if command == "bump":
             success, message = await sync_to_async(kitchen_services.bump_order)(order)
             await self.send_json({

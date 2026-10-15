@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receipt - Sale #{{ sale.sale_number }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-size: 12px;
+            line-height: 1.45;
+            color: #000;
+            background: #fff;
+            max-width: 80mm;
+            margin: 0 auto;
+            padding: 10mm 5mm;
+        }
+
+        .tabular { font-variant-numeric: tabular-nums; }
+
+        .header {
+            text-align: center;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            border-bottom: 1px dashed #000;
+        }
+        .header img { max-height: 48px; max-width: 60%; margin: 0 auto 6px; display: block; }
+        .header h1 { font-size: 17px; font-weight: 600; margin-bottom: 2px; }
+        .header p { font-size: 10px; color: #333; }
+        .header .custom { margin-top: 4px; white-space: pre-line; }
+
+        .section {
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #000;
+        }
+
+        .row { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+        .label { color: #555; }
+
+        .items-head, .item {
+            display: grid;
+            grid-template-columns: 1fr 34px 54px 60px;
+            gap: 4px;
+        }
+        .items-head {
+            font-weight: 600;
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #000;
+        }
+        .item { margin-bottom: 4px; }
+        .item .meta { font-size: 10px; color: #555; }
+        .r { text-align: right; }
+        .c { text-align: center; }
+
+        .total-row.grand {
+            font-size: 14px;
+            font-weight: 600;
+            padding-top: 5px;
+            margin-top: 5px;
+            border-top: 1px solid #000;
+        }
+
+        .status {
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 4px;
+            margin-bottom: 8px;
+            border: 2px solid #000;
+            letter-spacing: 0.05em;
+        }
+        .status.paid { background: #000; color: #fff; }
+
+        .footer { text-align: center; font-size: 10px; color: #444; }
+        .footer p { margin-bottom: 4px; }
+        .footer .custom { white-space: pre-line; }
+
+        .print-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: #2A2A2C;
+            color: #fff;
+            border: none;
+            border-radius: 999px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        .print-btn:hover { background: #000; }
+
+        @media print {
+            body { padding: 0; }
+            .print-btn { display: none; }
+            @page { margin: 5mm; size: 80mm auto; }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-btn" onclick="window.print()">Print Receipt</button>
+
+    <!-- Header -->
+    <div class="header">
+        {% if business_logo %}<img src="{{ business_logo }}" alt="{{ business_name }}">{% endif %}
+        <h1>{{ business_name }}</h1>
+        {% if sale.outlet %}<p>{{ sale.outlet.name }}</p>{% endif %}
+        {% if sale.outlet.address %}
+        <p>{{ sale.outlet.address }}{% if sale.outlet.city %}, {{ sale.outlet.city }}{% endif %}</p>
+        {% elif business_address %}
+        <p>{{ business_address }}</p>
+        {% endif %}
+        {% if sale.outlet.phone %}<p>Tel: {{ sale.outlet.phone }}</p>{% elif business_phone %}<p>Tel: {{ business_phone }}</p>{% endif %}
+        {% if business.gst_number %}<p>GSTIN: {{ business.gst_number }}</p>{% endif %}
+        {% if business.receipt_header %}<p class="custom">{{ business.receipt_header }}</p>{% endif %}
+    </div>
+
+    <!-- Sale info -->
+    <div class="section">
+        <div class="row"><span class="label">Receipt #</span><span><strong>{{ sale.sale_number }}</strong></span></div>
+        <div class="row"><span class="label">Date</span><span class="tabular">{{ sale.created_at|date:"d/m/Y H:i" }}</span></div>
+        <div class="row"><span class="label">Type</span><span>{{ sale.get_sale_type_display }}</span></div>
+        {% if sale.wholesale_customer %}
+        <div class="row"><span class="label">Customer</span><span>{{ sale.wholesale_customer.business_name }}</span></div>
+        {% if sale.wholesale_customer.gst_number %}
+        <div class="row"><span class="label">GSTIN</span><span>{{ sale.wholesale_customer.gst_number }}</span></div>
+        {% endif %}
+        {% elif sale.customer_name %}
+        <div class="row"><span class="label">Customer</span><span>{{ sale.customer_name }}</span></div>
+        {% endif %}
+        {% if sale.customer_phone %}
+        <div class="row"><span class="label">Phone</span><span>{{ sale.customer_phone }}</span></div>
+        {% endif %}
+        {% if sale.created_by %}
+        <div class="row"><span class="label">Cashier</span><span>{{ sale.created_by.get_full_name|default:sale.created_by.username }}</span></div>
+        {% endif %}
+    </div>
+
+    <!-- Items -->
+    <div class="section">
+        <div class="items-head">
+            <span>Item</span>
+            <span class="c">Qty</span>
+            <span class="r">Rate</span>
+            <span class="r">Amount</span>
+        </div>
+        {% for item in items %}
+        <div class="item tabular">
+            <span>
+                {{ item.product_name }}
+                {% if item.discount_amount > 0 or item.tax_rate > 0 %}
+                <span class="meta"><br>{% if item.discount_amount > 0 %}Disc -{{ item.discount_amount }}{% endif %}{% if item.discount_amount > 0 and item.tax_rate > 0 %} · {% endif %}{% if item.tax_rate > 0 %}GST {{ item.tax_rate|floatformat:"-2" }}%{% endif %}</span>
+                {% endif %}
+            </span>
+            <span class="c">{{ item.quantity|floatformat:"-2" }}</span>
+            <span class="r">{{ item.unit_price }}</span>
+            <span class="r">{{ item.total }}</span>
+        </div>
+        {% empty %}
+        <p style="text-align:center; color:#555;">No items</p>
+        {% endfor %}
+    </div>
+
+    <!-- Totals -->
+    <div class="section tabular">
+        <div class="row total-row"><span>Subtotal</span><span>{{ sale.subtotal }}</span></div>
+        {% if sale.discount_amount > 0 %}
+        <div class="row total-row"><span>Discount{% if sale.discount_percentage > 0 %} ({{ sale.discount_percentage|floatformat:"-2" }}%){% endif %}</span><span>-{{ sale.discount_amount }}</span></div>
+        {% endif %}
+        {% if sale.cgst_amount > 0 %}
+        <div class="row total-row"><span>CGST</span><span>{{ sale.cgst_amount }}</span></div>
+        {% endif %}
+        {% if sale.sgst_amount > 0 %}
+        <div class="row total-row"><span>SGST</span><span>{{ sale.sgst_amount }}</span></div>
+        {% endif %}
+        {% if sale.igst_amount > 0 %}
+        <div class="row total-row"><span>IGST</span><span>{{ sale.igst_amount }}</span></div>
+        {% endif %}
+        <div class="row total-row grand"><span>TOTAL</span><span>{{ currency_symbol }}{{ sale.total_amount }}</span></div>
+    </div>
+
+    <!-- Payment -->
+    <div class="section tabular">
+        {% if sale.payment_status == 'paid' or sale.is_paid and sale.total_amount > 0 %}
+        <div class="status paid">PAID</div>
+        {% elif sale.payment_status == 'cancelled' %}
+        <div class="status">CANCELLED</div>
+        {% elif sale.payment_status == 'refunded' %}
+        <div class="status">REFUNDED</div>
+        {% else %}
+        <div class="status">{{ sale.get_payment_status_display|upper }}</div>
+        {% endif %}
+        {% if sale.payment_method %}
+        <div class="row"><span class="label">Method</span><span>{{ sale.payment_method|title }}</span></div>
+        {% endif %}
+        <div class="row"><span class="label">Paid</span><span>{{ sale.paid_amount }}</span></div>
+        {% if sale.balance_due > 0 %}
+        <div class="row"><span class="label">Balance due</span><span><strong>{{ sale.balance_due }}</strong></span></div>
+        {% endif %}
+    </div>
+
+    {% if sale.notes %}
+    <div class="section">
+        <p>{{ sale.notes }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer">
+        {% if business.receipt_footer %}
+        <p class="custom">{{ business.receipt_footer }}</p>
+        {% else %}
+        <p>Thank you for shopping with us!</p>
+        {% endif %}
+        {% if business.website %}<p>{{ business.website }}</p>{% endif %}
+        <p style="margin-top: 8px;">--- END OF RECEIPT ---</p>
+    </div>
+</body>
+</html>

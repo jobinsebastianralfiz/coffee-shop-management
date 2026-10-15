@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Adjust Stock{% endblock %}
+{% block page_title %}Adjust Stock{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kf-fields :is(input:not([type="checkbox"]), select, textarea) { width: 100%; border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: 0 14px; font-size: 14px; }
+    .kf-fields :is(input:not([type="checkbox"]), select) { height: 42px; }
+    .kf-fields textarea { padding: 10px 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in max-w-2xl mx-auto space-y-4">
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'retail:stock' %}" class="kf-arrow kf-arrow-light" aria-label="Back to stock">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <p class="truncate">Add or remove stock and record the reason</p>
+        </div>
+        <div class="kf-actions">
+            <a href="{% url 'retail:stock_movements' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg>
+                Movements
+            </a>
+        </div>
+    </div>
+
+    <form method="POST" class="space-y-4">
+        {% csrf_token %}
+        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+
+        {% if form.non_field_errors %}
+        <div class="kf-card p-4 text-sm text-red-600">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="kf-card p-5 kf-fields">
+            <h3 class="kf-h mb-3">Stock Adjustment</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="sm:col-span-2">
+                    <label class="kf-label" for="{{ form.product.id_for_label }}">Product *</label>
+                    {{ form.product }}
+                    {% if form.product.errors %}<p class="text-red-500 text-xs mt-1">{{ form.product.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.adjustment_type.id_for_label }}">Adjustment *</label>
+                    {{ form.adjustment_type }}
+                    {% if form.adjustment_type.errors %}<p class="text-red-500 text-xs mt-1">{{ form.adjustment_type.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label" for="{{ form.quantity.id_for_label }}">Quantity *</label>
+                    {{ form.quantity }}
+                    {% if form.quantity.errors %}<p class="text-red-500 text-xs mt-1">{{ form.quantity.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="kf-label" for="{{ form.reason.id_for_label }}">Reason</label>
+                    {{ form.reason }}
+                    {% if form.reason.errors %}<p class="text-red-500 text-xs mt-1">{{ form.reason.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+            <p class="text-xs text-slate-500 mt-3">Adding stock is recorded as a purchase/inward movement; removing stock is recorded as an adjustment.</p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2">
+            <a href="{% url 'retail:stock' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary">Save Adjustment</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

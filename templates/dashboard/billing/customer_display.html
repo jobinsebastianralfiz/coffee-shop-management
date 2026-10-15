@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer display | {{ business.business_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% include "partials/theme_tailwind.html" %}
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        html, body { height: 100%; }
+        body { overflow: hidden; }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="kf kf-frame-bg h-full" x-data="customerDisplay()" x-init="start()">
+    <main class="h-full flex flex-col p-6 lg:p-10 gap-6">
+        <!-- Brand bar -->
+        <header class="flex items-center gap-4">
+            {% if business.logo %}
+            <img src="{{ business.logo.url }}" alt="" class="w-14 h-14 rounded-full object-contain bg-white">
+            {% else %}
+            <span class="kf-ic is-lg !w-14 !h-14 text-xl">{{ business.business_name|slice:":1" }}</span>
+            {% endif %}
+            <p class="text-2xl font-light">{{ business.business_name }}</p>
+            <button type="button" x-show="!fullscreen" @click="goFullscreen()" class="ml-auto btn-secondary !h-10 !px-4 !text-[13px]">Full screen</button>
+            <span x-show="offline" x-cloak class="ml-auto kf-tag r">Reconnecting…</span>
+        </header>
+
+        <!-- Idle -->
+        <section x-show="mode === 'idle'" class="flex-1 flex flex-col items-center justify-center text-center gap-3">
+            <p class="text-6xl lg:text-7xl font-light tracking-tight">Welcome</p>
+            <p class="text-xl text-slate-600">{{ business.tagline|default:"Thank you for dining with us" }}</p>
+        </section>
+
+        <!-- Bill -->
+        <section x-show="mode === 'bill'" x-cloak class="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-6 min-h-0">
+            <div class="lg:col-span-3 kf-card p-6 flex flex-col min-h-0">
+                <div class="flex items-baseline justify-between gap-4">
+                    <p class="text-3xl font-light" x-text="bill.where + (bill.party ? ' · ' + bill.party : '')"></p>
+                    <p class="text-sm text-slate-600 tabular" x-text="'Bill #' + bill.order_number"></p>
+                </div>
+                <ul class="mt-4 flex-1 overflow-y-auto divide-y divide-slate-200/70 text-lg">
+                    <template x-for="(line, i) in bill.lines" :key="i">
+                        <li class="flex items-center gap-4 py-2.5">
+                            <span class="w-12 text-slate-500 tabular" x-text="line.qty + '×'"></span>
+                            <span class="flex-1 min-w-0 truncate" x-text="line.name"></span>
+                            <span class="tabular" x-text="money(line.total)"></span>
+                        </li>
+                    </template>
+                </ul>
+                <div class="mt-4 pt-4 border-t border-slate-200/70 space-y-1 text-lg">
+                    <div class="flex justify-between"><span class="text-slate-600">Subtotal</span><span class="tabular" x-text="money(bill.subtotal)"></span></div>
+                    <div class="flex justify-between" x-show="Number(bill.discount) > 0"><span class="text-slate-600">Discount</span><span class="tabular" x-text="'−' + money(bill.discount)"></span></div>
+                    <div class="flex justify-between" x-show="Number(bill.tax) > 0"><span class="text-slate-600">GST</span><span class="tabular" x-text="money(bill.tax)"></span></div>
+                    <div class="flex justify-between" x-show="Number(bill.service) > 0"><span class="text-slate-600">Service charge</span><span class="tabular" x-text="money(bill.service)"></span></div>
+                    <div class="flex justify-between text-emerald-700" x-show="Number(bill.paid) > 0"><span>Already paid</span><span class="tabular" x-text="'−' + money(bill.paid)"></span></div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 kf-dcard kf-glow-dark p-6 flex flex-col items-center justify-center text-center gap-4">
+                <p class="text-lg text-slate-300">Amount to pay</p>
+                <p class="text-6xl font-light tabular leading-none" x-text="money(bill.due)"></p>
+                <template x-if="bill.online && bill.qr_url">
+                    <div class="flex flex-col items-center gap-3 mt-2">
+                        <div class="bg-white rounded-[28px] p-4">
+                            <img :src="bill.qr_url" alt="Scan to pay" class="w-64 h-64 lg:w-72 lg:h-72">
+                        </div>
+                        <p class="text-lg">Scan to pay from your phone</p>
+                        <p class="text-sm text-slate-300">UPI · Card · Wallet · add a tip if you like</p>
+                    </div>
+                </template>
+                <p x-show="!bill.online" class="text-lg text-slate-300">Please pay the cashier</p>
+            </div>
+        </section>
+
+        <!-- Paid -->
+        <section x-show="mode === 'paid'" x-cloak class="flex-1 flex flex-col items-center justify-center text-center gap-4" role="status" aria-live="polite">
+            <span class="kf-ic is-yellow !w-24 !h-24">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            </span>
+            <p class="text-6xl font-light tracking-tight">Thank you!</p>
+            <p class="text-xl text-slate-600" x-show="Number(paidTip) > 0" x-text="'Thanks for the ' + money(paidTip) + ' tip'"></p>
+            <p class="text-xl text-slate-600">Hope to see you again soon</p>
+        </section>
+    </main>
+
+<script>
+function customerDisplay() {
+    const symbol = '{{ currency_symbol|default:"₹"|escapejs }}';
+    return {
+        mode: 'idle',
+        bill: { lines: [] },
+        paidTip: 0,
+        offline: false,
+        fullscreen: !!document.fullscreenElement,
+        money(v) { return symbol + Number(v || 0).toFixed(2); },
+        async refresh() {
+            try {
+                const r = await fetch('{% url "dashboard:customer_display_state" %}', { credentials: 'same-origin', cache: 'no-store' });
+                if (r.redirected || r.status === 401 || r.status === 403) { window.location.reload(); return; }
+                const s = await r.json();
+                this.offline = false;
+                if (s.mode === 'bill') { this.bill = s; }
+                if (s.mode === 'paid') { this.paidTip = s.tip; }
+                this.mode = s.mode;
+            } catch (e) {
+                this.offline = true;
+            }
+        },
+        start() {
+            this.refresh();
+            setInterval(() => this.refresh(), 2000);
+            document.addEventListener('fullscreenchange', () => { this.fullscreen = !!document.fullscreenElement; });
+            // Keep a tablet's screen awake
+            if ('wakeLock' in navigator) {
+                const lock = () => navigator.wakeLock.request('screen').catch(() => {});
+                lock();
+                document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') lock(); });
+            }
+        },
+        goFullscreen() { document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); },
+    };
+}
+</script>
+</body>
+</html>

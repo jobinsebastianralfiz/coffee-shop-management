@@ -1,0 +1,15 @@
+{% for q in qr_switch %}
+<form method="post" action="{% url 'dashboard:qr_ordering_toggle' q.outlet.pk %}" class="inline-flex">
+    {% csrf_token %}
+    <input type="hidden" name="on" value="{% if q.on %}0{% else %}1{% endif %}">
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button type="submit" role="switch" aria-checked="{% if q.on %}true{% else %}false{% endif %}"
+            title="{% if q.on %}Guests can order from the table QR. Tap to pause (menu stays viewable).{% else %}QR ordering is paused: guests can only view the menu. Tap to turn on.{% endif %}"
+            class="inline-flex items-center gap-2 h-9 pl-1.5 pr-4 rounded-full text-[13px] {% if q.on %}bg-slate-800 text-white{% else %}bg-white/80 text-slate-700{% endif %}">
+        <span class="relative w-10 h-6 rounded-full transition-colors {% if q.on %}bg-amber-400{% else %}bg-slate-300{% endif %}">
+            <span class="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all {% if q.on %}left-[18px]{% else %}left-0.5{% endif %}"></span>
+        </span>
+        QR ordering {% if q.on %}on{% else %}off{% endif %}{% if qr_switch|length > 1 %} · {{ q.outlet.name }}{% endif %}
+    </button>
+</form>
+{% endfor %}

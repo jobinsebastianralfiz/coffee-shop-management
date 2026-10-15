@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_create %}Add Product{% else %}Edit Product{% endif %}{% endblock %}
+{% block page_title %}{% if is_create %}Add Product{% else %}Edit {{ product.name }}{% endif %}{% endblock %}
+
+{% block content %}
+<div class="fade-in max-w-4xl mx-auto space-y-4">
+    <div class="kf-pagehead">
+        <p>{% if is_create %}Add a new product to your retail catalogue{% else %}Update product details, pricing and stock{% endif %}</p>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" class="space-y-4">
+        {% csrf_token %}
+
+        <!-- Basic Information -->
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Basic Information</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="sm:col-span-2">
+                    <label class="kf-label">Product Name *</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}<p class="text-red-500 text-xs mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="kf-label">Description</label>
+                    {{ form.description }}
+                </div>
+                <div>
+                    <label class="kf-label">SKU</label>
+                    {{ form.sku }}
+                </div>
+                <div>
+                    <label class="kf-label">Category</label>
+                    {{ form.category }}
+                </div>
+                <div>
+                    <label class="kf-label">Unit</label>
+                    {{ form.unit }}
+                </div>
+                <div>
+                    <label class="kf-label">Product Image</label>
+                    {{ form.image }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Pricing -->
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Pricing</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                    <label class="kf-label">Cost Price</label>
+                    {{ form.cost_price }}
+                    {% if form.cost_price.errors %}<p class="text-red-500 text-xs mt-1">{{ form.cost_price.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label">MRP *</label>
+                    {{ form.mrp }}
+                    {% if form.mrp.errors %}<p class="text-red-500 text-xs mt-1">{{ form.mrp.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label">Selling Price *</label>
+                    {{ form.selling_price }}
+                    {% if form.selling_price.errors %}<p class="text-red-500 text-xs mt-1">{{ form.selling_price.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="kf-label">Wholesale Price</label>
+                    {{ form.wholesale_price }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Tax -->
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Tax Information</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="kf-label">Tax Type</label>
+                    {{ form.tax_type }}
+                </div>
+                <div>
+                    <label class="kf-label">HSN Code</label>
+                    {{ form.hsn_code }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory -->
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Inventory</h3>
+            <div class="mb-3">
+                <label class="flex items-center gap-2">
+                    {{ form.track_inventory }}
+                    <span class="text-sm text-slate-800">Track Inventory</span>
+                </label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="kf-label">Current Stock</label>
+                    {{ form.current_stock }}
+                </div>
+                <div>
+                    <label class="kf-label">Minimum Stock Level</label>
+                    {{ form.minimum_stock }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Links -->
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Links (Optional)</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="kf-label">Linked Menu Item</label>
+                    {{ form.linked_menu_item }}
+                    <p class="text-xs text-slate-500 mt-1">Link to a cafe menu item for hybrid products</p>
+                </div>
+                <div>
+                    <label class="kf-label">Supplier</label>
+                    {{ form.supplier }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Barcode & Status -->
+        <div class="kf-card p-5">
+            <h3 class="kf-h mb-3">Barcode & Status</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {% if is_create %}
+                <div>
+                    <label class="flex items-center gap-2">
+                        {{ form.generate_barcode }}
+                        <span class="text-sm text-slate-800">Auto-generate barcode (EAN-13)</span>
+                    </label>
+                </div>
+                {% endif %}
+                <div>
+                    <label class="flex items-center gap-2">
+                        {{ form.is_active }}
+                        <span class="text-sm text-slate-800">Active</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-end gap-2">
+            <a href="{% if product %}{% url 'retail:product_detail' product.pk %}{% else %}{% url 'retail:products' %}{% endif %}"
+               class="btn-secondary">
+                Cancel
+            </a>
+            <button type="submit" class="btn-primary">
+                {% if is_create %}Create Product{% else %}Save Changes{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

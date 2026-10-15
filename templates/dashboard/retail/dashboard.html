@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}Retail Dashboard{% endblock %}
+{% block page_title %}Retail Dashboard{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <!-- Intro + quick actions -->
+    <div class="kf-pagehead">
+        <p>Products, stock and sales for your retail counter</p>
+        <div class="kf-actions">
+            <a href="{% url 'retail:pos' %}" class="btn-yellow !h-9 !px-4 !text-[13px]" title="New retail sale">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                POS
+            </a>
+            <a href="{% url 'retail:products' %}" class="btn-secondary !h-9 !px-4 !text-[13px]" title="Manage products">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                Products
+            </a>
+            <a href="{% url 'retail:sales' %}" class="btn-secondary !h-9 !px-4 !text-[13px]" title="View all sales">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                Sales
+            </a>
+            <a href="{% url 'retail:stock' %}" class="btn-secondary !h-9 !px-4 !text-[13px]" title="Stock levels">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path></svg>
+                Stock
+            </a>
+            {% if enable_wholesale %}
+            <a href="{% url 'retail:customers' %}" class="btn-secondary !h-9 !px-4 !text-[13px]" title="B2B customers">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                Customers
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-3 {% if enable_wholesale %}xl:grid-cols-6{% else %}lg:grid-cols-4{% endif %} gap-3">
+        <div class="kf-tile">
+            <span class="kf-ic is-soft"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ total_products }}</span><span class="l">Products</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-yellow"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ low_stock_products }}</span><span class="l">Low Stock</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-light"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ today_sales_count }}</span><span class="l">Today's Sales</span></div>
+        </div>
+        <div class="kf-tile is-dark">
+            <span class="kf-ic"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ today_sales_total|floatformat:0 }}</span><span class="l">Today's Revenue</span></div>
+        </div>
+        {% if enable_wholesale %}
+        <div class="kf-tile">
+            <span class="kf-ic is-soft"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ total_customers }}</span><span class="l">B2B Customers</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-red"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ outstanding_amount|floatformat:0 }}</span><span class="l">Outstanding</span></div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Recent Sales -->
+        <div class="kf-card p-5 flex flex-col gap-3">
+            <div class="kf-cardhead">
+                <div>
+                    <h3 class="kf-h">Recent Sales</h3>
+                    <p class="text-xs text-slate-600 mt-0.5">Latest transactions</p>
+                </div>
+                <a href="{% url 'retail:sales' %}" class="kf-arrow kf-arrow-light" aria-label="View all sales" title="View All">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                </a>
+            </div>
+            {% if recent_sales %}
+            <ul class="kf-rows">
+                {% for sale in recent_sales %}
+                <li>
+                    <a href="{% url 'retail:sale_detail' sale.pk %}">
+                        <span class="kf-ic is-soft"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg></span>
+                        <span class="flex-1 min-w-0"><b>{{ sale.sale_number }}</b><small>{{ sale.created_at|timesince }} ago</small></span>
+                        <span class="kf-tag {% if sale.sale_type == 'retail' %}s{% else %}ys{% endif %} hidden sm:inline-flex">{{ sale.get_sale_type_display }}</span>
+                        <span class="text-sm tabular whitespace-nowrap">{{ currency_symbol }}{{ sale.total_amount }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="kf-empty">
+                <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg></span>
+                <b>No sales yet</b>
+                <span>Sales from the POS appear here</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Low Stock Items -->
+        <div class="kf-card p-5 flex flex-col gap-3">
+            <div class="kf-cardhead">
+                <div>
+                    <h3 class="kf-h">Low Stock Items</h3>
+                    <p class="text-xs text-slate-600 mt-0.5">At or below minimum</p>
+                </div>
+                <a href="{% url 'retail:stock' %}?filter=low" class="kf-arrow kf-arrow-light" aria-label="View all low stock" title="View All">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                </a>
+            </div>
+            {% if low_stock_items %}
+            <ul class="kf-rows">
+                {% for product in low_stock_items %}
+                <li>
+                    <a href="{% url 'retail:product_detail' product.pk %}">
+                        <span class="kf-ic {% if product.current_stock <= 0 %}is-red{% else %}is-yellow{% endif %}"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></span>
+                        <span class="flex-1 min-w-0"><b>{{ product.name }}</b><small>{{ product.category.name|default:"Uncategorized" }} · Min: {{ product.minimum_stock }}</small></span>
+                        <span class="text-sm tabular whitespace-nowrap {% if product.current_stock <= 0 %}text-red-600{% endif %}">{{ product.current_stock }} {{ product.unit }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="kf-empty">
+                <span class="kf-ic is-green is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+                <b>All items are well stocked!</b>
+                <span>Nothing is below its minimum level</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block title %}Stock Movements{% endblock %}
+{% block page_title %}Stock Movements{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'retail:stock' %}" class="kf-arrow kf-arrow-light" aria-label="Back to stock">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <p class="truncate">Every stock change{% if product_id %} for the selected product{% endif %}, newest first</p>
+        </div>
+        <div class="kf-actions">
+            {% if product_id %}
+            <a href="{% url 'retail:stock_movements' %}{% if movement_type %}?type={{ movement_type }}{% endif %}" class="btn-secondary !h-9 !px-4 !text-[13px]">All Products</a>
+            {% endif %}
+            <a href="{% url 'retail:stock_adjust' %}{% if product_id %}?product={{ product_id }}{% endif %}" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Adjust Stock
+            </a>
+        </div>
+    </div>
+
+    <!-- Type filter -->
+    <div class="overflow-x-auto -mx-1 px-1">
+        <div class="kf-seg">
+            <a href="?{% if product_id %}product={{ product_id }}{% endif %}" class="{% if not movement_type %}active{% endif %}">All</a>
+            <a href="?type=purchase{% if product_id %}&product={{ product_id }}{% endif %}" class="{% if movement_type == 'purchase' %}active{% endif %}">Purchase</a>
+            <a href="?type=sale{% if product_id %}&product={{ product_id }}{% endif %}" class="{% if movement_type == 'sale' %}active{% endif %}">Sale</a>
+            <a href="?type=return{% if product_id %}&product={{ product_id }}{% endif %}" class="{% if movement_type == 'return' %}active{% endif %}">Return</a>
+            <a href="?type=adjustment{% if product_id %}&product={{ product_id }}{% endif %}" class="{% if movement_type == 'adjustment' %}active{% endif %}">Adjustment</a>
+            <a href="?type=transfer{% if product_id %}&product={{ product_id }}{% endif %}" class="{% if movement_type == 'transfer' %}active{% endif %}">Transfer</a>
+            <a href="?type=damage{% if product_id %}&product={{ product_id }}{% endif %}" class="{% if movement_type == 'damage' %}active{% endif %}">Damage</a>
+        </div>
+    </div>
+
+    <div class="kf-card overflow-hidden">
+        <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Date</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Product</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Type</th>
+                    <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Quantity</th>
+                    <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Stock</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Notes</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">By</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200/60">
+                {% for movement in movements %}
+                {% with mtype=movement.movement_type|lower %}
+                <tr class="hover:bg-white/50">
+                    <td class="px-4 py-2.5 text-[13px] text-slate-600 tabular whitespace-nowrap">{{ movement.created_at|date:"M d, Y H:i" }}</td>
+                    <td class="px-4 py-2.5">
+                        <a href="{% url 'retail:product_detail' movement.product_id %}" class="text-sm text-slate-900 hover:underline underline-offset-2">{{ movement.product.name }}</a>
+                        <p class="text-xs text-slate-500">{{ movement.product.sku|default:"-" }}</p>
+                    </td>
+                    <td class="px-4 py-2.5 whitespace-nowrap">
+                        <span class="kf-tag {% if mtype == 'purchase' or mtype == 'return' %}g{% elif mtype == 'sale' %}d{% elif mtype == 'damage' %}r{% elif mtype == 'transfer' %}ys{% else %}s{% endif %}">{{ movement.get_movement_type_display|capfirst }}</span>
+                    </td>
+                    <td class="px-4 py-2.5 text-right text-sm tabular whitespace-nowrap {% if movement.quantity > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">{% if movement.quantity > 0 %}+{% endif %}{{ movement.quantity|floatformat:"-2" }}</td>
+                    <td class="px-4 py-2.5 text-right text-xs text-slate-600 tabular whitespace-nowrap">{{ movement.stock_before|floatformat:"-2" }} → <span class="text-slate-900">{{ movement.stock_after|floatformat:"-2" }}</span></td>
+                    <td class="px-4 py-2.5 text-[13px] text-slate-600 max-w-[260px]">
+                        <span class="line-clamp-2">{{ movement.reason|default:movement.notes|default:"-" }}</span>
+                        {% if movement.reference_type %}<span class="block text-xs text-slate-500">{{ movement.reference_type }}{% if movement.reference_id %} #{{ movement.reference_id }}{% endif %}</span>{% endif %}
+                    </td>
+                    <td class="px-4 py-2.5 text-[13px] text-slate-600 whitespace-nowrap">{% if movement.created_by %}{{ movement.created_by.get_full_name|default:movement.created_by.username }}{% else %}-{% endif %}</td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-4">
+                        <div class="kf-empty">
+                            <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg></span>
+                            <b>No stock movements found</b>
+                            <span>{% if movement_type or product_id %}Try a different filter{% else %}Movements appear when stock is sold or adjusted{% endif %}</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+
+        {% if movements.has_other_pages %}
+        <div class="px-4 py-3 border-t border-slate-200/60 flex flex-wrap items-center justify-between gap-2">
+            <p class="text-[13px] text-slate-600">Page {{ movements.number }} of {{ movements.paginator.num_pages }}</p>
+            <div class="flex gap-2">
+                {% if movements.has_previous %}
+                <a href="?page={{ movements.previous_page_number }}{% if movement_type %}&type={{ movement_type }}{% endif %}{% if product_id %}&product={{ product_id }}{% endif %}" class="btn-secondary !h-9 !px-4 !text-[13px]">Previous</a>
+                {% endif %}
+                {% if movements.has_next %}
+                <a href="?page={{ movements.next_page_number }}{% if movement_type %}&type={{ movement_type }}{% endif %}{% if product_id %}&product={{ product_id }}{% endif %}" class="btn-secondary !h-9 !px-4 !text-[13px]">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

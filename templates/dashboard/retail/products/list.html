@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}Products{% endblock %}
+{% block page_title %}Products{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <p>Your retail catalogue, prices and stock levels</p>
+        <div class="kf-actions">
+            <a href="{% url 'retail:barcode_print_batch' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                </svg>
+                Print Labels
+            </a>
+            <a href="{% url 'retail:product_create' %}" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Product
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET" class="flex flex-wrap items-center gap-2">
+        <div class="relative flex-1 min-w-[200px] max-w-md">
+            <input type="text" name="search" value="{{ search }}" placeholder="Search products, SKU, barcode..."
+                class="w-full h-10 pl-10 pr-4 border border-slate-200 !rounded-full text-sm bg-white">
+            <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+        </div>
+        <select name="category" class="h-10 px-3 border border-slate-200 !rounded-full text-sm bg-white">
+            <option value="">All Categories</option>
+            {% for cat in categories %}
+            <option value="{{ cat.pk }}" {% if selected_category == cat.pk|stringformat:"i" %}selected{% endif %}>{{ cat.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="stock" class="h-10 px-3 border border-slate-200 !rounded-full text-sm bg-white">
+            <option value="">All Stock</option>
+            <option value="low" {% if stock_filter == 'low' %}selected{% endif %}>Low Stock</option>
+            <option value="out" {% if stock_filter == 'out' %}selected{% endif %}>Out of Stock</option>
+        </select>
+        <button type="submit" class="btn-secondary !h-10 !px-4 !text-[13px]">Filter</button>
+    </form>
+
+    <!-- Products Grid -->
+    <div class="kf-card overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Product</th>
+                        <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">SKU / Barcode</th>
+                        <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Category</th>
+                        <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Price</th>
+                        <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Stock</th>
+                        <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Status</th>
+                        <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/60">
+                    {% for product in products %}
+                    <tr class="hover:bg-white/50">
+                        <td class="px-4 py-2.5">
+                            <div class="flex items-center gap-3">
+                                {% if product.image %}
+                                <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-9 h-9 rounded-full object-cover flex-none">
+                                {% else %}
+                                <div class="kf-ic is-soft is-sm !w-9 !h-9">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                    </svg>
+                                </div>
+                                {% endif %}
+                                <div class="min-w-0">
+                                    <a href="{% url 'retail:product_detail' product.pk %}" class="text-slate-900 hover:underline">{{ product.name }}</a>
+                                    <p class="text-xs text-slate-500">{{ product.unit }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-2.5">
+                            <p class="text-sm text-slate-800 whitespace-nowrap">{{ product.sku|default:"-" }}</p>
+                            {% with barcode=product.primary_barcode %}
+                            {% if barcode %}
+                            <p class="text-xs text-slate-500 tabular whitespace-nowrap">{{ barcode.barcode_value }}</p>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="px-4 py-2.5"><span class="kf-tag w">{{ product.category.name|default:"Uncategorized" }}</span></td>
+                        <td class="px-4 py-2.5">
+                            <p class="text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ product.selling_price }}</p>
+                            {% if product.mrp > product.selling_price %}
+                            <p class="text-xs text-slate-400 line-through">{{ currency_symbol }}{{ product.mrp }}</p>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2.5">
+                            {% if product.track_inventory %}
+                            <span class="kf-tag {% if product.current_stock <= 0 %}r{% elif product.current_stock <= product.minimum_stock %}ys{% else %}s{% endif %} tabular">{{ product.current_stock }}</span>
+                            {% else %}
+                            <span class="text-slate-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2.5">
+                            {% if product.is_active %}
+                            <span class="kf-tag g">Active</span>
+                            {% else %}
+                            <span class="kf-tag h">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-right">
+                            <div class="flex items-center justify-end gap-1">
+                                <a href="{% url 'retail:product_edit' product.pk %}" class="w-9 h-9 grid place-items-center rounded-full text-slate-600 hover:text-slate-900 hover:bg-white" title="Edit">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </a>
+                                <a href="{% url 'retail:barcode_generate' product.pk %}" class="w-9 h-9 grid place-items-center rounded-full text-slate-600 hover:text-slate-900 hover:bg-white" title="Generate Barcode">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                                    </svg>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-4">
+                            <div class="kf-empty">
+                                <span class="kf-ic is-soft is-lg">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                    </svg>
+                                </span>
+                                <b>No products found</b>
+                                <span>Create your first product to get started</span>
+                                <a href="{% url 'retail:product_create' %}" class="btn-primary !h-9 !px-4 !text-[13px] mt-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    Add Product
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if products.has_other_pages %}
+        <div class="px-4 py-3 border-t border-slate-200/60 flex flex-wrap items-center justify-between gap-2">
+            <p class="text-[13px] text-slate-600">
+                Showing {{ products.start_index }} to {{ products.end_index }} of {{ products.paginator.count }} products
+            </p>
+            <div class="flex items-center gap-2">
+                {% if products.has_previous %}
+                <a href="?page={{ products.previous_page_number }}&search={{ search }}&category={{ selected_category }}&stock={{ stock_filter }}"
+                   class="btn-secondary !h-9 !px-4 !text-[13px]">Previous</a>
+                {% endif %}
+                <span class="kf-tag d !px-3.5 !py-1.5">{{ products.number }}</span>
+                {% if products.has_next %}
+                <a href="?page={{ products.next_page_number }}&search={{ search }}&category={{ selected_category }}&stock={{ stock_filter }}"
+                   class="btn-secondary !h-9 !px-4 !text-[13px]">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

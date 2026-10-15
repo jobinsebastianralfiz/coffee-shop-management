@@ -9,20 +9,16 @@
     <link rel="icon" type="image/x-icon" href="{{ business.favicon.url }}">
     {% endif %}
 
-    <!-- Google Fonts - Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS + Kaffero theme -->
     <script src="https://cdn.tailwindcss.com"></script>
+    {% include "partials/theme_tailwind.html" %}
 
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <style>
         body {
-            font-family: 'Inter', system-ui, sans-serif;
+            font-family: 'Outfit', 'Helvetica Neue', Arial, sans-serif;
         }
 
         /* Hide scrollbar but keep functionality */
@@ -64,15 +60,17 @@
 
     {% block extra_css %}{% endblock %}
 </head>
-<body class="bg-slate-100 min-h-screen">
+<body class="kf kf-frame-bg min-h-screen">
+    <div class="kf-main">
     {% block content %}{% endblock %}
+    </div>
 
     <!-- Toast Messages -->
     <div class="fixed bottom-24 left-4 right-4 z-50 flex flex-col gap-2" id="toast-container">
         {% if messages %}
             {% for message in messages %}
             <div
-                class="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border {% if message.tags == 'success' %}bg-emerald-50 border-emerald-200 text-emerald-800{% elif message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}"
+                class="toast-item flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border {% if message.tags == 'success' %}bg-emerald-50 border-emerald-200 text-emerald-800{% elif message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}"
                 x-data="{ show: true }"
                 x-show="show"
                 x-init="setTimeout(() => show = false, 4000)"

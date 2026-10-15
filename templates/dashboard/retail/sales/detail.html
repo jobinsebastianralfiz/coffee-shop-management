@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}Sale #{{ sale.sale_number }}{% endblock %}
+{% block page_title %}Sale #{{ sale.sale_number }}{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'retail:sales' %}" class="kf-arrow kf-arrow-light" aria-label="Back to sales">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <p class="truncate">{{ sale.get_sale_type_display }} · {{ sale.created_at|date:"M d, Y H:i" }}{% if sale.outlet %} · {{ sale.outlet.name }}{% endif %}</p>
+        </div>
+        <div class="kf-actions">
+            <span class="kf-tag {% if sale.payment_status == 'paid' %}g{% elif sale.payment_status == 'partial' %}ys{% elif sale.payment_status == 'cancelled' or sale.payment_status == 'refunded' %}r{% else %}ys{% endif %}">{{ sale.get_payment_status_display }}</span>
+            <a href="{% url 'retail:sale_receipt' sale.pk %}" target="_blank" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                </svg>
+                Print Receipt
+            </a>
+        </div>
+    </div>
+
+    <!-- Key numbers -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="kf-tile is-dark">
+            <span class="kf-ic is-yellow">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </span>
+            <div class="min-w-0"><span class="v tabular">{{ currency_symbol }}{{ sale.total_amount }}</span><span class="l">Total</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-green">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 13l4 4L19 7"></path></svg>
+            </span>
+            <div class="min-w-0"><span class="v tabular">{{ currency_symbol }}{{ sale.paid_amount }}</span><span class="l">Paid{% if sale.payment_method %} · {{ sale.payment_method|title }}{% endif %}</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic {% if sale.balance_due > 0 %}is-red{% else %}is-light{% endif %}">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </span>
+            <div class="min-w-0"><span class="v tabular">{{ currency_symbol }}{{ sale.balance_due }}</span><span class="l">Balance due</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-soft">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+            </span>
+            <div class="min-w-0"><span class="v tabular">{{ items|length }}</span><span class="l">Items · {{ sale.total_quantity|floatformat:"-2" }} qty</span></div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Items + totals -->
+        <div class="lg:col-span-2 space-y-4 min-w-0">
+            <div class="kf-card overflow-hidden">
+                <div class="kf-cardhead px-5 pt-5 pb-3">
+                    <h3 class="kf-h">Items</h3>
+                </div>
+                {% if items %}
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr>
+                                <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Product</th>
+                                <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Qty</th>
+                                <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Price</th>
+                                <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Discount</th>
+                                <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Tax</th>
+                                <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200/60">
+                            {% for item in items %}
+                            <tr class="hover:bg-white/50">
+                                <td class="px-4 py-2.5">
+                                    <a href="{% url 'retail:product_detail' item.product_id %}" class="text-sm text-slate-900 hover:underline underline-offset-2">{{ item.product_name }}</a>
+                                    <p class="text-xs text-slate-500">{{ item.product_sku|default:"-" }}{% if item.hsn_code %} · HSN {{ item.hsn_code }}{% endif %}</p>
+                                </td>
+                                <td class="px-4 py-2.5 text-right text-sm text-slate-800 tabular whitespace-nowrap">{{ item.quantity|floatformat:"-2" }}</td>
+                                <td class="px-4 py-2.5 text-right text-sm text-slate-800 tabular whitespace-nowrap">{{ currency_symbol }}{{ item.unit_price }}</td>
+                                <td class="px-4 py-2.5 text-right text-sm text-slate-600 tabular whitespace-nowrap">{% if item.discount_amount > 0 %}-{{ currency_symbol }}{{ item.discount_amount }}{% else %}-{% endif %}</td>
+                                <td class="px-4 py-2.5 text-right text-xs text-slate-600 tabular whitespace-nowrap">{{ item.tax_rate|floatformat:"-2" }}%</td>
+                                <td class="px-4 py-2.5 text-right text-sm text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ item.total }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="kf-empty">
+                    <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></span>
+                    <b>No items on this sale</b>
+                </div>
+                {% endif %}
+
+                <!-- Totals -->
+                <div class="border-t border-slate-200/60 px-5 py-4">
+                    <dl class="ml-auto max-w-xs space-y-1.5 text-sm">
+                        <div class="flex justify-between gap-4"><dt class="text-slate-600">Subtotal</dt><dd class="tabular text-slate-900">{{ currency_symbol }}{{ sale.subtotal }}</dd></div>
+                        {% if sale.discount_amount > 0 %}
+                        <div class="flex justify-between gap-4"><dt class="text-slate-600">Discount{% if sale.discount_percentage > 0 %} ({{ sale.discount_percentage|floatformat:"-2" }}%){% endif %}</dt><dd class="tabular text-slate-900">-{{ currency_symbol }}{{ sale.discount_amount }}</dd></div>
+                        {% endif %}
+                        {% if sale.cgst_amount > 0 %}
+                        <div class="flex justify-between gap-4"><dt class="text-slate-600">CGST</dt><dd class="tabular text-slate-900">{{ currency_symbol }}{{ sale.cgst_amount }}</dd></div>
+                        {% endif %}
+                        {% if sale.sgst_amount > 0 %}
+                        <div class="flex justify-between gap-4"><dt class="text-slate-600">SGST</dt><dd class="tabular text-slate-900">{{ currency_symbol }}{{ sale.sgst_amount }}</dd></div>
+                        {% endif %}
+                        {% if sale.igst_amount > 0 %}
+                        <div class="flex justify-between gap-4"><dt class="text-slate-600">IGST</dt><dd class="tabular text-slate-900">{{ currency_symbol }}{{ sale.igst_amount }}</dd></div>
+                        {% endif %}
+                        <div class="flex justify-between gap-4 pt-2 border-t border-slate-200/60"><dt class="text-slate-900">Total</dt><dd class="tabular text-xl font-light text-slate-900">{{ currency_symbol }}{{ sale.total_amount }}</dd></div>
+                    </dl>
+                </div>
+            </div>
+
+            {% if sale.notes or sale.internal_notes %}
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-3">Notes</h3>
+                {% if sale.notes %}
+                <p class="text-sm text-slate-700 whitespace-pre-line">{{ sale.notes }}</p>
+                {% endif %}
+                {% if sale.internal_notes %}
+                <p class="text-xs text-slate-600 mt-3">Internal</p>
+                <p class="text-sm text-slate-700 whitespace-pre-line">{{ sale.internal_notes }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-4 min-w-0">
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-3">Customer</h3>
+                {% if sale.wholesale_customer %}
+                <a href="{% url 'retail:customer_detail' sale.wholesale_customer.pk %}" class="text-sm text-slate-900 hover:underline underline-offset-2">{{ sale.wholesale_customer.business_name }}</a>
+                <p class="text-xs text-slate-600 mt-0.5">{{ sale.wholesale_customer.name }} · {{ sale.wholesale_customer.phone }}</p>
+                {% if sale.wholesale_customer.gst_number %}<p class="text-xs text-slate-600 mt-0.5">GSTIN {{ sale.wholesale_customer.gst_number }}</p>{% endif %}
+                {% elif sale.customer_name or sale.customer_phone %}
+                <p class="text-sm text-slate-900">{{ sale.customer_name|default:"Walk-in" }}</p>
+                {% if sale.customer_phone %}<p class="text-xs text-slate-600 mt-0.5">{{ sale.customer_phone }}</p>{% endif %}
+                {% else %}
+                <p class="text-sm text-slate-600">Walk-in customer</p>
+                {% endif %}
+            </div>
+
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-3">Details</h3>
+                <dl class="space-y-2 text-sm">
+                    <div class="flex justify-between gap-3"><dt class="text-slate-600">Sale #</dt><dd class="text-slate-900 tabular">{{ sale.sale_number }}</dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-slate-600">Type</dt><dd class="text-slate-900">{{ sale.get_sale_type_display }}</dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-slate-600">Payment</dt><dd class="text-slate-900">{{ sale.payment_method|default:"-"|title }}</dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-slate-600">Outlet</dt><dd class="text-slate-900 truncate">{{ sale.outlet.name|default:"-" }}</dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-slate-600">Created by</dt><dd class="text-slate-900 truncate">{% if sale.created_by %}{{ sale.created_by.get_full_name|default:sale.created_by.username }}{% else %}-{% endif %}</dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-slate-600">Date</dt><dd class="text-slate-900 tabular">{{ sale.created_at|date:"M d, Y H:i" }}</dd></div>
+                    {% if sale.linked_order %}
+                    <div class="flex justify-between gap-3"><dt class="text-slate-600">Linked order</dt><dd><a href="{% url 'dashboard:order_detail' sale.linked_order.pk %}" class="text-slate-900 underline decoration-slate-300 underline-offset-2">#{{ sale.linked_order.order_number }}</a></dd></div>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

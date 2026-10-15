@@ -6,87 +6,85 @@
 {% block content %}
 <div x-data="orderManager()" class="fade-in">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center gap-4">
-            <a href="{% url 'dashboard:order_back' pk=order.pk %}" class="p-2 rounded-xl hover:bg-slate-100 text-slate-500">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'dashboard:order_back' pk=order.pk %}" class="w-10 h-10 rounded-full grid place-items-center bg-white/70 hover:bg-white text-slate-700 flex-none transition-colors" title="Back">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                 </svg>
             </a>
-            <div>
-                <h1 class="text-xl font-bold text-slate-800">
-                    Order #{{ order.order_number }}
-                    {% if order.party_name %}<span class="text-indigo-600">• {{ order.party_name }}</span>{% endif %}
-                </h1>
-                <p class="text-sm text-slate-500">
-                    {% if order.table %}
-                        {% if order.combined_tables.exists %}
-                            Tables {{ order.all_table_numbers }}
-                        {% else %}
-                            Table {{ order.table.number }}
-                        {% endif %}
+            <p class="text-sm text-slate-600 min-w-0">
+                {% if order.party_name %}<span class="text-slate-900">{{ order.party_name }}</span> &middot; {% endif %}
+                {% if order.table %}
+                    {% if order.combined_tables.exists %}
+                        Tables {{ order.all_table_numbers }}
                     {% else %}
-                        {{ order.get_order_type_display }}
+                        Table {{ order.table.number }}
                     {% endif %}
-                    • {{ order.created_at|date:"g:i A" }}
-                </p>
-            </div>
+                {% else %}
+                    {{ order.get_order_type_display }}
+                {% endif %}
+                &middot; {{ order.created_at|date:"g:i A" }}
+            </p>
         </div>
         <div class="flex items-center gap-2">
-            <span class="px-3 py-1.5 rounded-lg text-xs font-bold
-                {% if order.status == 'pending' %}bg-amber-100 text-amber-700
-                {% elif order.status == 'confirmed' %}bg-blue-100 text-blue-700
-                {% elif order.status == 'preparing' %}bg-cyan-100 text-cyan-700
-                {% elif order.status == 'ready' %}bg-indigo-100 text-indigo-700
-                {% elif order.status == 'served' %}bg-purple-100 text-purple-700
-                {% elif order.status == 'completed' %}bg-emerald-100 text-emerald-700
-                {% else %}bg-red-100 text-red-700{% endif %}">
-                {{ order.get_status_display }}
-            </span>
-            <a href="{% url 'dashboard:order_print' pk=order.pk %}" target="_blank" class="p-2 rounded-xl hover:bg-slate-100 text-slate-500" title="Print Bill">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span class="kf-tag {% if order.status == 'pending' %}ys{% elif order.status == 'confirmed' %}y{% elif order.status == 'preparing' %}s{% elif order.status == 'ready' %}d{% elif order.status == 'served' %}w{% elif order.status == 'completed' %}g{% else %}r{% endif %}">{{ order.get_status_display }}</span>
+            <a href="{% url 'dashboard:order_print' pk=order.pk %}" target="_blank" class="btn-secondary !h-10 !px-4 !text-[13px]" title="Print Bill">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
                 </svg>
+                Print
             </a>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-180px)]">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[calc(100vh-200px)]">
         <!-- Left: Menu Items (2 cols) -->
-        <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+        <div class="lg:col-span-2 kf-card flex flex-col overflow-hidden min-h-0">
             <!-- Seat Selector + Category Tabs -->
-            <div class="p-3 border-b border-slate-200 bg-slate-50">
+            <div class="p-3 space-y-2.5">
                 <!-- Seat Number Selector -->
-                <div class="flex items-center gap-2 mb-3">
-                    <span class="text-xs font-medium text-slate-500">Seat:</span>
+                <div class="flex items-center gap-2 overflow-x-auto">
+                    <span class="text-xs text-slate-600 flex-none">Seat</span>
                     <div class="flex gap-1">
                         <button type="button" @click="selectedSeat = null"
-                            :class="selectedSeat === null ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200'"
-                            class="w-8 h-8 rounded-lg text-xs font-bold transition-all">All</button>
+                            :class="selectedSeat === null ? 'bg-slate-800 text-white' : 'bg-white/80 text-slate-700 hover:bg-white'"
+                            class="min-w-[40px] h-10 px-2 rounded-full text-xs transition-colors">All</button>
                         {% for seat in seat_numbers %}
                         <button type="button" @click="selectedSeat = {{ seat }}"
-                            :class="selectedSeat === {{ seat }} ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200'"
-                            class="w-8 h-8 rounded-lg text-xs font-bold transition-all">{{ seat }}</button>
+                            :class="selectedSeat === {{ seat }} ? 'bg-slate-800 text-white' : 'bg-white/80 text-slate-700 hover:bg-white'"
+                            class="w-10 h-10 rounded-full text-xs transition-colors flex-none">{{ seat }}</button>
                         {% endfor %}
                     </div>
                 </div>
                 <!-- Category Tabs -->
-                <div class="flex items-center gap-1 overflow-x-auto">
+                <div class="kf-seg !flex !flex-nowrap w-full">
                     {% for category in categories %}
-                    <button
+                    <button type="button"
                         @click="activeCategory = '{{ category.pk }}'"
-                        :class="activeCategory === '{{ category.pk }}' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'"
-                        class="px-4 py-2 rounded-xl font-semibold text-sm whitespace-nowrap transition-all">
+                        :class="activeCategory === '{{ category.pk }}' ? 'active' : ''"
+                        class="!py-2.5">
                         {{ category.name }}
                     </button>
                     {% endfor %}
                 </div>
+                {% if is_open %}
+                <!-- Counter items (sweets, bottled drinks...) go straight on the bill -->
+                <label class="flex items-center justify-between gap-3 rounded-2xl px-3 py-2 cursor-pointer select-none transition-colors"
+                       :class="directAdd ? 'bg-amber-100' : 'bg-white/60 hover:bg-white/80'">
+                    <span class="text-[13px] text-slate-700">
+                        <b class="font-medium text-slate-900">Add to bill only</b>
+                        <span class="text-slate-600"> · counter items like sweets, no kitchen ticket</span>
+                    </span>
+                    <input type="checkbox" x-model="directAdd" class="w-5 h-5 flex-none">
+                </label>
+                {% endif %}
             </div>
 
             <!-- Menu Items Grid -->
-            <div class="flex-1 overflow-y-auto p-4">
+            <div class="flex-1 overflow-y-auto px-3 pb-3 min-h-0">
                 {% for category in categories %}
-                <div x-show="activeCategory === '{{ category.pk }}'" x-transition class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <div x-show="activeCategory === '{{ category.pk }}'" x-transition class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {% for item in category.items.all %}
                     {% if item.is_available %}
                     <form method="POST" action="{% url 'dashboard:order_add_item' pk=order.pk %}" class="contents" @submit="addSeatToForm($event)">
@@ -94,17 +92,18 @@
                         <input type="hidden" name="menu_item" value="{{ item.pk }}">
                         <input type="hidden" name="quantity" value="1">
                         <input type="hidden" name="seat_number" :value="selectedSeat">
-                        <button type="submit" class="group relative bg-gradient-to-br from-slate-50 to-white rounded-xl border-2 border-slate-200 p-4 text-left hover:border-indigo-400 hover:shadow-lg transition-all active:scale-95">
-                            <div class="mb-2">
-                                <h4 class="font-semibold text-slate-800 text-sm leading-tight group-hover:text-indigo-600">{{ item.name }}</h4>
+                        <input type="hidden" name="direct" :value="directAdd ? '1' : ''">
+                        <button type="submit" class="group relative bg-white/75 hover:bg-white rounded-2xl p-3.5 text-left min-h-[88px] flex flex-col justify-between transition-colors active:scale-[0.98]">
+                            <div class="mb-2 pr-6">
+                                <h4 class="text-sm leading-tight text-slate-900">{{ item.name }}</h4>
                                 {% if item.description %}
-                                <p class="text-xs text-slate-400 mt-1 line-clamp-1">{{ item.description }}</p>
+                                <p class="text-xs text-slate-500 mt-1 line-clamp-1">{{ item.description }}</p>
                                 {% endif %}
                             </div>
-                            <p class="text-lg font-bold text-indigo-600">₹{{ item.base_price }}</p>
+                            <p class="text-base font-light tabular text-slate-900">₹{{ item.base_price }}</p>
                             <!-- Quick add indicator -->
-                            <div class="absolute top-2 right-2 w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="absolute top-2.5 right-2.5 w-6 h-6 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                                 </svg>
                             </div>
@@ -112,8 +111,8 @@
                     </form>
                     {% endif %}
                     {% empty %}
-                    <div class="col-span-full text-center py-12 text-slate-400">
-                        <p>No items in this category</p>
+                    <div class="col-span-full kf-empty">
+                        <b>No items in this category</b>
                     </div>
                     {% endfor %}
                 </div>
@@ -122,20 +121,20 @@
         </div>
 
         <!-- Right: Order Summary (1 col) -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+        <div class="kf-card flex flex-col overflow-hidden min-h-0">
             <!-- Order Header -->
-            <div class="p-4 border-b border-slate-200 bg-gradient-to-r from-indigo-600 to-purple-600">
-                <div class="flex items-center justify-between">
+            <div class="px-4 pt-4 pb-3 border-b border-slate-100">
+                <div class="kf-cardhead">
                     <div>
-                        <h3 class="font-bold text-white">Current Order</h3>
-                        <p class="text-indigo-200 text-sm">{{ order.item_count }} items</p>
+                        <h3 class="kf-h">Current order</h3>
+                        <p class="text-xs text-slate-600 mt-0.5">{{ order.item_count }} items</p>
                     </div>
-                    {% if order.status in 'pending,confirmed' and order.items.exists %}
+                    {% if is_open and unsent_count %}
                     <form method="POST" action="{% url 'dashboard:order_update_status' pk=order.pk %}">
                         {% csrf_token %}
                         <input type="hidden" name="status" value="confirmed">
-                        <button type="submit" class="px-3 py-1.5 rounded-lg bg-white/20 text-white text-sm font-semibold hover:bg-white/30 transition-colors">
-                            Send to Kitchen
+                        <button type="submit" class="btn-yellow !h-9 !px-4 !text-[13px]">
+                            Send {{ unsent_count }} to Kitchen
                         </button>
                     </form>
                     {% endif %}
@@ -143,45 +142,67 @@
             </div>
 
             <!-- Order Items -->
-            <div class="flex-1 overflow-y-auto">
+            <div class="flex-1 overflow-y-auto min-h-0">
                 {% if order.items.exists %}
                 <div class="divide-y divide-slate-100">
                     {% for item in order.items.all %}
-                    <div class="p-3 hover:bg-slate-50 transition-colors">
+                    <div class="px-4 py-3">
                         <div class="flex items-start justify-between gap-2">
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-semibold text-slate-800 text-sm">{{ item.item_name }}</h4>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    {% if item.status == 'cancelled' %}<span class="kf-tag r !px-2 !py-0 !text-[11px]">VOID</span>{% endif %}
+                                    <h4 class="text-sm text-slate-900{% if item.status == 'cancelled' %} line-through opacity-60{% endif %}">{{ item.item_name }}</h4>
+                                    {% if item.status != 'cancelled' %}
+                                        {% if not item.kot_sent_at %}<span class="kf-tag ys !px-2 !py-0 !text-[11px]">New</span>
+                                        {% elif item.status == 'served' %}<span class="kf-tag g !px-2 !py-0 !text-[11px]">Served</span>
+                                        {% elif item.status == 'ready' %}<span class="kf-tag d !px-2 !py-0 !text-[11px]">Ready</span>
+                                        {% else %}<span class="kf-tag s !px-2 !py-0 !text-[11px]">In kitchen</span>{% endif %}
+                                    {% endif %}
                                     {% if item.seat_number %}
-                                    <span class="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-bold rounded">S{{ item.seat_number }}</span>
+                                    <span class="kf-tag ys !px-2 !py-0 !text-[11px]">S{{ item.seat_number }}</span>
                                     {% endif %}
                                 </div>
-                                <p class="text-xs text-slate-500">₹{{ item.unit_price }} each</p>
+                                <p class="text-xs text-slate-600">₹{{ item.unit_price }} each</p>
                                 {% if item.special_instructions %}
-                                <p class="text-xs text-amber-600 mt-1 italic">{{ item.special_instructions }}</p>
+                                <p class="text-xs text-amber-700 mt-1 italic">{{ item.special_instructions }}</p>
                                 {% endif %}
                             </div>
                             <div class="text-right">
-                                <p class="font-bold text-slate-800">₹{{ item.total_price }}</p>
+                                <p class="text-sm tabular{% if item.status == 'cancelled' %} line-through opacity-50{% endif %}">₹{{ item.total_price }}</p>
                             </div>
                         </div>
-                        {% if order.status in 'pending,confirmed' %}
+                        {% if is_open and item.status != 'cancelled' and item.kot_sent_at %}
+                        <!-- Already with the kitchen: add another (new line) or void -->
                         <div class="flex items-center justify-between mt-2">
-                            <div class="flex items-center gap-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-slate-600 tabular">Qty {{ item.quantity }}</span>
+                                <form method="POST" action="{% url 'dashboard:order_update_item_qty' pk=order.pk item_pk=item.pk %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="increase">
+                                    <button type="submit" class="h-9 px-3 rounded-full bg-white/80 hover:bg-white text-[13px] text-slate-800 transition-colors">+ 1 more</button>
+                                </form>
+                            </div>
+                            {% if can_void %}
+                            <button type="button" @click="openVoid({{ item.pk }}, '{{ item.item_name|escapejs }}')" class="h-9 px-3 rounded-full text-[13px] text-red-600 hover:bg-red-50 transition-colors">Void</button>
+                            {% endif %}
+                        </div>
+                        {% elif is_open and item.status != 'cancelled' %}
+                        <div class="flex items-center justify-between mt-2">
+                            <div class="flex items-center gap-1 rounded-full bg-white/70 p-0.5">
                                 <form method="POST" action="{% url 'dashboard:order_update_item_qty' pk=order.pk item_pk=item.pk %}">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="decrease">
-                                    <button type="submit" class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                                    <button type="submit" class="w-9 h-9 rounded-full bg-white text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
                                         </svg>
                                     </button>
                                 </form>
-                                <span class="w-10 text-center font-bold text-slate-800">{{ item.quantity }}</span>
+                                <span class="w-8 text-center text-sm tabular">{{ item.quantity }}</span>
                                 <form method="POST" action="{% url 'dashboard:order_update_item_qty' pk=order.pk item_pk=item.pk %}">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="increase">
-                                    <button type="submit" class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 hover:bg-indigo-200 flex items-center justify-center transition-colors">
+                                    <button type="submit" class="w-9 h-9 rounded-full bg-slate-800 text-white hover:bg-slate-700 flex items-center justify-center transition-colors">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                                         </svg>
@@ -190,7 +211,7 @@
                             </div>
                             <form method="POST" action="{% url 'dashboard:order_remove_item' pk=order.pk item_pk=item.pk %}">
                                 {% csrf_token %}
-                                <button type="submit" class="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors">
+                                <button type="submit" class="w-9 h-9 rounded-full grid place-items-center text-red-600 hover:bg-red-50 transition-colors" title="Remove">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                     </svg>
@@ -199,115 +220,175 @@
                         </div>
                         {% else %}
                         <div class="mt-1">
-                            <span class="text-sm text-slate-500">Qty: {{ item.quantity }}</span>
+                            <span class="text-xs text-slate-600">Qty: {{ item.quantity }}</span>
                         </div>
                         {% endif %}
                     </div>
                     {% endfor %}
                 </div>
                 {% else %}
-                <div class="flex flex-col items-center justify-center h-full text-slate-400 p-8">
-                    <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                    </svg>
-                    <p class="font-medium">No items yet</p>
-                    <p class="text-sm">Tap menu items to add</p>
+                <div class="kf-empty h-full">
+                    <span class="kf-ic is-soft is-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                    </span>
+                    <b>No items yet</b>
+                    <span>Tap menu items to add</span>
+                </div>
+                {% endif %}
+
+                {% if linked_retail_sales %}
+                <!-- Linked Retail Items -->
+                <div class="mx-3 mb-3 rounded-2xl bg-amber-50">
+                    <div class="px-3 pt-3 pb-2 flex items-center gap-2">
+                        <span class="kf-ic is-yellow is-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                            </svg>
+                        </span>
+                        <span class="text-sm">Retail items</span>
+                    </div>
+                    {% for sale in linked_retail_sales %}
+                        {% for item in sale.items.all %}
+                        <div class="px-3 py-2 border-t border-amber-100">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <h4 class="text-sm text-slate-900">{{ item.product_name }}</h4>
+                                    <p class="text-xs text-slate-600">₹{{ item.unit_price }} × {{ item.quantity }}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm tabular">₹{{ item.total }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endfor %}
                 </div>
                 {% endif %}
             </div>
 
             <!-- Order Totals -->
-            <div class="border-t border-slate-200 p-4 bg-slate-50 space-y-2">
+            <div class="border-t border-slate-100 px-4 py-3 space-y-1.5">
                 <div class="flex justify-between text-sm">
-                    <span class="text-slate-600">Subtotal</span>
-                    <span class="font-medium text-slate-800">₹{{ order.subtotal }}</span>
+                    <span class="text-slate-600">Cafe Subtotal</span>
+                    <span class="tabular">₹{{ order.subtotal }}</span>
                 </div>
                 {% if order.tax_amount > 0 %}
                 <div class="flex justify-between text-sm">
-                    <span class="text-slate-600">Tax</span>
-                    <span class="font-medium text-slate-800">₹{{ order.tax_amount }}</span>
+                    <span class="text-slate-600">Cafe Tax</span>
+                    <span class="tabular">₹{{ order.tax_amount }}</span>
                 </div>
                 {% endif %}
-                <div class="flex justify-between text-lg pt-2 border-t border-slate-200">
-                    <span class="font-bold text-slate-800">Total</span>
-                    <span class="font-bold text-indigo-600">₹{{ order.total_amount }}</span>
+                {% if linked_retail_sales %}
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-600">Retail Items</span>
+                    <span class="tabular">₹{{ retail_total }}</span>
                 </div>
+                <div class="flex justify-between items-baseline pt-2 border-t border-slate-100">
+                    <span class="text-sm">Combined Total</span>
+                    <span class="text-2xl font-light tabular">₹{{ combined_total }}</span>
+                </div>
+                {% if total_paid > 0 %}
+                <div class="flex justify-between text-sm text-emerald-700">
+                    <span>Paid</span>
+                    <span class="tabular">₹{{ total_paid }}</span>
+                </div>
+                {% endif %}
+                {% if balance_due > 0 %}
+                <div class="flex justify-between text-sm text-red-600">
+                    <span>Balance Due</span>
+                    <span class="tabular font-medium">₹{{ balance_due }}</span>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="flex justify-between items-baseline pt-2 border-t border-slate-100">
+                    <span class="text-sm">Total</span>
+                    <span class="text-2xl font-light tabular">₹{{ order.total_amount }}</span>
+                </div>
+                {% endif %}
             </div>
 
             <!-- Action Buttons -->
-            <div class="p-4 border-t border-slate-200 space-y-2">
+            <div class="px-4 pb-4 pt-1 space-y-2">
                 {# WAITER ACTIONS #}
                 {% if user.role == 'waiter' %}
-                    {% if order.status == 'pending' and order.items.exists %}
+                    {% if is_open and unsent_count %}
                     <form method="POST" action="{% url 'dashboard:order_update_status' pk=order.pk %}">
                         {% csrf_token %}
                         <input type="hidden" name="status" value="confirmed">
-                        <button type="submit" class="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold shadow-lg hover:shadow-xl transition-all">
-                            Send to Kitchen
+                        <button type="submit" class="btn-primary w-full">
+                            Send {{ unsent_count }} new item{{ unsent_count|pluralize }} to Kitchen
                         </button>
                     </form>
                     {% elif order.status == 'ready' %}
                     <form method="POST" action="{% url 'dashboard:order_update_status' pk=order.pk %}">
                         {% csrf_token %}
                         <input type="hidden" name="status" value="served">
-                        <button type="submit" class="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold shadow-lg hover:shadow-xl transition-all">
+                        <button type="submit" class="btn-primary w-full">
                             Mark as Served
                         </button>
                     </form>
                     {% elif order.status == 'served' %}
-                    <div class="text-center py-3 bg-orange-50 rounded-xl">
-                        <p class="text-orange-700 font-semibold">Waiting for Payment</p>
-                        <p class="text-orange-600 text-sm">Cashier will process</p>
-                    </div>
+                    <a href="{% url 'dashboard:order_print' pk=order.pk %}" target="_blank" class="btn-yellow w-full">
+                        {% if order.bill_printed_at %}Print bill again{% else %}Print bill for guests{% endif %}
+                    </a>
+                    <p class="text-center text-xs text-slate-600">{% if order.bill_printed_at %}Bill given {{ order.bill_printed_at|timesince }} ago · guests pay at the counter{% else %}Guests pay at the billing counter{% endif %}</p>
                     {% elif order.status == 'completed' %}
-                    <div class="text-center py-2">
-                        <span class="px-4 py-2 rounded-xl bg-emerald-100 text-emerald-700 font-bold">✓ Completed</span>
+                    <div class="text-center py-1">
+                        <span class="kf-tag g">✓ Completed</span>
                     </div>
                     {% elif order.status == 'cancelled' %}
-                    <div class="text-center py-2">
-                        <span class="px-4 py-2 rounded-xl bg-red-100 text-red-700 font-bold">✗ Cancelled</span>
+                    <div class="text-center py-1">
+                        <span class="kf-tag r">✗ Cancelled</span>
                     </div>
                     {% else %}
-                    <div class="text-center py-2 text-slate-500 text-sm">
+                    <div class="text-center py-2 text-slate-600 text-sm">
                         {{ order.get_status_display }}...
                     </div>
                     {% endif %}
-                    <a href="{% url 'dashboard:order_back' pk=order.pk %}" class="block w-full px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm text-center hover:bg-slate-50 transition-colors">
+                    {% if is_open and parcel_items %}
+                    <button type="button" @click="showParcel = true" class="btn-secondary w-full !h-10 !text-[13px]">Parcel leftovers</button>
+                    {% endif %}
+                    <a href="{% url 'dashboard:order_back' pk=order.pk %}" class="btn-secondary w-full !h-10 !text-[13px]">
                         Back to Tables
                     </a>
 
                 {# CASHIER / SUPER ADMIN ACTIONS #}
                 {% else %}
-                    {% if order.status == 'pending' and order.items.exists %}
+                    {% if is_open and unsent_count %}
                     <form method="POST" action="{% url 'dashboard:order_update_status' pk=order.pk %}">
                         {% csrf_token %}
                         <input type="hidden" name="status" value="confirmed">
-                        <button type="submit" class="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold shadow-lg hover:shadow-xl transition-all">
-                            Confirm & Send to Kitchen
+                        <button type="submit" class="btn-primary w-full">
+                            Send {{ unsent_count }} new item{{ unsent_count|pluralize }} to Kitchen
                         </button>
                     </form>
                     {% elif order.status == 'served' or order.status == 'ready' %}
-                    <button @click="showPayment = true" class="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-lg hover:shadow-xl transition-all">
-                        Process Payment (₹{{ order.balance_due }})
+                    <button @click="showPayment = true" class="btn-yellow w-full">
+                        Process Payment (₹{% if linked_retail_sales %}{{ balance_due }}{% else %}{{ order.balance_due }}{% endif %})
                     </button>
                     {% elif order.status == 'completed' %}
-                    <div class="text-center py-2">
-                        <span class="px-4 py-2 rounded-xl bg-emerald-100 text-emerald-700 font-bold">✓ Order Completed</span>
+                    <div class="text-center py-1">
+                        <span class="kf-tag g">✓ Order Completed</span>
                     </div>
                     {% elif order.status == 'cancelled' %}
-                    <div class="text-center py-2">
-                        <span class="px-4 py-2 rounded-xl bg-red-100 text-red-700 font-bold">✗ Order Cancelled</span>
+                    <div class="text-center py-1">
+                        <span class="kf-tag r">✗ Order Cancelled</span>
                     </div>
                     {% else %}
-                    <div class="text-center py-2 text-slate-500 text-sm">
+                    <div class="text-center py-2 text-slate-600 text-sm">
                         Order is {{ order.get_status_display|lower }}...
                     </div>
                     {% endif %}
 
+                    {% if is_open and parcel_items %}
+                    <button type="button" @click="showParcel = true" class="btn-secondary w-full !h-10 !text-[13px]">Parcel leftovers</button>
+                    {% endif %}
                     {% if order.status not in 'completed,cancelled' %}
                     <form method="POST" action="{% url 'dashboard:order_cancel' pk=order.pk %}" onsubmit="return confirm('Cancel this order?')">
                         {% csrf_token %}
-                        <button type="submit" class="w-full px-4 py-2 rounded-xl border border-red-200 text-red-600 font-semibold text-sm hover:bg-red-50 transition-colors">
+                        <button type="submit" class="w-full h-10 rounded-full text-[13px] text-red-600 bg-white/60 hover:bg-red-50 transition-colors">
                             Cancel Order
                         </button>
                     </form>
@@ -317,29 +398,76 @@
         </div>
     </div>
 
+    <!-- Void an item that is already with the kitchen -->
+    <div x-show="showVoid" x-cloak class="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="voidTitle" @keydown.escape.window="showVoid = false">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="showVoid = false"></div>
+        <form method="POST" :action="voidUrl" class="absolute inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[400px] bg-white rounded-t-[28px] sm:rounded-[28px] p-5 shadow-xl">
+            {% csrf_token %}
+            <h3 id="voidTitle" class="kf-h">Void <span x-text="voidName"></span>?</h3>
+            <p class="text-sm text-slate-600 mt-1">It comes off the bill, and the kitchen gets a CANCELLED ticket if it hasn't been served.</p>
+            <label class="kf-label mt-4" for="voidReason">Reason (optional)</label>
+            <input id="voidReason" name="reason" type="text" maxlength="120" class="kf-input" placeholder="e.g. guest changed mind">
+            <div class="flex gap-2 mt-5">
+                <button type="button" class="btn-secondary flex-1" @click="showVoid = false">Keep it</button>
+                <button type="submit" class="btn-danger flex-1">Void item</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Pack leftovers to take away (no charge) -->
+    {% if parcel_items %}
+    <div x-show="showParcel" x-cloak class="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="parcelTitle" @keydown.escape.window="showParcel = false">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="showParcel = false"></div>
+        <form method="POST" action="{% url 'dashboard:order_parcel' pk=order.pk %}" class="absolute inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[420px] max-h-[85vh] overflow-y-auto bg-white rounded-t-[28px] sm:rounded-[28px] p-5 shadow-xl">
+            {% csrf_token %}
+            <h3 id="parcelTitle" class="kf-h">Parcel leftovers</h3>
+            <p class="text-sm text-slate-600 mt-1">Tick the dishes to pack. The kitchen gets a PARCEL ticket. No charge.</p>
+            <div class="mt-4 space-y-2">
+                {% for item in parcel_items %}
+                <label class="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 cursor-pointer">
+                    <input type="checkbox" name="items" value="{{ item.pk }}" class="w-5 h-5">
+                    <span class="flex-1 min-w-0 text-sm">{{ item.quantity }} × {{ item.item_name }}{% if item.variant_name %} ({{ item.variant_name }}){% endif %}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <label class="kf-label mt-4" for="parcelNote">Note for the kitchen (optional)</label>
+            <input id="parcelNote" name="note" type="text" maxlength="120" class="kf-input" placeholder="e.g. separate containers">
+            <div class="flex gap-2 mt-5">
+                <button type="button" class="btn-secondary flex-1" @click="showParcel = false">Cancel</button>
+                <button type="submit" class="btn-yellow flex-1">Send to pack</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
     <!-- Payment Modal -->
     <div x-show="showPayment" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showPayment = false"></div>
-        <div x-data="paymentHandler()" class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div class="p-5 border-b border-slate-200">
-                <h3 class="text-lg font-bold text-slate-800">Process Payment</h3>
-                <p class="text-sm text-slate-500 mt-1">Amount Due: <span class="font-bold text-indigo-600 text-xl">₹{{ order.balance_due }}</span></p>
+        <div x-data="paymentHandler()" class="relative bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div class="px-5 pt-5 pb-3">
+                <h3 class="kf-h">Process payment</h3>
+                <p class="text-sm text-slate-600 mt-1">Amount due <span class="text-2xl font-light text-slate-900 tabular ml-1">₹{% if linked_retail_sales %}{{ balance_due }}{% else %}{{ order.balance_due }}{% endif %}</span></p>
+                {% if linked_retail_sales %}
+                <p class="text-xs text-amber-700 mt-1">Includes ₹{{ retail_total }} in retail items</p>
+                {% endif %}
             </div>
 
             <!-- Payment Method Tabs -->
-            <div class="flex border-b border-slate-200">
-                <button @click="paymentTab = 'cash'" :class="paymentTab === 'cash' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-slate-500'" class="flex-1 px-4 py-3 font-semibold text-sm">
-                    💵 Cash
-                </button>
-                <button @click="paymentTab = 'card'" :class="paymentTab === 'card' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-slate-500'" class="flex-1 px-4 py-3 font-semibold text-sm">
-                    💳 Card
-                </button>
-                <button @click="paymentTab = 'upi'; initUpiPayment()" :class="paymentTab === 'upi' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-slate-500'" class="flex-1 px-4 py-3 font-semibold text-sm">
-                    📱 UPI
-                </button>
-                <button @click="paymentTab = 'split'" :class="paymentTab === 'split' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-slate-500'" class="flex-1 px-4 py-3 font-semibold text-sm">
-                    ✂️ Split
-                </button>
+            <div class="px-5">
+                <div class="kf-seg !flex w-full !bg-slate-100">
+                    <button type="button" @click="paymentTab = 'cash'" :class="paymentTab === 'cash' ? 'active' : ''" class="flex-1 justify-center">
+                        💵 Cash
+                    </button>
+                    <button type="button" @click="paymentTab = 'card'" :class="paymentTab === 'card' ? 'active' : ''" class="flex-1 justify-center">
+                        💳 Card
+                    </button>
+                    <button type="button" @click="paymentTab = 'upi'; initUpiPayment()" :class="paymentTab === 'upi' ? 'active' : ''" class="flex-1 justify-center">
+                        📱 UPI
+                    </button>
+                    <button type="button" @click="paymentTab = 'split'" :class="paymentTab === 'split' ? 'active' : ''" class="flex-1 justify-center">
+                        ✂️ Split
+                    </button>
+                </div>
             </div>
 
             <!-- Cash Payment -->
@@ -347,27 +475,28 @@
                 <form method="POST" action="{% url 'dashboard:order_payment' pk=order.pk %}">
                     {% csrf_token %}
                     <input type="hidden" name="method" value="cash">
-                    <div class="p-5 space-y-4">
+                    <input type="hidden" name="include_retail" value="{% if linked_retail_sales %}true{% endif %}">
+                    <div class="p-5 space-y-3">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Amount Received</label>
-                            <input type="number" name="amount_tendered" x-model="cashReceived" step="0.01" min="{{ order.balance_due }}"
-                                   class="w-full px-4 py-3 rounded-xl border border-slate-200 text-2xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <label class="kf-label">Amount received</label>
+                            <input type="number" name="amount_tendered" x-model="cashReceived" step="0.01" min="{% if linked_retail_sales %}{{ balance_due }}{% else %}{{ order.balance_due }}{% endif %}"
+                                   class="kf-input !h-14 !text-2xl !font-light text-center">
                         </div>
-                        <div class="bg-slate-50 rounded-xl p-4">
+                        <div class="bg-slate-50 rounded-2xl px-4 py-3">
                             <div class="flex justify-between text-sm">
                                 <span class="text-slate-600">Bill Amount</span>
-                                <span class="font-semibold">₹{{ order.balance_due }}</span>
+                                <span class="tabular">₹{% if linked_retail_sales %}{{ balance_due }}{% else %}{{ order.balance_due }}{% endif %}</span>
                             </div>
-                            <div class="flex justify-between text-lg mt-2 pt-2 border-t border-slate-200">
-                                <span class="font-bold text-slate-800">Change</span>
-                                <span class="font-bold" :class="change >= 0 ? 'text-emerald-600' : 'text-red-600'" x-text="'₹' + change.toFixed(2)"></span>
+                            <div class="flex justify-between items-baseline mt-2 pt-2 border-t border-slate-200">
+                                <span class="text-sm">Change</span>
+                                <span class="text-xl font-light tabular" :class="change >= 0 ? 'text-emerald-600' : 'text-red-600'" x-text="'₹' + change.toFixed(2)"></span>
                             </div>
                         </div>
-                        <input type="hidden" name="amount" value="{{ order.balance_due }}">
+                        <input type="hidden" name="amount" value="{% if linked_retail_sales %}{{ balance_due }}{% else %}{{ order.balance_due }}{% endif %}">
                     </div>
-                    <div class="p-5 border-t border-slate-200 flex gap-3">
-                        <button type="button" @click="showPayment = false" class="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold">Cancel</button>
-                        <button type="submit" class="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold">Confirm Cash</button>
+                    <div class="px-5 pb-5 flex gap-2">
+                        <button type="button" @click="showPayment = false" class="btn-secondary flex-1 !bg-slate-100">Cancel</button>
+                        <button type="submit" class="btn-primary flex-1">Confirm Cash</button>
                     </div>
                 </form>
             </div>
@@ -377,24 +506,23 @@
                 <form method="POST" action="{% url 'dashboard:order_payment' pk=order.pk %}">
                     {% csrf_token %}
                     <input type="hidden" name="method" value="card">
-                    <input type="hidden" name="amount" value="{{ order.balance_due }}">
-                    <div class="p-5 space-y-4">
-                        <div class="text-center py-6">
-                            <div class="w-20 h-20 mx-auto bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                                <span class="text-4xl">💳</span>
-                            </div>
-                            <p class="text-slate-600">Swipe/Tap card on your POS terminal</p>
-                            <p class="text-2xl font-bold text-slate-800 mt-2">₹{{ order.balance_due }}</p>
+                    <input type="hidden" name="include_retail" value="{% if linked_retail_sales %}true{% endif %}">
+                    <input type="hidden" name="amount" value="{% if linked_retail_sales %}{{ balance_due }}{% else %}{{ order.balance_due }}{% endif %}">
+                    <div class="p-5 space-y-3">
+                        <div class="text-center py-3">
+                            <span class="kf-ic is-soft is-lg mx-auto mb-3 text-2xl">💳</span>
+                            <p class="text-sm text-slate-600">Swipe/Tap card on your POS terminal</p>
+                            <p class="text-2xl font-light tabular mt-1">₹{% if linked_retail_sales %}{{ balance_due }}{% else %}{{ order.balance_due }}{% endif %}</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Transaction ID (Optional)</label>
+                            <label class="kf-label">Transaction ID (Optional)</label>
                             <input type="text" name="transaction_id" placeholder="Last 4 digits or ref number"
-                                   class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                   class="kf-input">
                         </div>
                     </div>
-                    <div class="p-5 border-t border-slate-200 flex gap-3">
-                        <button type="button" @click="showPayment = false" class="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold">Cancel</button>
-                        <button type="submit" class="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold">Confirm Card</button>
+                    <div class="px-5 pb-5 flex gap-2">
+                        <button type="button" @click="showPayment = false" class="btn-secondary flex-1 !bg-slate-100">Cancel</button>
+                        <button type="submit" class="btn-primary flex-1">Confirm Card</button>
                     </div>
                 </form>
             </div>
@@ -403,33 +531,31 @@
             <div x-show="paymentTab === 'upi'">
                 <div class="p-5">
                     <!-- Loading State -->
-                    <div x-show="upiLoading" class="text-center py-8">
-                        <div class="animate-spin w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full mx-auto"></div>
-                        <p class="text-slate-600 mt-4">Generating QR Code...</p>
+                    <div x-show="upiLoading" class="text-center py-6">
+                        <div class="animate-spin w-10 h-10 border-4 border-slate-800 border-t-transparent rounded-full mx-auto"></div>
+                        <p class="text-sm text-slate-600 mt-3">Generating QR Code...</p>
                     </div>
 
                     <!-- Error State -->
-                    <div x-show="upiError" class="text-center py-8">
-                        <div class="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center mb-4">
-                            <span class="text-3xl">⚠️</span>
-                        </div>
-                        <p class="text-red-600 font-semibold" x-text="upiError"></p>
-                        <button @click="initUpiPayment()" class="mt-4 px-4 py-2 bg-slate-100 rounded-lg text-slate-700 text-sm">Try Again</button>
+                    <div x-show="upiError" class="text-center py-6">
+                        <span class="kf-ic is-red is-lg mx-auto mb-3 text-xl">⚠️</span>
+                        <p class="text-sm text-red-600" x-text="upiError"></p>
+                        <button @click="initUpiPayment()" class="btn-secondary !bg-slate-100 !h-9 !px-4 !text-[13px] mt-3">Try Again</button>
                     </div>
 
                     <!-- QR Code Display -->
                     <div x-show="razorpayOrderId && !upiLoading && !upiError">
                         <div class="text-center">
-                            <p class="text-slate-600 mb-4">Scan with any UPI app</p>
+                            <p class="text-sm text-slate-600 mb-3">Scan with any UPI app</p>
                             <div id="razorpay-button" class="flex justify-center"></div>
-                            <p class="text-2xl font-bold text-purple-600 mt-4">₹{{ order.balance_due }}</p>
-                            <p class="text-sm text-slate-500 mt-2">Order #{{ order.order_number }}</p>
+                            <p class="text-2xl font-light tabular mt-3">₹{% if linked_retail_sales %}{{ balance_due }}{% else %}{{ order.balance_due }}{% endif %}</p>
+                            <p class="text-xs text-slate-600 mt-1">Order #{{ order.order_number }}</p>
                         </div>
 
                         <!-- Payment Status Check -->
-                        <div x-show="checkingStatus" class="mt-4 text-center">
-                            <div class="animate-pulse flex items-center justify-center gap-2 text-purple-600">
-                                <div class="w-2 h-2 bg-purple-600 rounded-full animate-bounce"></div>
+                        <div x-show="checkingStatus" class="mt-3 text-center">
+                            <div class="animate-pulse flex items-center justify-center gap-2 text-sm text-slate-700">
+                                <div class="w-2 h-2 bg-amber-400 rounded-full animate-bounce"></div>
                                 <span>Waiting for payment...</span>
                             </div>
                         </div>
@@ -438,31 +564,32 @@
                         <form method="POST" action="{% url 'dashboard:order_payment' pk=order.pk %}" class="mt-4">
                             {% csrf_token %}
                             <input type="hidden" name="method" value="upi">
-                            <input type="hidden" name="amount" value="{{ order.balance_due }}">
+                            <input type="hidden" name="include_retail" value="{% if linked_retail_sales %}true{% endif %}">
+                            <input type="hidden" name="amount" value="{% if linked_retail_sales %}{{ balance_due }}{% else %}{{ order.balance_due }}{% endif %}">
                             <input type="text" name="transaction_id" placeholder="UPI Transaction ID"
-                                   class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 mb-3">
-                            <button type="submit" class="w-full px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm">
+                                   class="kf-input mb-2">
+                            <button type="submit" class="btn-secondary w-full !bg-slate-100 !h-10 !text-[13px]">
                                 Manually Confirm Payment
                             </button>
                         </form>
                     </div>
                 </div>
-                <div class="p-5 border-t border-slate-200">
-                    <button type="button" @click="showPayment = false" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold">Cancel</button>
+                <div class="px-5 pb-5">
+                    <button type="button" @click="showPayment = false" class="btn-secondary w-full !bg-slate-100">Cancel</button>
                 </div>
             </div>
 
             <!-- Split Bill by Seat -->
             <div x-show="paymentTab === 'split'">
                 <div class="p-5">
-                    <p class="text-sm text-slate-600 mb-4">Pay separately by seat number:</p>
+                    <p class="text-sm text-slate-600 mb-3">Pay separately by seat number:</p>
 
                     {% regroup order.items.all by seat_number as items_by_seat %}
-                    <div class="space-y-3 max-h-64 overflow-y-auto">
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
                         {% for seat_group in items_by_seat %}
-                        <div class="bg-slate-50 rounded-xl p-3">
+                        <div class="bg-slate-50 rounded-2xl p-3">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="font-bold text-slate-800">
+                                <span class="text-sm">
                                     {% if seat_group.grouper %}
                                         Seat {{ seat_group.grouper }}
                                     {% else %}
@@ -475,41 +602,41 @@
                                 {% endfor %}
                                 {% endwith %}
                             </div>
-                            <div class="text-xs text-slate-500 space-y-1">
+                            <div class="text-xs text-slate-600 space-y-1">
                                 {% for item in seat_group.list %}
                                 <div class="flex justify-between">
                                     <span>{{ item.quantity }}x {{ item.item_name }}</span>
-                                    <span>₹{{ item.total_price }}</span>
+                                    <span class="tabular">₹{{ item.total_price }}</span>
                                 </div>
                                 {% endfor %}
                             </div>
                             <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-200">
-                                <span class="font-semibold text-slate-700">Subtotal</span>
+                                <span class="text-sm text-slate-700">Subtotal</span>
                                 <form method="POST" action="{% url 'dashboard:order_payment' pk=order.pk %}" class="flex items-center gap-2">
                                     {% csrf_token %}
                                     <input type="hidden" name="method" value="cash">
                                     <input type="hidden" name="seat_number" value="{{ seat_group.grouper }}">
                                     {% with seat_total=0 %}
-                                    <span class="font-bold text-indigo-600">
+                                    <span class="text-sm tabular">
                                         {% for item in seat_group.list %}₹{{ item.total_price }}{% if not forloop.last %}+{% endif %}{% endfor %}
                                     </span>
                                     {% endwith %}
-                                    <button type="submit" class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600">
+                                    <button type="submit" class="btn-primary !h-9 !px-4 !text-[13px]">
                                         Pay
                                     </button>
                                 </form>
                             </div>
                         </div>
                         {% empty %}
-                        <div class="text-center py-8 text-slate-400">
-                            <p>No items with seat numbers assigned</p>
-                            <p class="text-sm mt-1">Assign seat numbers when adding items to use split billing</p>
+                        <div class="kf-empty">
+                            <b>No items with seat numbers assigned</b>
+                            <span>Assign seat numbers when adding items to use split billing</span>
                         </div>
                         {% endfor %}
                     </div>
                 </div>
-                <div class="p-5 border-t border-slate-200">
-                    <button type="button" @click="showPayment = false" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-700 font-semibold">Cancel</button>
+                <div class="px-5 pb-5">
+                    <button type="button" @click="showPayment = false" class="btn-secondary w-full !bg-slate-100">Cancel</button>
                 </div>
             </div>
         </div>
@@ -523,6 +650,18 @@ function orderManager() {
         activeCategory: '{{ categories.0.pk }}',
         showPayment: false,
         selectedSeat: null,
+        directAdd: false,
+        showVoid: false,
+        showParcel: false,
+        voidName: '',
+        voidUrl: '',
+
+        openVoid(itemId, name) {
+            // URL pattern rendered with a placeholder id of 0
+            this.voidUrl = '{% url "dashboard:order_remove_item" pk=order.pk item_pk=0 %}'.replace(/0\/$/, itemId + '/');
+            this.voidName = name;
+            this.showVoid = true;
+        },
 
         addSeatToForm(event) {
             // Seat number is automatically added via :value binding
@@ -534,16 +673,17 @@ function orderManager() {
 function paymentHandler() {
     return {
         paymentTab: 'cash',
-        cashReceived: {{ order.balance_due }},
+        cashReceived: {% if linked_retail_sales %}{{ balance_due }}{% else %}{{ order.balance_due }}{% endif %},
         upiLoading: false,
         upiError: null,
         razorpayOrderId: null,
         razorpayKeyId: null,
         checkingStatus: false,
         statusInterval: null,
+        balanceDue: {% if linked_retail_sales %}{{ balance_due }}{% else %}{{ order.balance_due }}{% endif %},
 
         get change() {
-            return this.cashReceived - {{ order.balance_due }};
+            return this.cashReceived - this.balanceDue;
         },
 
         async initUpiPayment() {
@@ -599,7 +739,7 @@ function paymentHandler() {
                     name: data.customer_name
                 },
                 theme: {
-                    color: '#6366f1'
+                    color: '#2A2A2C'
                 },
                 modal: {
                     ondismiss: () => {

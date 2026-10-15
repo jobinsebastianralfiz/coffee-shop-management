@@ -1,0 +1,72 @@
+{% if user.is_authenticated and user.role != 'staff_kitchen' %}
+<!-- QR guests: "is this guest at the table?" requests and waiter calls -->
+<div x-data="guestRequests()" x-init="start()" class="fixed top-4 right-4 z-[70] w-[min(360px,calc(100vw-2rem))] space-y-2" aria-live="polite">
+    <template x-for="r in orders" :key="'o' + r.id">
+        <section class="kf-dcard kf-glow-dark p-4 space-y-3 shadow-[0_18px_40px_rgba(30,30,40,0.35)]">
+            <div class="flex items-start gap-3">
+                <span class="w-10 h-10 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center flex-none text-sm" x-text="r.table"></span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-white text-[15px] leading-tight">New QR order · Table <span x-text="r.table"></span></p>
+                    <p class="text-xs text-slate-400 mt-0.5"><span x-text="r.seat"></span> · <span x-text="r.minutes ? r.minutes + ' min ago' : 'just now'"></span>
+                        <template x-if="r.distance_m !== null"><span class="text-amber-300" x-text="' · phone ' + fmtDist(r.distance_m) + ' away'"></span></template>
+                    </p>
+                </div>
+                <span class="text-white tabular text-sm" x-text="r.total"></span>
+            </div>
+            <ul class="text-[13px] text-slate-300 space-y-0.5 max-h-24 overflow-y-auto">
+                <template x-for="(i, n) in r.items" :key="n"><li x-text="i.qty + '× ' + i.name"></li></template>
+            </ul>
+            <p class="text-xs text-slate-400">Check the guest is at the table before sending to the kitchen<template x-if="r.code"><span>, or tell them the table code <b class="text-amber-300 tabular tracking-widest" x-text="r.code"></b></span></template>.</p>
+            <div class="grid grid-cols-2 gap-2">
+                <button type="button" class="btn-secondary !h-10 !text-[13px] !bg-white/10 !text-white hover:!bg-white/20" @click="act(r.id, 'reject')">Not at table</button>
+                <button type="button" class="btn-yellow !h-10 !text-[13px]" @click="act(r.id, 'accept')">Guest is here</button>
+            </div>
+        </section>
+    </template>
+    <template x-for="c in calls" :key="'c' + c.id">
+        <section class="kf-card !bg-white p-3 flex items-center gap-3 shadow-[0_18px_40px_rgba(30,30,40,0.2)]">
+            <span class="kf-ic is-yellow flex-none"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg></span>
+            <p class="flex-1 text-sm text-slate-900">Table <span x-text="c.table"></span> is calling a waiter <span class="text-xs text-slate-500" x-text="c.minutes ? '· ' + c.minutes + ' min' : ''"></span></p>
+            <button type="button" class="btn-secondary !h-9 !px-3 !text-[13px]" @click="act(c.id, 'call-done')">On my way</button>
+        </section>
+    </template>
+</div>
+<script>
+function guestRequests() {
+    const base = '{% url "dashboard:guest_requests" %}';
+    return {
+        orders: [], calls: [], seen: new Set(),
+        fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(1) + ' km' : m + ' m'; },
+        chime() {
+            try {
+                const a = new (window.AudioContext || window.webkitAudioContext)();
+                [880, 1175].forEach((f, i) => {
+                    const o = a.createOscillator(), g = a.createGain();
+                    o.frequency.value = f; o.connect(g); g.connect(a.destination);
+                    g.gain.setValueAtTime(0.12, a.currentTime + i * 0.18);
+                    g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + i * 0.18 + 0.3);
+                    o.start(a.currentTime + i * 0.18); o.stop(a.currentTime + i * 0.18 + 0.32);
+                });
+            } catch (e) {}
+        },
+        async load() {
+            if (document.hidden) return;
+            try {
+                const r = await fetch(base, { credentials: 'same-origin', cache: 'no-store' });
+                if (!r.ok || r.redirected) return;
+                const d = await r.json();
+                const fresh = [...d.orders.map(o => 'o' + o.id), ...d.calls.map(c => 'c' + c.id)].filter(k => !this.seen.has(k));
+                fresh.forEach(k => this.seen.add(k));
+                if (fresh.length) this.chime();
+                this.orders = d.orders; this.calls = d.calls;
+            } catch (e) {}
+        },
+        async act(id, action) {
+            await fetch(base + id + '/' + action + '/', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': '{{ csrf_token }}' } });
+            this.load();
+        },
+        start() { this.load(); setInterval(() => this.load(), 7000); document.addEventListener('visibilitychange', () => this.load()); },
+    };
+}
+</script>
+{% endif %}

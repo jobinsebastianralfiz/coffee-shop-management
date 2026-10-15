@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ customer.business_name }}{% endblock %}
+{% block page_title %}{{ customer.business_name }}{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'retail:customers' %}" class="kf-arrow kf-arrow-light" aria-label="Back to customers">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <p class="truncate">{{ customer.customer_code }} · {{ customer.get_customer_type_display }}</p>
+            {% if customer.is_active %}
+            <span class="kf-tag g">Active</span>
+            {% else %}
+            <span class="kf-tag h">Inactive</span>
+            {% endif %}
+            {% if customer.is_credit_exceeded %}
+            <span class="kf-tag r">Over credit limit</span>
+            {% endif %}
+        </div>
+        <div class="kf-actions">
+            <a href="{% url 'retail:customer_statement' customer.pk %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Statement
+            </a>
+            <a href="{% url 'retail:customer_edit' customer.pk %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+                Edit
+            </a>
+            <a href="{% url 'retail:payment_receive' %}?customer={{ customer.pk }}" class="btn-yellow !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Receive Payment
+            </a>
+        </div>
+    </div>
+
+    <!-- Key numbers -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="kf-tile is-dark">
+            <span class="kf-ic is-yellow"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ customer.current_balance }}</span><span class="l">Outstanding balance</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-light"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ customer.credit_limit }}</span><span class="l">Credit limit</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic {% if customer.is_credit_exceeded %}is-red{% else %}is-green{% endif %}"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ customer.available_credit }}</span><span class="l">Available credit</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-soft"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ customer.payment_terms_days }} days</span><span class="l">Terms · {{ customer.discount_percentage|floatformat:"-2" }}% discount</span></div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Main -->
+        <div class="lg:col-span-2 space-y-4 min-w-0">
+            <!-- Unpaid invoices -->
+            <div class="kf-card overflow-hidden">
+                <div class="kf-cardhead px-5 pt-5 pb-3">
+                    <div>
+                        <h3 class="kf-h">Open Invoices</h3>
+                        <p class="text-xs text-slate-600 mt-0.5">Unpaid and partially paid, by due date</p>
+                    </div>
+                    <a href="{% url 'retail:invoices' %}" class="kf-arrow kf-arrow-light" aria-label="All invoices" title="All invoices">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                    </a>
+                </div>
+                {% if invoices %}
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr>
+                                <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Invoice</th>
+                                <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Due</th>
+                                <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Amount</th>
+                                <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Balance</th>
+                                <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200/60">
+                            {% for invoice in invoices %}
+                            <tr class="hover:bg-white/50">
+                                <td class="px-4 py-2.5">
+                                    <a href="{% url 'retail:invoice_detail' invoice.pk %}" class="text-sm text-slate-900 hover:underline whitespace-nowrap">{{ invoice.invoice_number }}</a>
+                                    <p class="text-xs text-slate-500 whitespace-nowrap">{{ invoice.invoice_date|date:"d M Y" }}</p>
+                                </td>
+                                <td class="px-4 py-2.5 text-sm whitespace-nowrap {% if invoice.is_overdue %}text-red-600{% else %}text-slate-700{% endif %}">{{ invoice.due_date|date:"d M Y" }}</td>
+                                <td class="px-4 py-2.5 text-right text-sm text-slate-700 tabular whitespace-nowrap">{{ currency_symbol }}{{ invoice.amount }}</td>
+                                <td class="px-4 py-2.5 text-right text-sm text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ invoice.balance_due }}</td>
+                                <td class="px-4 py-2.5">
+                                    <span class="kf-tag {% if invoice.status == 'paid' %}g{% elif invoice.status == 'overdue' or invoice.is_overdue %}r{% elif invoice.status == 'partial' %}s{% elif invoice.status == 'cancelled' %}h{% elif invoice.status == 'draft' %}o{% else %}ys{% endif %} whitespace-nowrap">{% if invoice.is_overdue and invoice.status != 'overdue' %}Overdue{% else %}{{ invoice.get_status_display }}{% endif %}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="kf-empty !pt-2">
+                    <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+                    <b>No open invoices</b>
+                    <span>This customer is all settled up</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Recent sales -->
+                <div class="kf-card p-5 min-w-0">
+                    <div class="kf-cardhead mb-3">
+                        <h3 class="kf-h">Recent Sales</h3>
+                        <a href="{% url 'retail:sales' %}" class="kf-arrow kf-arrow-light" aria-label="All sales" title="All sales">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                        </a>
+                    </div>
+                    {% if sales %}
+                    <ul class="kf-rows">
+                        {% for sale in sales %}
+                        <li>
+                            <a href="{% url 'retail:sale_detail' sale.pk %}">
+                                <span class="flex-1 min-w-0 pl-2"><b>{{ sale.sale_number }}</b><small>{{ sale.created_at|date:"d M Y" }} · {{ sale.get_payment_status_display }}</small></span>
+                                <span class="text-sm tabular whitespace-nowrap">{{ currency_symbol }}{{ sale.total_amount }}</span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="kf-empty !py-4">
+                        <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg></span>
+                        <b>No sales yet</b>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Recent payments -->
+                <div class="kf-card p-5 min-w-0">
+                    <div class="kf-cardhead mb-3">
+                        <h3 class="kf-h">Recent Payments</h3>
+                        <a href="{% url 'retail:payments' %}" class="kf-arrow kf-arrow-light" aria-label="All payments" title="All payments">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                        </a>
+                    </div>
+                    {% if payments %}
+                    <ul class="kf-rows">
+                        {% for payment in payments %}
+                        <li>
+                            <a href="{% url 'retail:payment_receipt' payment.pk %}">
+                                <span class="flex-1 min-w-0 pl-2"><b>{{ payment.receipt_number }}</b><small>{{ payment.payment_date|date:"d M Y" }} · {{ payment.get_payment_method_display }}{% if payment.invoice %} · {{ payment.invoice.invoice_number }}{% endif %}</small></span>
+                                <span class="text-sm tabular whitespace-nowrap text-emerald-600">{{ currency_symbol }}{{ payment.amount }}</span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="kf-empty !py-4">
+                        <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></span>
+                        <b>No payments yet</b>
+                        <a href="{% url 'retail:payment_receive' %}?customer={{ customer.pk }}" class="btn-secondary !h-9 !px-4 !text-[13px] mt-2">Receive Payment</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-4 min-w-0">
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-3">Contact</h3>
+                <dl class="space-y-2.5 text-sm">
+                    <div>
+                        <dt class="text-xs text-slate-600">Contact person</dt>
+                        <dd class="text-slate-900">{{ customer.name }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs text-slate-600">Phone</dt>
+                        <dd class="text-slate-900 tabular"><a href="tel:{{ customer.phone }}" class="hover:underline">{{ customer.phone }}</a></dd>
+                    </div>
+                    {% if customer.email %}
+                    <div>
+                        <dt class="text-xs text-slate-600">Email</dt>
+                        <dd class="text-slate-900 break-all"><a href="mailto:{{ customer.email }}" class="hover:underline">{{ customer.email }}</a></dd>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <dt class="text-xs text-slate-600">Address</dt>
+                        <dd class="text-slate-900">{{ customer.full_address|default:"-" }}</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-3">Business</h3>
+                <dl class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <dt class="text-xs text-slate-600">GST</dt>
+                        <dd class="text-slate-900 tabular break-all">{{ customer.gst_number|default:"-" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs text-slate-600">PAN</dt>
+                        <dd class="text-slate-900 tabular break-all">{{ customer.pan_number|default:"-" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs text-slate-600">Outlet</dt>
+                        <dd class="text-slate-900">{{ customer.outlet.name }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs text-slate-600">Price tier</dt>
+                        <dd class="text-slate-900">{{ customer.price_tier|capfirst }}</dd>
+                    </div>
+                    <div class="col-span-2">
+                        <dt class="text-xs text-slate-600">Customer since</dt>
+                        <dd class="text-slate-900">{{ customer.created_at|date:"d M Y" }}</dd>
+                    </div>
+                </dl>
+            </div>
+
+            {% if customer.notes %}
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-2">Notes</h3>
+                <p class="text-sm text-slate-700 whitespace-pre-line">{{ customer.notes }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

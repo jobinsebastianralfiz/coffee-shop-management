@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}Sales{% endblock %}
+{% block page_title %}Retail Sales{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <!-- Filters -->
+    <div class="kf-pagehead">
+        <p>Retail and wholesale sales, with payment status</p>
+    </div>
+    <div>
+        <form method="GET" class="flex flex-wrap items-center gap-2">
+            <input type="date" name="from" value="{{ date_from }}" class="h-10 px-3 border border-slate-200 !rounded-full text-sm bg-white">
+            <input type="date" name="to" value="{{ date_to }}" class="h-10 px-3 border border-slate-200 !rounded-full text-sm bg-white">
+            <select name="type" class="h-10 px-3 border border-slate-200 !rounded-full text-sm bg-white">
+                <option value="">All Types</option>
+                <option value="retail" {% if sale_type == 'retail' %}selected{% endif %}>Retail</option>
+                <option value="wholesale" {% if sale_type == 'wholesale' %}selected{% endif %}>Wholesale</option>
+            </select>
+            <select name="status" class="h-10 px-3 border border-slate-200 !rounded-full text-sm bg-white">
+                <option value="">All Status</option>
+                <option value="paid" {% if payment_status == 'paid' %}selected{% endif %}>Paid</option>
+                <option value="pending" {% if payment_status == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="partial" {% if payment_status == 'partial' %}selected{% endif %}>Partially paid</option>
+            </select>
+            <button type="submit" class="btn-primary !h-10 !px-4 !text-[13px]">Filter</button>
+        </form>
+    </div>
+
+    <!-- Sales Table -->
+    <div class="kf-card overflow-hidden">
+        <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Sale #</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Type</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Customer</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Total</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Payment</th>
+                    <th class="px-4 py-3 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Date</th>
+                    <th class="px-4 py-3 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200/60">
+                {% for sale in sales %}
+                <tr class="hover:bg-white/50">
+                    <td class="px-4 py-2.5 whitespace-nowrap">
+                        <a href="{% url 'retail:sale_detail' sale.pk %}" class="text-slate-900 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-900">{{ sale.sale_number }}</a>
+                    </td>
+                    <td class="px-4 py-2.5">
+                        <span class="kf-tag {% if sale.sale_type == 'retail' %}s{% else %}ys{% endif %}">
+                            {{ sale.get_sale_type_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2.5 text-sm text-slate-700">{{ sale.wholesale_customer.business_name|default:"Walk-in" }}</td>
+                    <td class="px-4 py-2.5 text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ sale.total_amount }}</td>
+                    <td class="px-4 py-2.5">
+                        <span class="kf-tag {% if sale.payment_status == 'paid' %}g{% elif sale.payment_status == 'cancelled' or sale.payment_status == 'refunded' %}r{% else %}ys{% endif %}">
+                            {{ sale.get_payment_status_display }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-2.5 text-[13px] text-slate-600 tabular whitespace-nowrap">{{ sale.created_at|date:"M d, Y H:i" }}</td>
+                    <td class="px-4 py-2.5 text-right">
+                        <a href="{% url 'retail:sale_receipt' sale.pk %}" class="w-9 h-9 inline-grid place-items-center rounded-full text-slate-600 hover:text-slate-900 hover:bg-white" title="Print Receipt">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                            </svg>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-4">
+                        <div class="kf-empty">
+                            <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></span>
+                            <b>No sales found</b>
+                            <span>Try a different date range or filter</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+
+        {% if sales.has_other_pages %}
+        <div class="px-4 py-3 border-t border-slate-200/60 flex flex-wrap items-center justify-between gap-2">
+            <p class="text-[13px] text-slate-600">Page {{ sales.number }} of {{ sales.paginator.num_pages }}</p>
+            <div class="flex gap-2">
+                {% if sales.has_previous %}
+                <a href="?page={{ sales.previous_page_number }}" class="btn-secondary !h-9 !px-4 !text-[13px]">Previous</a>
+                {% endif %}
+                {% if sales.has_next %}
+                <a href="?page={{ sales.next_page_number }}" class="btn-secondary !h-9 !px-4 !text-[13px]">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

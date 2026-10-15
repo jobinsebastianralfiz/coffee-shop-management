@@ -1,0 +1,85 @@
+{% extends "ordering/base.html" %}
+
+{% block title %}Welcome · Table {{ table.number }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex flex-col">
+    <main class="flex-1 px-4 pt-6 pb-10">
+        <div class="w-full max-w-md mx-auto space-y-4">
+            <!-- Hero -->
+            <section class="kf-dcard kf-glow-dark p-6 text-center space-y-4 overflow-hidden">
+                <div class="flex justify-center">
+                    {% if business.logo %}
+                    <img src="{{ business.logo.url }}" alt="" class="w-20 h-20 rounded-full object-contain bg-white p-1.5">
+                    {% else %}
+                    <span class="w-20 h-20 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center text-3xl font-light">{{ business.business_name|slice:":1" }}</span>
+                    {% endif %}
+                </div>
+                <div>
+                    <p class="text-sm text-slate-400">Welcome to</p>
+                    <h1 class="text-[30px] font-light leading-tight tracking-tight text-white">{{ business.business_name }}</h1>
+                    {% if business.tagline %}<p class="text-sm text-slate-300 mt-1">{{ business.tagline }}</p>{% endif %}
+                </div>
+                <div class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                    <span class="text-white">Table {{ table.number }}</span>
+                    {% if table.name %}<span class="text-slate-400 text-sm">· {{ table.name }}</span>{% endif %}
+                </div>
+            </section>
+
+            <!-- Current bill -->
+            {% if current_order %}
+            <section class="kf-card p-4 flex items-center gap-3">
+                <span class="kf-ic is-yellow flex-none">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                </span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm text-slate-900">Your bill · Seat {{ current_seat }}</p>
+                    <p class="text-xs text-slate-600 tabular">#{{ current_order.order_number }} · {{ current_order.total_amount }}</p>
+                </div>
+                <a href="{% url 'ordering:order_detail' table_uuid=table.uuid order_uuid=current_order.uuid %}" class="btn-secondary !h-10 !px-4 !text-[13px]">Track</a>
+                {% if current_order.balance_due > 0 %}
+                <a href="{% url 'payments:pay' order_uuid=current_order.uuid %}" class="btn-yellow !h-10 !px-4 !text-[13px]">Pay</a>
+                {% endif %}
+            </section>
+            {% endif %}
+
+            <!-- Actions -->
+            <nav class="grid grid-cols-2 gap-3" aria-label="What would you like to do?">
+                <a href="{% url 'ordering:menu' table_uuid=table.uuid %}" class="kf-card p-4 flex flex-col gap-6 active:scale-[0.98] transition-transform">
+                    <span class="kf-ic is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg></span>
+                    <span><span class="block text-[17px] text-slate-900">View menu</span><span class="block text-xs text-slate-600">Dishes, prices, photos</span></span>
+                </a>
+                {% if ordering_enabled %}
+                <a href="{% if current_seat %}{% url 'ordering:menu' table_uuid=table.uuid %}{% else %}{% url 'ordering:select_seat' table_uuid=table.uuid %}{% endif %}" class="kf-dcard p-4 flex flex-col gap-6 active:scale-[0.98] transition-transform">
+                    <span class="w-12 h-12 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></span>
+                    <span><span class="block text-[17px] text-white">Order now</span><span class="block text-xs text-slate-400">From your phone</span></span>
+                </a>
+                {% endif %}
+                <a href="{% url 'ordering:call_waiter' table_uuid=table.uuid %}?next=home" class="kf-card p-4 flex {% if ordering_enabled %}col-span-2 items-center gap-4{% else %}flex-col gap-6{% endif %} active:scale-[0.98] transition-transform">
+                    <span class="kf-ic is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg></span>
+                    <span><span class="block text-[17px] text-slate-900">Call waiter</span><span class="block text-xs text-slate-600">We'll come to you</span></span>
+                </a>
+                {% if not ordering_enabled %}
+                <div class="kf-card p-4 flex flex-col justify-end text-xs text-slate-600">Ordering from the phone is paused right now. A staff member will take your order.</div>
+                {% endif %}
+            </nav>
+
+            <!-- How it works -->
+            {% if ordering_enabled %}
+            <section class="kf-card p-4">
+                <ol class="grid grid-cols-3 gap-2 text-center text-xs text-slate-600">
+                    <li><span class="block text-[20px] font-light text-slate-900">1</span>Pick your seat</li>
+                    <li><span class="block text-[20px] font-light text-slate-900">2</span>Add dishes</li>
+                    <li><span class="block text-[20px] font-light text-slate-900">3</span>Pay from your phone</li>
+                </ol>
+            </section>
+            {% endif %}
+
+            {% if outlet %}
+            <p class="text-center text-xs text-slate-500">{{ outlet.name }}{% if outlet.phone %} · <a href="tel:{{ outlet.phone }}" class="underline">{{ outlet.phone }}</a>{% endif %}</p>
+            {% endif %}
+        </div>
+    </main>
+</div>
+{% endblock %}

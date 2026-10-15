@@ -1,0 +1,176 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table QR cards | {{ business.business_name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% include "partials/theme_tailwind.html" %}
+    <style>
+        :root { --qr-dark: #2A2A2C; --qr-yellow: #F5C842; --qr-ink: #1E1E1E; --qr-muted: #5E5E62; }
+        @page { size: A4; margin: 8mm; }
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+        .sheet { display: flex; flex-wrap: wrap; gap: 4mm; justify-content: center; }
+        .qr-card { position: relative; overflow: hidden; break-inside: avoid; page-break-inside: avoid; font-family: 'Outfit', 'Helvetica Neue', Arial, sans-serif; color: var(--qr-ink); }
+        .qr-card .qr-tile { position: relative; background: #fff; }
+        .qr-card .qr-tile svg { display: block; width: 100%; height: auto; }
+        .qr-card .qr-badge { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 21%; aspect-ratio: 1; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; padding: 1.4%; }
+        .qr-card .qr-badge img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
+        .qr-card .qr-badge span { width: 100%; height: 100%; border-radius: 50%; background: var(--qr-dark); color: var(--qr-yellow); display: flex; align-items: center; justify-content: center; font-weight: 500; }
+
+        /* Table tent: 95 x 135 mm, four to an A4 sheet */
+        .tent { width: 95mm; height: 135mm; border-radius: 6mm; padding: 7mm 7mm 6mm; display: flex; flex-direction: column; align-items: center; text-align: center;
+            background: radial-gradient(120% 70% at 100% 100%, #F8E7A6 0%, rgba(248, 231, 166, 0.45) 45%, transparent 72%), radial-gradient(80% 50% at 0% 0%, #FFFFFF 0%, transparent 70%), #F3F3F1;
+            outline: 0.25mm dashed #C9C9CE; outline-offset: 0; }
+        .tent .brand { display: flex; align-items: center; gap: 2.4mm; }
+        .tent .brand img, .tent .brand .mono { width: 9mm; height: 9mm; border-radius: 50%; object-fit: contain; background: #fff; }
+        .tent .brand .mono { background: var(--qr-dark); color: var(--qr-yellow); display: flex; align-items: center; justify-content: center; font-size: 4.2mm; }
+        .tent .brand b { font-weight: 500; font-size: 4.4mm; letter-spacing: -0.01em; }
+        .tent h2 { margin-top: 5mm; font-weight: 300; font-size: 7.4mm; line-height: 1.05; letter-spacing: -0.02em; }
+        .tent .sub { margin-top: 1.2mm; font-size: 3.3mm; color: var(--qr-muted); }
+        .tent .qr-tile { margin-top: 4.5mm; width: 56mm; border-radius: 5mm; padding: 2.4mm; box-shadow: 0 0 0 0.3mm rgba(30, 30, 30, 0.08); }
+        .tent .qr-badge span { font-size: 5mm; }
+        .tent .pill { margin-top: 4.5mm; display: inline-flex; align-items: baseline; gap: 2mm; background: var(--qr-dark); color: #fff; border-radius: 999px; padding: 1.8mm 5.5mm; }
+        .tent .pill small { font-size: 2.7mm; letter-spacing: 0.18em; color: #A9A9AE; }
+        .tent .pill strong { font-size: 6.4mm; font-weight: 400; color: var(--qr-yellow); line-height: 1; }
+        .tent .steps { margin-top: auto; width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2mm; font-size: 2.7mm; color: var(--qr-muted); }
+        .tent .steps i { display: flex; margin: 0 auto 1mm; width: 6.4mm; height: 6.4mm; border-radius: 50%; background: #fff; align-items: center; justify-content: center; color: var(--qr-ink); font-style: normal; font-size: 3mm; }
+        .tent .wifi { margin-top: 2.6mm; font-size: 2.8mm; color: var(--qr-muted); }
+        .tent .wifi b { color: var(--qr-ink); font-weight: 500; }
+
+        /* Square sticker: 80 x 80 mm, six to an A4 sheet */
+        .sticker { width: 80mm; height: 80mm; border-radius: 6mm; padding: 5mm; background: var(--qr-dark); color: #fff; display: flex; flex-direction: column; align-items: center; outline: 0.25mm dashed #C9C9CE; }
+        .sticker .top { font-size: 2.8mm; letter-spacing: 0.22em; color: var(--qr-yellow); }
+        .sticker .qr-tile { margin-top: 2.6mm; width: 47mm; border-radius: 4mm; padding: 1.8mm; }
+        .sticker .qr-badge span { font-size: 4mm; }
+        .sticker .bottom { margin-top: auto; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 2mm; }
+        .sticker .bottom strong { font-weight: 400; font-size: 5.6mm; line-height: 1; }
+        .sticker .bottom strong em { font-style: normal; color: var(--qr-yellow); }
+        .sticker .bottom span { font-size: 2.8mm; color: #A9A9AE; text-align: right; max-width: 34mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        @media print {
+            body { background: #fff !important; }
+            .no-print { display: none !important; }
+            .preview { padding: 0 !important; }
+            .sheet { gap: 4mm; }
+        }
+    </style>
+</head>
+<body class="kf kf-frame-bg min-h-screen">
+    <!-- Options (screen only) -->
+    <form method="get" class="no-print max-w-6xl mx-auto px-4 pt-6 space-y-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="{% url 'dashboard:tables' %}" class="btn-secondary !h-10 !px-4 !text-[13px]">← Tables</a>
+            <div class="min-w-0">
+                <h1 class="text-[26px] font-light leading-tight">Table QR cards</h1>
+                <p class="text-[13px] text-slate-600">Print, cut along the dashed line and place one on each table. Guests scan to see the menu and order.</p>
+            </div>
+            <button type="button" onclick="window.print()" class="btn-yellow !h-11 !px-6 ml-auto">Print / Save as PDF</button>
+        </div>
+
+        <div class="kf-card p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label class="block">
+                <span class="kf-label">Design</span>
+                <select name="style" class="kf-input" onchange="this.form.submit()">
+                    {% for key, label in styles.items %}<option value="{{ key }}" {% if key == style %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+            </label>
+            {% if outlets %}
+            <label class="block">
+                <span class="kf-label">Outlet</span>
+                <select name="outlet" class="kf-input" onchange="this.form.submit()">
+                    <option value="">All outlets</option>
+                    {% for o in outlets %}<option value="{{ o.pk }}" {% if o.pk|stringformat:'s' == outlet_id %}selected{% endif %}>{{ o.name }}</option>{% endfor %}
+                </select>
+            </label>
+            {% endif %}
+            <label class="block">
+                <span class="kf-label">Floor</span>
+                <select name="floor" class="kf-input" onchange="this.form.submit()">
+                    <option value="">All floors</option>
+                    {% for f in floors %}<option value="{{ f.pk }}" {% if f.pk|stringformat:'s' == floor_id %}selected{% endif %}>{{ f.name }}</option>{% endfor %}
+                </select>
+            </label>
+            {% if style == 'tent' %}
+            <label class="block">
+                <span class="kf-label">Headline</span>
+                <input name="headline" value="{{ headline }}" maxlength="60" class="kf-input">
+            </label>
+            <label class="block">
+                <span class="kf-label">Second line</span>
+                <input name="subline" value="{{ subline }}" maxlength="80" class="kf-input">
+            </label>
+            <label class="block">
+                <span class="kf-label">Wi-Fi name (optional)</span>
+                <input name="wifi" value="{{ wifi_name }}" maxlength="40" class="kf-input">
+            </label>
+            <label class="block">
+                <span class="kf-label">Wi-Fi password (optional)</span>
+                <input name="wifipass" value="{{ wifi_pass }}" maxlength="40" class="kf-input">
+            </label>
+            {% endif %}
+            <div class="sm:col-span-2 lg:col-span-4">
+                <span class="kf-label">Tables <span class="text-slate-500">(none ticked = all)</span></span>
+                <div class="flex flex-wrap gap-1.5">
+                    {% for t in all_tables %}
+                    <label class="kf-tag w cursor-pointer !py-1.5"><input type="checkbox" name="t" value="{{ t.pk }}" {% if t.pk|stringformat:'s' in picked %}checked{% endif %} class="mr-1">{{ t.number }}</label>
+                    {% empty %}
+                    <span class="text-sm text-slate-600">No tables yet.</span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="sm:col-span-2 lg:col-span-4 flex items-center justify-between gap-3">
+                <p class="text-xs text-slate-600">
+                    Orders from these QR codes only reach the kitchen once the guest is confirmed at the table (by location or a staff tap).
+                    If a photo of a card is misused, use <b class="font-medium">Regenerate QR</b> on that table and reprint it; the old code stops working.
+                </p>
+                <button type="submit" class="btn-primary !h-10 !px-5 !text-[13px] flex-none">Update preview</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Cards -->
+    <main class="preview px-4 py-6">
+        <div class="sheet">
+            {% for c in cards %}
+            {% if style == 'sticker' %}
+            <article class="qr-card sticker">
+                <p class="top">SCAN · MENU · ORDER</p>
+                <div class="qr-tile">
+                    {{ c.svg }}
+                    <div class="qr-badge">{% if business.logo %}<img src="{{ business.logo.url }}" alt="">{% else %}<span>{{ business.business_name|slice:":1" }}</span>{% endif %}</div>
+                </div>
+                <div class="bottom">
+                    <strong>Table <em>{{ c.table.number }}</em></strong>
+                    <span>{{ business.business_name }}</span>
+                </div>
+            </article>
+            {% else %}
+            <article class="qr-card tent">
+                <div class="brand">
+                    {% if business.logo %}<img src="{{ business.logo.url }}" alt="">{% else %}<span class="mono">{{ business.business_name|slice:":1" }}</span>{% endif %}
+                    <b>{{ business.business_name }}</b>
+                </div>
+                <h2>{{ headline }}</h2>
+                <p class="sub">{{ subline }}</p>
+                <div class="qr-tile">
+                    {{ c.svg }}
+                    <div class="qr-badge">{% if business.logo %}<img src="{{ business.logo.url }}" alt="">{% else %}<span>{{ business.business_name|slice:":1" }}</span>{% endif %}</div>
+                </div>
+                <div class="pill"><small>TABLE</small><strong>{{ c.table.number }}</strong></div>
+                {% if wifi_name %}<p class="wifi">Wi-Fi <b>{{ wifi_name }}</b>{% if wifi_pass %} · Password <b>{{ wifi_pass }}</b>{% endif %}</p>{% endif %}
+                <div class="steps">
+                    <div><i>1</i>Scan the code</div>
+                    <div><i>2</i>Pick your dishes</div>
+                    <div><i>3</i>Pay from your phone</div>
+                </div>
+            </article>
+            {% endif %}
+            {% empty %}
+            <p class="no-print kf-card p-6 text-center text-slate-600">No tables to print. Add tables first.</p>
+            {% endfor %}
+        </div>
+    </main>
+</body>
+</html>

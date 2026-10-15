@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+
+{% block title %}Invoice {{ invoice.invoice_number }}{% endblock %}
+{% block page_title %}Invoice {{ invoice.invoice_number }}{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'retail:invoices' %}" class="kf-arrow kf-arrow-light flex-none" aria-label="Back to invoices" title="Back to Invoices">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </a>
+            <p class="truncate">{{ invoice.customer.business_name }} · {{ invoice.invoice_date|date:"M d, Y" }}</p>
+            <span class="kf-tag {% if invoice.status == 'paid' %}g{% elif invoice.status == 'overdue' %}r{% elif invoice.status == 'partial' %}s{% elif invoice.status == 'pending' %}ys{% elif invoice.status == 'cancelled' %}o{% else %}h{% endif %}">{{ invoice.get_status_display }}</span>
+        </div>
+        <div class="kf-actions">
+            <a href="{% url 'retail:invoice_print' invoice.pk %}" target="_blank" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                Print Invoice
+            </a>
+            {% if invoice.balance_due > 0 and invoice.status != 'cancelled' %}
+            <a href="{% url 'retail:payment_receive' %}?customer={{ invoice.customer.pk }}&invoice={{ invoice.pk }}" class="btn-yellow !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Receive Payment
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Key numbers -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="kf-tile">
+            <span class="kf-ic"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ invoice.amount }}</span><span class="l">Invoice amount</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-green"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ invoice.paid_amount }}</span><span class="l">Paid</span></div>
+        </div>
+        <div class="kf-tile {% if invoice.balance_due > 0 %}is-yellow{% endif %}">
+            <span class="kf-ic is-light"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ invoice.balance_due }}</span><span class="l">Balance due</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic {% if invoice.is_overdue %}is-red{% else %}is-soft{% endif %}"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></span>
+            <div class="min-w-0"><span class="v !text-xl {% if invoice.is_overdue %}!text-red-600{% endif %}">{{ invoice.due_date|date:"M d, Y" }}</span><span class="l">{% if invoice.is_overdue %}Overdue since{% else %}Due date{% endif %}</span></div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2 space-y-4 min-w-0">
+            <!-- Line items -->
+            <div class="kf-card overflow-hidden">
+                <div class="kf-cardhead px-5 pt-5 pb-3">
+                    <div>
+                        <h3 class="kf-h">Items</h3>
+                        {% if invoice.sale %}<p class="text-xs text-slate-600 mt-0.5">From sale <a href="{% url 'retail:sale_detail' invoice.sale.pk %}" class="underline decoration-slate-300 underline-offset-2 hover:decoration-slate-900">{{ invoice.sale.sale_number }}</a></p>{% endif %}
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Item</th>
+                            <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">HSN</th>
+                            <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Qty</th>
+                            <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Rate</th>
+                            <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Disc.</th>
+                            <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Taxable</th>
+                            <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">GST</th>
+                            <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200/60">
+                        {% for item in items %}
+                        <tr>
+                            <td class="px-4 py-2.5">
+                                <p class="text-sm text-slate-900">{{ item.product_name }}</p>
+                                <p class="text-xs text-slate-500">{{ item.product_sku }}</p>
+                            </td>
+                            <td class="px-4 py-2.5 text-[13px] text-slate-600 whitespace-nowrap">{{ item.hsn_code|default:"-" }}</td>
+                            <td class="px-4 py-2.5 text-right text-sm tabular whitespace-nowrap">{{ item.quantity|floatformat:"-2" }}</td>
+                            <td class="px-4 py-2.5 text-right text-sm tabular whitespace-nowrap">{{ item.unit_price }}</td>
+                            <td class="px-4 py-2.5 text-right text-sm text-slate-600 tabular whitespace-nowrap">{% if item.discount_amount > 0 %}{{ item.discount_amount }}{% else %}-{% endif %}</td>
+                            <td class="px-4 py-2.5 text-right text-sm tabular whitespace-nowrap">{{ item.subtotal }}</td>
+                            <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                                <p class="text-sm tabular">{{ item.tax_rate|floatformat:"-2" }}%</p>
+                                <p class="text-[11px] text-slate-500 tabular">{% if item.igst_amount > 0 %}IGST {{ item.igst_amount|floatformat:2 }}{% else %}C {{ item.cgst_amount|floatformat:2 }} · S {{ item.sgst_amount|floatformat:2 }}{% endif %}</p>
+                            </td>
+                            <td class="px-4 py-2.5 text-right text-sm text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ item.total|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="px-4">
+                                <div class="kf-empty">
+                                    <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></span>
+                                    <b>No line items</b>
+                                    <span>This invoice has no linked sale items</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+
+                {% if invoice.sale %}
+                <div class="px-5 py-4 border-t border-slate-200/60 flex justify-end">
+                    <dl class="w-full sm:w-72 space-y-1.5 text-sm">
+                        <div class="flex justify-between gap-3"><dt class="text-slate-600">Subtotal</dt><dd class="tabular">{{ currency_symbol }}{{ invoice.sale.subtotal }}</dd></div>
+                        {% if invoice.sale.discount_amount > 0 %}
+                        <div class="flex justify-between gap-3"><dt class="text-slate-600">Discount{% if invoice.sale.discount_percentage > 0 %} ({{ invoice.sale.discount_percentage|floatformat:"-2" }}%){% endif %}</dt><dd class="tabular">-{{ currency_symbol }}{{ invoice.sale.discount_amount }}</dd></div>
+                        {% endif %}
+                        {% if invoice.sale.cgst_amount > 0 %}
+                        <div class="flex justify-between gap-3"><dt class="text-slate-600">CGST</dt><dd class="tabular">{{ currency_symbol }}{{ invoice.sale.cgst_amount }}</dd></div>
+                        {% endif %}
+                        {% if invoice.sale.sgst_amount > 0 %}
+                        <div class="flex justify-between gap-3"><dt class="text-slate-600">SGST</dt><dd class="tabular">{{ currency_symbol }}{{ invoice.sale.sgst_amount }}</dd></div>
+                        {% endif %}
+                        {% if invoice.sale.igst_amount > 0 %}
+                        <div class="flex justify-between gap-3"><dt class="text-slate-600">IGST</dt><dd class="tabular">{{ currency_symbol }}{{ invoice.sale.igst_amount }}</dd></div>
+                        {% endif %}
+                        <div class="flex justify-between gap-3 pt-2 border-t border-slate-200/60"><dt class="text-slate-900">Sale total</dt><dd class="text-lg font-light tabular">{{ currency_symbol }}{{ invoice.sale.total_amount }}</dd></div>
+                        <div class="flex justify-between gap-3"><dt class="text-slate-600">Invoice amount</dt><dd class="tabular">{{ currency_symbol }}{{ invoice.amount }}</dd></div>
+                        <div class="flex justify-between gap-3"><dt class="text-slate-600">Paid</dt><dd class="tabular text-emerald-600">{{ currency_symbol }}{{ invoice.paid_amount }}</dd></div>
+                        <div class="flex justify-between gap-3"><dt class="text-slate-900">Balance due</dt><dd class="tabular text-slate-900">{{ currency_symbol }}{{ invoice.balance_due }}</dd></div>
+                    </dl>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Payments -->
+            <div class="kf-card p-5">
+                <div class="kf-cardhead mb-3">
+                    <div>
+                        <h3 class="kf-h">Payments</h3>
+                        <p class="text-xs text-slate-600 mt-0.5">Payments applied to this invoice</p>
+                    </div>
+                    <a href="{% url 'retail:payments' %}" class="kf-arrow kf-arrow-light" aria-label="All payments" title="All Payments">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                    </a>
+                </div>
+                {% if payments %}
+                <ul class="kf-rows">
+                    {% for payment in payments %}
+                    <li>
+                        <a href="{% url 'retail:payment_receipt' payment.pk %}" target="_blank">
+                            <span class="kf-ic is-green is-sm"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></span>
+                            <div class="flex-1 min-w-0">
+                                <b>{{ payment.receipt_number }}</b>
+                                <small>{{ payment.payment_date|date:"M d, Y" }} · {{ payment.get_payment_method_display }}{% if payment.reference_number %} · {{ payment.reference_number }}{% endif %}</small>
+                            </div>
+                            <span class="text-sm tabular whitespace-nowrap">{{ currency_symbol }}{{ payment.amount }}</span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="kf-empty !py-5">
+                    <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg></span>
+                    <b>No payments yet</b>
+                    <span>Payments recorded against this invoice show here</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-4 min-w-0">
+            <div class="kf-card p-5">
+                <div class="kf-cardhead mb-3">
+                    <h3 class="kf-h">Bill To</h3>
+                    <a href="{% url 'retail:customer_detail' invoice.customer.pk %}" class="kf-arrow kf-arrow-light" aria-label="View customer" title="View Customer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                    </a>
+                </div>
+                <p class="text-sm text-slate-900">{{ invoice.customer.business_name }}</p>
+                <p class="text-xs text-slate-500">{{ invoice.customer.customer_code }} · {{ invoice.customer.get_customer_type_display }}</p>
+                <div class="mt-3 space-y-2 text-sm">
+                    <div><p class="text-xs text-slate-600">Contact</p><p class="text-slate-900">{{ invoice.customer.name }}{% if invoice.customer.phone %} · {{ invoice.customer.phone }}{% endif %}</p></div>
+                    {% if invoice.customer.email %}<div><p class="text-xs text-slate-600">Email</p><p class="text-slate-900 break-all">{{ invoice.customer.email }}</p></div>{% endif %}
+                    <div><p class="text-xs text-slate-600">Address</p><p class="text-slate-900">{{ invoice.customer.full_address }}</p></div>
+                    {% if invoice.customer.gst_number %}<div><p class="text-xs text-slate-600">GSTIN</p><p class="text-slate-900 font-mono text-[13px]">{{ invoice.customer.gst_number }}</p></div>{% endif %}
+                    <div class="flex justify-between gap-3 pt-2 border-t border-slate-200/60"><span class="text-xs text-slate-600">Account balance</span><span class="tabular {% if invoice.customer.is_credit_exceeded %}text-red-600{% else %}text-slate-900{% endif %}">{{ currency_symbol }}{{ invoice.customer.current_balance }}</span></div>
+                </div>
+            </div>
+
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-3">Details</h3>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between gap-3"><span class="text-slate-600">Invoice date</span><span class="tabular">{{ invoice.invoice_date|date:"M d, Y" }}</span></div>
+                    <div class="flex justify-between gap-3"><span class="text-slate-600">Due date</span><span class="tabular {% if invoice.is_overdue %}text-red-600{% endif %}">{{ invoice.due_date|date:"M d, Y" }}</span></div>
+                    <div class="flex justify-between gap-3"><span class="text-slate-600">Payment terms</span><span>{{ invoice.customer.payment_terms_days }} days</span></div>
+                    {% if invoice.sale.outlet %}<div class="flex justify-between gap-3"><span class="text-slate-600">Outlet</span><span class="text-right">{{ invoice.sale.outlet.name }}</span></div>{% endif %}
+                    {% if invoice.created_by %}<div class="flex justify-between gap-3"><span class="text-slate-600">Created by</span><span class="text-right">{{ invoice.created_by.get_full_name|default:invoice.created_by.username }}</span></div>{% endif %}
+                    <div class="flex justify-between gap-3"><span class="text-slate-600">Created</span><span class="tabular">{{ invoice.created_at|date:"M d, Y H:i" }}</span></div>
+                </div>
+            </div>
+
+            {% if invoice.notes or invoice.terms_conditions %}
+            <div class="kf-card p-5">
+                {% if invoice.notes %}
+                <h3 class="kf-h mb-2">Notes</h3>
+                <p class="text-sm text-slate-700 whitespace-pre-line">{{ invoice.notes }}</p>
+                {% endif %}
+                {% if invoice.terms_conditions %}
+                <h3 class="kf-h mb-2 {% if invoice.notes %}mt-4{% endif %}">Terms & Conditions</h3>
+                <p class="text-sm text-slate-700 whitespace-pre-line">{{ invoice.terms_conditions }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

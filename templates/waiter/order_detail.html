@@ -3,62 +3,57 @@
 {% block title %}Order {{ order.order_number }}{% endblock %}
 
 {% block content %}
-<div class="p-4 space-y-6">
+<div class="px-4 pt-5 space-y-4 max-w-md mx-auto">
     <!-- Header -->
-    <div class="flex items-center gap-4">
-        <a href="{% url 'waiter:orders' %}" class="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center">
-            <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'waiter:orders' %}" class="w-11 h-11 rounded-full bg-white/80 flex items-center justify-center flex-none" aria-label="Back to orders">
+            <svg class="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
             </svg>
         </a>
-        <div class="flex-1">
-            <h1 class="text-xl font-bold text-slate-800">{{ order.order_number }}</h1>
-            <p class="text-sm text-slate-500">
+        <div class="flex-1 min-w-0">
+            <h1 class="kf-hello !text-[24px] truncate">{{ order.order_number }}</h1>
+            <p class="text-sm text-slate-600 truncate">
                 {% if order.table %}Table {{ order.table.number }}{% endif %}
                 {% if order.party_name %} - {{ order.party_name }}{% endif %}
             </p>
         </div>
-        <span class="px-3 py-1 text-xs font-semibold rounded-full capitalize
-            {% if order.status == 'ready' %}bg-emerald-100 text-emerald-700
-            {% elif order.status == 'preparing' %}bg-blue-100 text-blue-700
-            {% elif order.status == 'confirmed' %}bg-amber-100 text-amber-700
-            {% elif order.status == 'completed' %}bg-slate-100 text-slate-700
-            {% else %}bg-slate-100 text-slate-700{% endif %}">
+        <span class="kf-tag capitalize
+            {% if order.status == 'ready' %}d
+            {% elif order.status == 'preparing' %}s
+            {% elif order.status == 'confirmed' %}ys
+            {% elif order.status == 'completed' %}g
+            {% elif order.status == 'cancelled' %}r
+            {% else %}o{% endif %}">
             {{ order.get_status_display }}
         </span>
     </div>
 
     <!-- Order Info Card -->
-    <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <div class="grid grid-cols-2 gap-4 text-sm">
-            <div>
-                <p class="text-slate-500">Order Type</p>
-                <p class="font-semibold text-slate-800">{{ order.get_order_type_display }}</p>
-            </div>
-            <div>
-                <p class="text-slate-500">Source</p>
-                <p class="font-semibold text-slate-800">{{ order.get_order_source_display }}</p>
-            </div>
-            <div>
-                <p class="text-slate-500">Created</p>
-                <p class="font-semibold text-slate-800">{{ order.created_at|date:"h:i A" }}</p>
-            </div>
-            <div>
-                <p class="text-slate-500">Elapsed</p>
-                <p class="font-semibold text-slate-800">{{ order.created_at|timesince }}</p>
-            </div>
+    <div class="grid grid-cols-2 gap-2">
+        <div class="kf-tile !py-3">
+            <div class="min-w-0"><span class="v !text-[16px] !font-normal">{{ order.get_order_type_display }}</span><span class="l">Order type</span></div>
+        </div>
+        <div class="kf-tile !py-3">
+            <div class="min-w-0"><span class="v !text-[16px] !font-normal">{{ order.get_order_source_display }}</span><span class="l">Source</span></div>
+        </div>
+        <div class="kf-tile !py-3">
+            <div class="min-w-0"><span class="v !text-[16px] !font-normal">{{ order.created_at|date:"h:i A" }}</span><span class="l">Created</span></div>
+        </div>
+        <div class="kf-tile !py-3">
+            <div class="min-w-0"><span class="v !text-[16px] !font-normal">{{ order.created_at|timesince }}</span><span class="l">Elapsed</span></div>
         </div>
     </div>
 
     <!-- Status Actions -->
-    <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <h2 class="font-semibold text-slate-800 mb-3">Update Status</h2>
+    <div class="kf-card p-4 space-y-3">
+        <h2 class="kf-h">Update status</h2>
         <div class="grid grid-cols-2 gap-2">
             {% if order.status == 'pending' or order.status == 'confirmed' %}
             <form method="POST" action="{% url 'waiter:update_order_status' order.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="status" value="preparing">
-                <button type="submit" class="w-full py-3 rounded-xl bg-blue-100 text-blue-700 font-semibold text-sm touch-active">
+                <button type="submit" class="btn-yellow w-full !px-3 touch-active">
                     Mark Preparing
                 </button>
             </form>
@@ -68,7 +63,7 @@
             <form method="POST" action="{% url 'waiter:update_order_status' order.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="status" value="ready">
-                <button type="submit" class="w-full py-3 rounded-xl bg-emerald-100 text-emerald-700 font-semibold text-sm touch-active">
+                <button type="submit" class="btn-yellow w-full !px-3 touch-active">
                     Mark Ready
                 </button>
             </form>
@@ -78,7 +73,7 @@
             <form method="POST" action="{% url 'waiter:update_order_status' order.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="status" value="completed">
-                <button type="submit" class="w-full py-3 rounded-xl bg-slate-800 text-white font-semibold text-sm touch-active">
+                <button type="submit" class="btn-yellow w-full !px-3 touch-active">
                     Mark Completed
                 </button>
             </form>
@@ -88,7 +83,7 @@
             <form method="POST" action="{% url 'waiter:update_order_status' order.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="status" value="cancelled">
-                <button type="submit" class="w-full py-3 rounded-xl bg-red-100 text-red-700 font-semibold text-sm touch-active"
+                <button type="submit" class="btn-secondary w-full !px-3 !text-red-700 touch-active"
                     onclick="return confirm('Cancel this order?')">
                     Cancel Order
                 </button>
@@ -98,54 +93,48 @@
     </div>
 
     <!-- Order Items -->
-    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div class="p-4 border-b border-slate-100">
-            <h2 class="font-semibold text-slate-800">Items ({{ order.items.count }})</h2>
-        </div>
-        <div class="divide-y divide-slate-100">
+    <div class="kf-card p-4 space-y-3">
+        <h2 class="kf-h">Items ({{ order.items.count }})</h2>
+        <ul class="kf-rows">
             {% for item in order.items.all %}
-            <div class="p-4">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold">
-                            {{ item.quantity }}
-                        </span>
-                        <div>
-                            <p class="font-medium text-slate-800">{{ item.item_name }}</p>
-                            {% if item.special_instructions %}
-                            <p class="text-xs text-slate-500 mt-1">{{ item.special_instructions }}</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <span class="font-semibold text-slate-800">{{ item.total_price }}</span>
+            <li>
+                <div class="!rounded-[22px]">
+                    <span class="kf-rank is-top">{{ item.quantity }}</span>
+                    <span class="flex-1 min-w-0">
+                        <b>{{ item.item_name }}</b>
+                        {% if item.special_instructions %}
+                        <small class="!whitespace-normal">{{ item.special_instructions }}</small>
+                        {% endif %}
+                    </span>
+                    <span class="text-sm tabular pr-1">{{ item.total_price }}</span>
                 </div>
-            </div>
+            </li>
             {% endfor %}
-        </div>
+        </ul>
     </div>
 
     <!-- Order Summary -->
-    <div class="bg-white rounded-2xl p-4 shadow-sm">
-        <div class="space-y-3">
+    <div class="kf-dcard kf-glow-dark p-5">
+        <div class="space-y-2">
             <div class="flex items-center justify-between text-sm">
-                <span class="text-slate-500">Subtotal</span>
-                <span class="text-slate-800">{{ order.subtotal }}</span>
+                <span class="text-slate-400">Subtotal</span>
+                <span class="tabular">{{ order.subtotal }}</span>
             </div>
             {% if order.discount > 0 %}
             <div class="flex items-center justify-between text-sm">
-                <span class="text-slate-500">Discount</span>
-                <span class="text-emerald-600">-{{ order.discount }}</span>
+                <span class="text-slate-400">Discount</span>
+                <span class="text-emerald-400 tabular">-{{ order.discount }}</span>
             </div>
             {% endif %}
             {% if order.tax > 0 %}
             <div class="flex items-center justify-between text-sm">
-                <span class="text-slate-500">Tax</span>
-                <span class="text-slate-800">{{ order.tax }}</span>
+                <span class="text-slate-400">Tax</span>
+                <span class="tabular">{{ order.tax }}</span>
             </div>
             {% endif %}
-            <div class="flex items-center justify-between pt-3 border-t border-slate-200">
-                <span class="font-semibold text-slate-800">Total</span>
-                <span class="text-xl font-bold text-indigo-600">{{ order.total }}</span>
+            <div class="flex items-end justify-between pt-3 mt-1 border-t border-white/10">
+                <span class="text-slate-300">Total</span>
+                <span class="text-[30px] font-light leading-none tracking-tight text-amber-300 tabular">{{ order.total }}</span>
             </div>
         </div>
     </div>

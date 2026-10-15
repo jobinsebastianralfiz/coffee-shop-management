@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Outstanding Receivables{% endblock %}
+{% block page_title %}Outstanding{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'retail:customers' %}" class="kf-arrow kf-arrow-light" aria-label="Back to customers">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <p class="truncate">Money owed by wholesale customers and overdue invoices</p>
+        </div>
+        <div class="kf-actions">
+            <a href="{% url 'retail:aging_report' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                Aging Report
+            </a>
+            <a href="{% url 'retail:payment_receive' %}" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Receive Payment
+            </a>
+        </div>
+    </div>
+
+    <!-- Key numbers -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="kf-tile is-dark">
+            <span class="kf-ic is-yellow"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ currency_symbol }}{{ total_outstanding|floatformat:2 }}</span><span class="l">Total outstanding</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-light"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ customers|length }}</span><span class="l">Customers with balance</span></div>
+        </div>
+        <div class="kf-tile">
+            <span class="kf-ic {% if overdue_invoices %}is-red{% else %}is-green{% endif %}"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+            <div class="min-w-0"><span class="v">{{ overdue_invoices|length }}</span><span class="l">Overdue invoices</span></div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <!-- Customers with balance -->
+        <div class="lg:col-span-3 kf-card overflow-hidden min-w-0">
+            <div class="kf-cardhead px-5 pt-5 pb-3">
+                <div>
+                    <h3 class="kf-h">Customer Balances</h3>
+                    <p class="text-xs text-slate-600 mt-0.5">Highest balance first</p>
+                </div>
+            </div>
+            {% if customers %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Customer</th>
+                            <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Balance</th>
+                            <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Credit Limit</th>
+                            <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200/60">
+                        {% for customer in customers %}
+                        <tr class="hover:bg-white/50">
+                            <td class="px-4 py-2.5">
+                                <a href="{% url 'retail:customer_detail' customer.pk %}" class="text-sm text-slate-900 hover:underline whitespace-nowrap">{{ customer.business_name }}</a>
+                                <p class="text-xs text-slate-500 whitespace-nowrap">{{ customer.name }} · {{ customer.phone }}</p>
+                            </td>
+                            <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                                <p class="tabular {% if customer.is_credit_exceeded %}text-red-600{% else %}text-slate-900{% endif %}">{{ currency_symbol }}{{ customer.current_balance }}</p>
+                                {% if customer.is_credit_exceeded %}<span class="kf-tag r !text-[11px]">Over limit</span>{% endif %}
+                            </td>
+                            <td class="px-4 py-2.5 text-right text-sm text-slate-600 tabular whitespace-nowrap">{{ currency_symbol }}{{ customer.credit_limit }}</td>
+                            <td class="px-4 py-2.5 text-right">
+                                <div class="flex items-center justify-end gap-1">
+                                    <a href="{% url 'retail:customer_statement' customer.pk %}" class="w-9 h-9 grid place-items-center rounded-full text-slate-600 hover:text-slate-900 hover:bg-white" title="Statement">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                    </a>
+                                    <a href="{% url 'retail:payment_receive' %}?customer={{ customer.pk }}" class="w-9 h-9 grid place-items-center rounded-full text-slate-600 hover:text-slate-900 hover:bg-white" title="Receive payment">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="kf-empty !pt-2">
+                <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+                <b>Nothing outstanding</b>
+                <span>No customer owes a balance right now</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Overdue invoices -->
+        <div class="lg:col-span-2 kf-card p-5 min-w-0">
+            <div class="kf-cardhead mb-3">
+                <div>
+                    <h3 class="kf-h">Overdue Invoices</h3>
+                    <p class="text-xs text-slate-600 mt-0.5">Past due date and not fully paid</p>
+                </div>
+                <a href="{% url 'retail:invoices' %}" class="kf-arrow kf-arrow-light" aria-label="All invoices" title="All invoices">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                </a>
+            </div>
+            {% if overdue_invoices %}
+            <ul class="kf-rows">
+                {% for invoice in overdue_invoices %}
+                <li>
+                    <a href="{% url 'retail:invoice_detail' invoice.pk %}">
+                        <span class="kf-ic is-red is-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+                        <span class="flex-1 min-w-0"><b>{{ invoice.customer.business_name }}</b><small>{{ invoice.invoice_number }} · due {{ invoice.due_date|date:"d M Y" }} ({{ invoice.due_date|timesince }} ago)</small></span>
+                        <span class="text-sm tabular whitespace-nowrap text-red-600">{{ currency_symbol }}{{ invoice.balance_due }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="kf-empty !py-4">
+                <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+                <b>No overdue invoices</b>
+                <span>Every invoice is within its terms</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

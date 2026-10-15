@@ -2,41 +2,43 @@
 
 {% block title %}Menu Management{% endblock %}
 
-{% block content %}
-<div class="space-y-6">
-    <!-- Outlet Filter (Super Admin Only) -->
-    {% if outlets and user.role == 'super_admin' %}
-    <div class="flex items-center justify-between bg-white rounded-xl border border-slate-200 p-4">
-        <div class="flex items-center gap-3">
-            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-            </svg>
-            <span class="text-sm font-medium text-slate-700">Filter by Outlet:</span>
-        </div>
-        <select onchange="filterByOutlet(this.value)" class="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-            <option value="">All Outlets</option>
-            {% for outlet in outlets %}
-            <option value="{{ outlet.pk }}" {% if selected_outlet == outlet.pk|stringformat:"i" %}selected{% endif %}>{{ outlet.name }} ({{ outlet.code }})</option>
-            {% endfor %}
-        </select>
-    </div>
-    {% endif %}
+{% block page_title %}Menu Management{% endblock %}
 
+{% block content %}
+<div class="space-y-4">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900">Menu Management</h1>
-            <p class="text-slate-500 mt-1">Manage your menu categories and items</p>
-        </div>
-        <div class="flex gap-3">
-            <button onclick="document.getElementById('categoryModal').classList.remove('hidden')" class="px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="kf-pagehead">
+        <p>Manage your menu categories and items</p>
+        <div class="kf-actions">
+            {% if outlets and user.role == 'super_admin' %}
+            <!-- Outlet Filter (Super Admin Only) -->
+            <label class="flex items-center gap-2 text-[13px] text-slate-600">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+                <span class="sr-only sm:not-sr-only">Outlet</span>
+                <select onchange="filterByOutlet(this.value)" class="!h-9 !py-0 !rounded-full px-4 text-[13px] max-w-[200px]">
+                    <option value="">All Outlets</option>
+                    {% for outlet in outlets %}
+                    <option value="{{ outlet.pk }}" {% if selected_outlet == outlet.pk|stringformat:"i" %}selected{% endif %}>{{ outlet.name }} ({{ outlet.code }})</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% endif %}
+            <a href="{% url 'dashboard:addon_groups' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14v6m-3-3h6M6 10h2a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2zm10 0h2a2 2 0 002-2V6a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2zM6 20h2a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z"></path>
+                </svg>
+                Add-Ons
+            </a>
+            <button onclick="document.getElementById('categoryModal').classList.remove('hidden')" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                 </svg>
                 Add Category
             </button>
-            <button onclick="document.getElementById('itemModal').classList.remove('hidden')" class="px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button onclick="document.getElementById('itemModal').classList.remove('hidden')" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                 </svg>
                 Add Item
@@ -44,86 +46,74 @@
         </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-5 text-white shadow-lg">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-white/80 text-sm">Total Categories</p>
-                    <p class="text-3xl font-bold mt-1">{{ categories.count }}</p>
-                </div>
-                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                    </svg>
-                </div>
-            </div>
+    <!-- Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="kf-tile">
+            <span class="kf-ic">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
+            </span>
+            <div class="min-w-0"><span class="v">{{ categories.count }}</span><span class="l">Total categories</span></div>
         </div>
-        <div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 text-white shadow-lg">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-white/80 text-sm">Total Items</p>
-                    <p class="text-3xl font-bold mt-1">{{ total_items }}</p>
-                </div>
-                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                    </svg>
-                </div>
-            </div>
+        <div class="kf-tile">
+            <span class="kf-ic is-yellow">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+            </span>
+            <div class="min-w-0"><span class="v">{{ total_items }}</span><span class="l">Total items</span></div>
         </div>
-        <div class="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-white/80 text-sm">Available Items</p>
-                    <p class="text-3xl font-bold mt-1">{{ available_items }}</p>
-                </div>
-                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-            </div>
+        <div class="kf-tile col-span-2 lg:col-span-1">
+            <span class="kf-ic is-green">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </span>
+            <div class="min-w-0"><span class="v">{{ available_items }}</span><span class="l">Available items</span></div>
         </div>
     </div>
 
-    <!-- Categories Grid -->
+    <!-- Categories -->
     {% if categories %}
-    <div class="space-y-8">
+    <div class="space-y-4">
         {% for category in categories %}
-        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
+        <section class="kf-card p-4 sm:p-5 space-y-3 relative hover:z-10 focus-within:z-10">
             <!-- Category Header -->
-            <div class="p-6 border-b border-slate-100 flex items-center justify-between">
-                <div class="flex items-center gap-4">
+            <div class="kf-cardhead">
+                <div class="flex items-center gap-3 min-w-0">
                     {% if category.image %}
-                    <img src="{{ category.image.url }}" alt="{{ category.name }}" class="w-16 h-16 rounded-xl object-cover">
+                    <img src="{{ category.image.url }}" alt="{{ category.name }}" class="w-11 h-11 rounded-full object-cover flex-none">
                     {% else %}
-                    <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-                        <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    <span class="kf-ic is-soft is-lg">
+                        <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                         </svg>
-                    </div>
+                    </span>
                     {% endif %}
-                    <div>
-                        <h2 class="text-xl font-bold text-slate-900">{{ category.name }}</h2>
-                        <p class="text-slate-500 text-sm">{{ category.items.count }} items{% if category.description %} &bull; {{ category.description|truncatechars:50 }}{% endif %}</p>
+                    <div class="min-w-0">
+                        <h3 class="kf-h truncate">{{ category.name }}</h3>
+                        <p class="text-xs text-slate-600 mt-0.5 truncate">{{ category.items.count }} items{% if category.description %} &bull; {{ category.description|truncatechars:50 }}{% endif %}</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2" x-data="{ open: false }">
+                <div class="flex items-center gap-2 flex-none" x-data="{ open: false }">
                     {% if user.role == 'super_admin' and category.outlet %}
-                    <span class="px-2 py-1 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-lg">{{ category.outlet.name }}</span>
+                    <span class="kf-tag ys hidden sm:inline-flex">{{ category.outlet.name }}</span>
+                    {% endif %}
+                    {% if category.kitchen_station %}
+                    <span class="kf-tag s" title="Kitchen station">{{ category.kitchen_station.name }}</span>
                     {% endif %}
                     {% if not category.is_active %}
-                    <span class="px-2 py-1 text-xs font-medium bg-slate-100 text-slate-600 rounded-lg">Inactive</span>
+                    <span class="kf-tag h">Inactive</span>
                     {% endif %}
                     <div class="relative">
-                        <button @click="open = !open" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <button @click="open = !open" class="w-9 h-9 rounded-full grid place-items-center bg-white/70 hover:bg-white transition-colors" aria-label="Category actions">
+                            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
                             </svg>
                         </button>
-                        <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
-                            <button onclick="openEditCategoryModal({{ category.id }}, '{{ category.name|escapejs }}', '{{ category.description|escapejs }}', {{ category.display_order }}, {{ category.is_active|yesno:'true,false' }}, '{{ category.outlet_id|default:"" }}')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                        <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-lg py-2 z-50">
+                            <button onclick="openEditCategoryModal({{ category.id }}, '{{ category.name|escapejs }}', '{{ category.description|escapejs }}', {{ category.display_order }}, {{ category.is_active|yesno:'true,false' }}, '{{ category.outlet_id|default:"" }}', '{{ category.kitchen_station_id|default:"" }}')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                                 </svg>
@@ -144,137 +134,144 @@
                     </div>
                 </div>
             </div>
+            {% if user.role == 'super_admin' and category.outlet %}
+            <span class="kf-tag ys sm:hidden">{{ category.outlet.name }}</span>
+            {% endif %}
 
-            <!-- Items Grid -->
+            <!-- Items -->
             {% if category.items.all %}
-            <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2">
                 {% for item in category.items.all %}
-                <div class="group relative bg-slate-50 rounded-xl overflow-hidden hover:shadow-md transition-all" x-data="{ menuOpen: false }">
+                <div class="relative flex items-center gap-3 rounded-[20px] bg-white/65 hover:bg-white p-2 pr-1.5 transition-colors" x-data="{ menuOpen: false }">
                     <!-- Item Image -->
-                    <div class="aspect-[4/3] relative">
+                    <div class="relative w-14 h-14 flex-none rounded-2xl overflow-hidden bg-[#F2F2F0]">
                         {% if item.image %}
-                        <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-full h-full object-cover">
+                        <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-full h-full object-cover {% if not item.is_available %}opacity-50 grayscale{% endif %}">
                         {% else %}
-                        <div class="w-full h-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-                            <svg class="w-12 h-12 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        <div class="w-full h-full flex items-center justify-center">
+                            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                             </svg>
                         </div>
                         {% endif %}
 
-                        {% if not item.is_available %}
-                        <div class="absolute inset-0 bg-black/50 flex items-center justify-center">
-                            <span class="px-3 py-1 bg-red-500 text-white text-xs font-medium rounded-full">Unavailable</span>
-                        </div>
-                        {% endif %}
-
                         <!-- Food Type Badge -->
-                        <div class="absolute top-2 left-2">
+                        <div class="absolute bottom-1 left-1">
                             {% if item.food_type == 'veg' %}
-                            <span class="w-5 h-5 rounded border-2 border-green-600 bg-white flex items-center justify-center">
-                                <span class="w-2 h-2 rounded-full bg-green-600"></span>
+                            <span class="w-4 h-4 rounded border-2 border-green-600 bg-white flex items-center justify-center" title="Veg">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
                             </span>
                             {% elif item.food_type == 'non_veg' %}
-                            <span class="w-5 h-5 rounded border-2 border-red-600 bg-white flex items-center justify-center">
-                                <span class="w-2 h-2 rounded-full bg-red-600"></span>
+                            <span class="w-4 h-4 rounded border-2 border-red-600 bg-white flex items-center justify-center" title="Non-veg">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
                             </span>
                             {% else %}
-                            <span class="w-5 h-5 rounded border-2 border-green-600 bg-white flex items-center justify-center">
-                                <span class="text-green-600 text-xs font-bold">V</span>
+                            <span class="w-4 h-4 rounded border-2 border-green-600 bg-white flex items-center justify-center" title="Vegan">
+                                <span class="text-green-600 text-[9px] font-bold leading-none">V</span>
                             </span>
                             {% endif %}
-                        </div>
-
-                        <!-- Quick Actions -->
-                        <div class="absolute top-2 right-2">
-                            <button @click="menuOpen = !menuOpen" class="w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
-                                </svg>
-                            </button>
-                            <div x-show="menuOpen" @click.away="menuOpen = false" x-transition class="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
-                                <button onclick="openEditItemModal({{ item.id }}, '{{ item.name|escapejs }}', '{{ item.description|escapejs }}', '{{ item.base_price }}', '{{ item.food_type }}', {{ item.category.id }}, {{ item.preparation_time }}, {{ item.is_available|yesno:'true,false' }}, {{ item.is_featured|yesno:'true,false' }}, '{{ item.category.outlet_id|default:"" }}')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                                    </svg>
-                                    Edit
-                                </button>
-                                <form action="{% url 'dashboard:menu_item_toggle_availability' item.pk %}" method="POST">
-                                    {% csrf_token %}
-                                    <button type="submit" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
-                                        {% if item.is_available %}
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
-                                        </svg>
-                                        Mark Unavailable
-                                        {% else %}
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        Mark Available
-                                        {% endif %}
-                                    </button>
-                                </form>
-                                <div class="border-t border-slate-100 my-1"></div>
-                                <form action="{% url 'dashboard:menu_item_delete' item.pk %}" method="POST" onsubmit="return confirm('Delete {{ item.name }}?')">
-                                    {% csrf_token %}
-                                    <button type="submit" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                        </svg>
-                                        Delete
-                                    </button>
-                                </form>
-                            </div>
                         </div>
                     </div>
 
                     <!-- Item Details -->
-                    <div class="p-4">
-                        <h3 class="font-semibold text-slate-900 truncate">{{ item.name }}</h3>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-slate-900 truncate">{{ item.name }}</p>
                         {% if item.description %}
-                        <p class="text-slate-500 text-sm mt-1 line-clamp-2">{{ item.description|truncatechars:60 }}</p>
+                        <p class="text-[11px] text-slate-600 truncate">{{ item.description|truncatechars:60 }}</p>
                         {% endif %}
-                        <div class="flex items-center justify-between mt-3">
-                            <span class="text-lg font-bold text-slate-900">&#8377;{{ item.base_price }}</span>
-                            <div class="flex items-center gap-2">
-                                {% if item.is_featured %}
-                                <span class="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">Featured</span>
-                                {% endif %}
-                                {% if item.is_available %}
-                                <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                                {% else %}
-                                <span class="w-2 h-2 bg-red-500 rounded-full"></span>
-                                {% endif %}
-                            </div>
+                        <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+                            <span class="text-sm tabular text-slate-900">&#8377;{{ item.base_price }}</span>
+                            {% if item.is_featured %}
+                            <span class="kf-tag ys !py-0 !px-2 !text-[11px]">Featured</span>
+                            {% endif %}
+                            {% if item.is_available %}
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full" title="Available"></span>
+                            {% else %}
+                            <span class="kf-tag r !py-0 !px-2 !text-[11px]">Unavailable</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="relative flex-none">
+                        <button @click="menuOpen = !menuOpen" class="w-9 h-9 rounded-full grid place-items-center hover:bg-slate-100 transition-colors" aria-label="Item actions">
+                            <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                            </svg>
+                        </button>
+                        <div x-show="menuOpen" @click.away="menuOpen = false" x-transition class="absolute right-0 mt-1 w-48 bg-white rounded-2xl shadow-lg py-2 z-50">
+                            <a href="{% url 'dashboard:menu_item_detail' item.pk %}" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14v6m-3-3h6M6 10h2a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2zm10 0h2a2 2 0 002-2V6a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2zM6 20h2a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z"></path>
+                                </svg>
+                                Variants & Add-ons
+                            </a>
+                            <button onclick="openEditItemModal({{ item.id }}, '{{ item.name|escapejs }}', '{{ item.description|escapejs }}', '{{ item.base_price }}', '{{ item.food_type }}', {{ item.category.id }}, {{ item.preparation_time }}, {{ item.is_available|yesno:'true,false' }}, {{ item.is_featured|yesno:'true,false' }}, '{{ item.category.outlet_id|default:"" }}', '{{ item.kitchen_station_id|default:"" }}')" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                </svg>
+                                Edit
+                            </button>
+                            <form action="{% url 'dashboard:menu_item_toggle_availability' item.pk %}" method="POST">
+                                {% csrf_token %}
+                                <button type="submit" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                                    {% if item.is_available %}
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                                    </svg>
+                                    Mark Unavailable
+                                    {% else %}
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Mark Available
+                                    {% endif %}
+                                </button>
+                            </form>
+                            <div class="border-t border-slate-100 my-1"></div>
+                            <form action="{% url 'dashboard:menu_item_delete' item.pk %}" method="POST" onsubmit="return confirm('Delete {{ item.name }}?')">
+                                {% csrf_token %}
+                                <button type="submit" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                    Delete
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <div class="p-12 text-center">
-                <svg class="w-16 h-16 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
-                </svg>
-                <p class="text-slate-500 mt-4">No items in this category</p>
-                <button onclick="document.getElementById('itemModal').classList.remove('hidden')" class="mt-4 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800">Add Item</button>
+            <div class="kf-empty !py-5">
+                <span class="kf-ic is-soft">
+                    <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                    </svg>
+                </span>
+                <span>No items in this category</span>
+                <button onclick="document.getElementById('itemModal').classList.remove('hidden')" class="btn-primary !h-9 !px-4 !text-[13px] mt-1">Add Item</button>
             </div>
             {% endif %}
-        </div>
+        </section>
         {% endfor %}
     </div>
     {% else %}
     <!-- Empty State -->
-    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center">
-        <svg class="w-20 h-20 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-        </svg>
-        <h3 class="text-xl font-bold text-slate-900 mt-6">No Menu Categories Yet</h3>
-        <p class="text-slate-500 mt-2 max-w-md mx-auto">Get started by creating your first category to organize your menu items.</p>
-        <button onclick="document.getElementById('categoryModal').classList.remove('hidden')" class="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
-            Create First Category
-        </button>
+    <div class="kf-card">
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+            </span>
+            <b>No Menu Categories Yet</b>
+            <span class="max-w-md">Get started by creating your first category to organize your menu items.</span>
+            <button onclick="document.getElementById('categoryModal').classList.remove('hidden')" class="btn-primary !h-9 !px-4 !text-[13px] mt-2">
+                Create First Category
+            </button>
+        </div>
     </div>
     {% endif %}
 </div>
@@ -283,15 +280,15 @@
 <div id="categoryModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('categoryModal').classList.add('hidden')"></div>
-        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h3 class="text-xl font-bold text-slate-900 mb-1">Add New Category</h3>
-            <p class="text-slate-500 text-sm mb-6">Create a new menu category to organize your items.</p>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Add New Category</h3>
+            <p class="text-slate-600 text-sm mb-5">Create a new menu category to organize your items.</p>
 
             <form action="{% url 'dashboard:category_create' %}" method="POST" enctype="multipart/form-data" class="space-y-4">
                 {% csrf_token %}
                 {% if outlets and user.role == 'super_admin' %}
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet *</label>
+                    <label class="kf-label">Outlet *</label>
                     <select name="outlet" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
                         <option value="">Select an outlet</option>
                         {% for outlet in outlets %}
@@ -301,26 +298,26 @@
                 </div>
                 {% endif %}
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Category Name</label>
+                    <label class="kf-label">Category Name</label>
                     <input type="text" name="name" placeholder="e.g. Hot Beverages" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Description (Optional)</label>
+                    <label class="kf-label">Description (Optional)</label>
                     <textarea name="description" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="Describe this category..."></textarea>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Category Image (Optional)</label>
+                    <label class="kf-label">Category Image (Optional)</label>
                     <input type="file" name="image" accept="image/*" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Display Order</label>
+                    <label class="kf-label">Display Order</label>
                     <input type="number" name="display_order" value="0" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
                 </div>
-                <div class="flex gap-3 pt-4">
-                    <button type="button" onclick="document.getElementById('categoryModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('categoryModal').classList.add('hidden')" class="btn-secondary flex-1 !bg-slate-100 hover:!bg-slate-200">
                         Cancel
                     </button>
-                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                    <button type="submit" class="btn-primary flex-1">
                         Create Category
                     </button>
                 </div>
@@ -333,15 +330,15 @@
 <div id="editCategoryModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('editCategoryModal').classList.add('hidden')"></div>
-        <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h3 class="text-xl font-bold text-slate-900 mb-1">Edit Category</h3>
-            <p class="text-slate-500 text-sm mb-6">Update category details.</p>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Edit Category</h3>
+            <p class="text-slate-600 text-sm mb-5">Update category details.</p>
 
             <form id="editCategoryForm" method="POST" enctype="multipart/form-data" class="space-y-4">
                 {% csrf_token %}
                 {% if outlets and user.role == 'super_admin' %}
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet *</label>
+                    <label class="kf-label">Outlet *</label>
                     <select name="outlet" id="editCategoryOutlet" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
                         <option value="">Select an outlet</option>
                         {% for outlet in outlets %}
@@ -351,30 +348,41 @@
                 </div>
                 {% endif %}
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Category Name</label>
+                    <label class="kf-label">Category Name</label>
                     <input type="text" name="name" id="editCategoryName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <label class="kf-label">Description</label>
                     <textarea name="description" id="editCategoryDescription" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900"></textarea>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">New Image (Optional)</label>
+                    <label class="kf-label">New Image (Optional)</label>
                     <input type="file" name="image" accept="image/*" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Display Order</label>
+                    <label class="kf-label">Display Order</label>
                     <input type="number" name="display_order" id="editCategoryOrder" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
                 </div>
+                {% if kitchen_stations %}
+                <div>
+                    <label class="kf-label" for="editCategoryStation">Kitchen station</label>
+                    <select name="kitchen_station" id="editCategoryStation" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        <option value="">&mdash; No station (outlet default) &mdash;</option>
+                        {% for st in kitchen_stations %}
+                        <option value="{{ st.pk }}" data-outlet="{{ st.outlet_id }}">{{ st.name }}{% if user.role == 'super_admin' %} ({{ st.outlet.name }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
                 <div class="flex items-center gap-3">
                     <input type="checkbox" name="is_active" id="editCategoryActive" class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                     <label for="editCategoryActive" class="text-sm font-medium text-slate-700">Active</label>
                 </div>
-                <div class="flex gap-3 pt-4">
-                    <button type="button" onclick="document.getElementById('editCategoryModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('editCategoryModal').classList.add('hidden')" class="btn-secondary flex-1 !bg-slate-100 hover:!bg-slate-200">
                         Cancel
                     </button>
-                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                    <button type="submit" class="btn-primary flex-1">
                         Save Changes
                     </button>
                 </div>
@@ -387,15 +395,15 @@
 <div id="itemModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('itemModal').classList.add('hidden')"></div>
-        <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
-            <h3 class="text-xl font-bold text-slate-900 mb-1">Add New Menu Item</h3>
-            <p class="text-slate-500 text-sm mb-6">Add a new item to your menu.</p>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-lg w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Add New Menu Item</h3>
+            <p class="text-slate-600 text-sm mb-5">Add a new item to your menu.</p>
 
             <form action="{% url 'dashboard:menu_item_create' %}" method="POST" enctype="multipart/form-data" class="space-y-4">
                 {% csrf_token %}
                 {% if outlets and user.role == 'super_admin' %}
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet *</label>
+                    <label class="kf-label">Outlet *</label>
                     <select name="item_outlet" id="addItemOutlet" required onchange="filterCategoriesByOutlet(this.value, 'addItemCategory')" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
                         <option value="">Select an outlet</option>
                         {% for outlet in outlets %}
@@ -406,11 +414,11 @@
                 {% endif %}
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Item Name</label>
+                        <label class="kf-label">Item Name</label>
                         <input type="text" name="name" placeholder="e.g. Cappuccino" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                        <label class="kf-label">Category</label>
                         <select name="category" id="addItemCategory" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
                             <option value="">Select category</option>
                             {% for cat in all_categories %}
@@ -420,22 +428,22 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <label class="kf-label">Description</label>
                     <textarea name="description" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="Describe this item..."></textarea>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Base Price (&#8377;)</label>
+                        <label class="kf-label">Base Price (&#8377;)</label>
                         <input type="number" name="base_price" step="0.01" min="0" placeholder="0.00" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Prep Time (mins)</label>
+                        <label class="kf-label">Prep Time (mins)</label>
                         <input type="number" name="preparation_time" value="10" min="1" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Food Type</label>
+                        <label class="kf-label">Food Type</label>
                         <select name="food_type" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
                             {% for value, label in food_types %}
                             <option value="{{ value }}">{{ label }}</option>
@@ -443,7 +451,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Item Image</label>
+                        <label class="kf-label">Item Image</label>
                         <input type="file" name="image" accept="image/*" class="w-full text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700">
                     </div>
                 </div>
@@ -457,11 +465,11 @@
                         <span class="text-sm text-slate-700">Featured</span>
                     </label>
                 </div>
-                <div class="flex gap-3 pt-4">
-                    <button type="button" onclick="document.getElementById('itemModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('itemModal').classList.add('hidden')" class="btn-secondary flex-1 !bg-slate-100 hover:!bg-slate-200">
                         Cancel
                     </button>
-                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                    <button type="submit" class="btn-primary flex-1">
                         Add Item
                     </button>
                 </div>
@@ -474,15 +482,15 @@
 <div id="editItemModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="document.getElementById('editItemModal').classList.add('hidden')"></div>
-        <div class="relative bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
-            <h3 class="text-xl font-bold text-slate-900 mb-1">Edit Menu Item</h3>
-            <p class="text-slate-500 text-sm mb-6">Update item details.</p>
+        <div class="relative bg-white rounded-3xl shadow-xl max-w-lg w-full p-6">
+            <h3 class="text-xl font-light text-slate-900 mb-1">Edit Menu Item</h3>
+            <p class="text-slate-600 text-sm mb-5">Update item details.</p>
 
             <form id="editItemForm" method="POST" enctype="multipart/form-data" class="space-y-4">
                 {% csrf_token %}
                 {% if outlets and user.role == 'super_admin' %}
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Outlet *</label>
+                    <label class="kf-label">Outlet *</label>
                     <select name="item_outlet" id="editItemOutlet" required onchange="filterCategoriesByOutlet(this.value, 'editItemCategory')" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
                         <option value="">Select an outlet</option>
                         {% for outlet in outlets %}
@@ -493,12 +501,12 @@
                 {% endif %}
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Item Name</label>
+                        <label class="kf-label">Item Name</label>
                         <input type="text" name="name" id="editItemName" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
-                        <select name="category" id="editItemCategory" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                        <label class="kf-label">Category</label>
+                        <select name="category" id="editItemCategory" onchange="syncItemStationOptions()" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
                             {% for cat in all_categories %}
                             <option value="{{ cat.id }}" data-outlet="{{ cat.outlet_id }}">{{ cat.name }}{% if user.role == 'super_admin' and cat.outlet %} ({{ cat.outlet.name }}){% endif %}</option>
                             {% endfor %}
@@ -506,22 +514,22 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <label class="kf-label">Description</label>
                     <textarea name="description" id="editItemDescription" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900"></textarea>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Base Price (&#8377;)</label>
+                        <label class="kf-label">Base Price (&#8377;)</label>
                         <input type="number" name="base_price" id="editItemPrice" step="0.01" min="0" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Prep Time (mins)</label>
+                        <label class="kf-label">Prep Time (mins)</label>
                         <input type="number" name="preparation_time" id="editItemPrepTime" min="1" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Food Type</label>
+                        <label class="kf-label">Food Type</label>
                         <select name="food_type" id="editItemFoodType" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
                             {% for value, label in food_types %}
                             <option value="{{ value }}">{{ label }}</option>
@@ -529,10 +537,21 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">New Image</label>
+                        <label class="kf-label">New Image</label>
                         <input type="file" name="image" accept="image/*" class="w-full text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700">
                     </div>
                 </div>
+                {% if kitchen_stations %}
+                <div>
+                    <label class="kf-label" for="editItemStation">Kitchen station</label>
+                    <select name="kitchen_station" id="editItemStation" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        <option value="">&mdash; Use category's station &mdash;</option>
+                        {% for st in kitchen_stations %}
+                        <option value="{{ st.pk }}" data-outlet="{{ st.outlet_id }}">{{ st.name }}{% if user.role == 'super_admin' %} ({{ st.outlet.name }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
                 <div class="flex items-center gap-6">
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" name="is_available" id="editItemAvailable" class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
@@ -543,11 +562,11 @@
                         <span class="text-sm text-slate-700">Featured</span>
                     </label>
                 </div>
-                <div class="flex gap-3 pt-4">
-                    <button type="button" onclick="document.getElementById('editItemModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('editItemModal').classList.add('hidden')" class="btn-secondary flex-1 !bg-slate-100 hover:!bg-slate-200">
                         Cancel
                     </button>
-                    <button type="submit" class="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">
+                    <button type="submit" class="btn-primary flex-1">
                         Save Changes
                     </button>
                 </div>
@@ -599,7 +618,25 @@ function filterCategoriesByOutlet(outletId, categorySelectId) {
     }
 }
 
-function openEditCategoryModal(id, name, description, order, isActive, outletId) {
+// Show only stations of the given outlet (no outlet: all); clear a hidden selection
+function filterStationsByOutlet(selectId, outletId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    select.querySelectorAll('option').forEach(option => {
+        if (!option.value) return;
+        option.hidden = !!outletId && option.dataset.outlet !== String(outletId);
+    });
+    const current = select.options[select.selectedIndex];
+    if (current && current.hidden) select.value = '';
+}
+
+function syncItemStationOptions() {
+    const categorySelect = document.getElementById('editItemCategory');
+    const option = categorySelect ? categorySelect.options[categorySelect.selectedIndex] : null;
+    filterStationsByOutlet('editItemStation', option ? option.getAttribute('data-outlet') : '');
+}
+
+function openEditCategoryModal(id, name, description, order, isActive, outletId, stationId) {
     document.getElementById('editCategoryForm').action = '/dashboard/menu/category/' + id + '/edit/';
     document.getElementById('editCategoryName').value = name;
     document.getElementById('editCategoryDescription').value = description || '';
@@ -612,10 +649,20 @@ function openEditCategoryModal(id, name, description, order, isActive, outletId)
         outletSelect.value = outletId;
     }
 
+    const stationSelect = document.getElementById('editCategoryStation');
+    if (stationSelect) {
+        stationSelect.value = stationId || '';
+        filterStationsByOutlet('editCategoryStation', outletId);
+        if (outletSelect && !outletSelect.dataset.stationSync) {
+            outletSelect.dataset.stationSync = '1';
+            outletSelect.addEventListener('change', () => filterStationsByOutlet('editCategoryStation', outletSelect.value));
+        }
+    }
+
     document.getElementById('editCategoryModal').classList.remove('hidden');
 }
 
-function openEditItemModal(id, name, description, price, foodType, categoryId, prepTime, isAvailable, isFeatured, outletId) {
+function openEditItemModal(id, name, description, price, foodType, categoryId, prepTime, isAvailable, isFeatured, outletId, stationId) {
     document.getElementById('editItemForm').action = '/dashboard/menu/item/' + id + '/edit/';
     document.getElementById('editItemName').value = name;
     document.getElementById('editItemDescription').value = description || '';
@@ -634,6 +681,12 @@ function openEditItemModal(id, name, description, price, foodType, categoryId, p
 
     // Set category after filtering
     document.getElementById('editItemCategory').value = categoryId;
+
+    const stationSelect = document.getElementById('editItemStation');
+    if (stationSelect) {
+        stationSelect.value = stationId || '';
+        syncItemStationOptions();
+    }
 
     document.getElementById('editItemModal').classList.remove('hidden');
 }

@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <p>Employee incentive points for {{ selected_month|date:"F Y" }}</p>
+        <div class="kf-actions">
+            <a href="{% url 'dashboard:points_history' %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                My History
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <!-- My Points -->
+        <div class="kf-tile is-dark">
+            <span class="kf-ic is-yellow">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                </svg>
+            </span>
+            <div class="min-w-0">
+                <span class="v">{{ my_points }}</span>
+                <span class="l">My points this month</span>
+                {% if my_rank %}
+                <span class="l !text-amber-300">Rank #{{ my_rank }} in your outlet</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="kf-card p-4 md:col-span-2 flex flex-wrap gap-3">
+            <!-- Month Filter -->
+            <div class="flex-1 min-w-[160px]">
+                <label class="kf-label">Month</label>
+                <select onchange="filterByMonth(this.value)" class="kf-input">
+                    {% for option in month_options %}
+                    <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% if outlets %}
+            <!-- Outlet Filter (Super Admin only) -->
+            <div class="flex-1 min-w-[160px]">
+                <label class="kf-label">Outlet</label>
+                <select onchange="filterByOutlet(this.value)" class="kf-input">
+                    <option value="">All Outlets</option>
+                    {% for outlet in outlets %}
+                    <option value="{{ outlet.pk }}" {% if selected_outlet == outlet.pk|stringformat:"s" %}selected{% endif %}>{{ outlet.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div class="kf-card p-5 space-y-3">
+        <div class="kf-cardhead">
+            <div>
+                <h3 class="kf-h">Top Performers</h3>
+                <p class="text-xs text-slate-600 mt-0.5">{{ selected_month|date:"F Y" }}</p>
+            </div>
+        </div>
+
+        {% if leaderboard %}
+        <ul class="kf-rows">
+            {% for entry in leaderboard %}
+            <li>
+                <div>
+                    <!-- Rank -->
+                    <span class="kf-rank {% if entry.rank == 1 %}is-top{% elif entry.rank <= 3 %}!bg-white{% endif %}">
+                        {% if entry.rank == 1 %}
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z"></path>
+                        </svg>
+                        {% else %}
+                        {{ entry.rank }}
+                        {% endif %}
+                    </span>
+
+                    <!-- Employee Info -->
+                    <span class="flex-1 min-w-0"><b>{{ entry.display_name }}</b><small>{{ entry.role_display }}</small></span>
+
+                    <!-- Points -->
+                    <span class="text-right flex-none">
+                        <span class="block text-lg font-light leading-none tabular">{{ entry.total_points }}</span>
+                        <span class="block text-[11px] text-slate-600 mt-0.5">points</span>
+                    </span>
+
+                    <!-- Actions (Admin only) -->
+                    {% if user.role == 'super_admin' or user.role == 'outlet_manager' %}
+                    <span class="flex items-center gap-1 flex-none">
+                        <a href="{% url 'dashboard:points_history' %}?employee={{ entry.employee__id }}" class="w-9 h-9 rounded-full grid place-items-center text-slate-600 hover:bg-white" title="View History">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </a>
+                        <button onclick="openAdjustModal({{ entry.employee__id }}, '{{ entry.display_name }}')" class="w-9 h-9 rounded-full grid place-items-center bg-slate-800 text-amber-300 hover:bg-slate-700" title="Adjust Points">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                        </button>
+                    </span>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </span>
+            <b>No points recorded yet</b>
+            <span>Points are awarded when orders are completed</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Adjust Points Modal -->
+{% if user.role == 'super_admin' or user.role == 'outlet_manager' %}
+<div id="adjustModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50" onclick="closeAdjustModal()"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md relative">
+            <div class="p-5 pb-0">
+                <h3 class="kf-h">Adjust Points</h3>
+                <p class="text-slate-500 text-sm mt-1">For: <span id="adjustEmployeeName" class="font-medium text-slate-900"></span></p>
+            </div>
+            <form action="{% url 'dashboard:points_adjust' %}" method="post" class="p-5 space-y-3">
+                {% csrf_token %}
+                <input type="hidden" name="employee_id" id="adjustEmployeeId">
+
+                <div>
+                    <label class="kf-label">Points</label>
+                    <input type="number" name="points" required class="kf-input" placeholder="Enter points (negative to deduct)">
+                    <p class="text-xs text-slate-500 mt-1">Use negative number to deduct points</p>
+                </div>
+
+                <div>
+                    <label class="kf-label">Reason</label>
+                    <input type="text" name="reason" class="kf-input" placeholder="e.g., Performance bonus">
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="closeAdjustModal()" class="btn-secondary flex-1 !h-10 !text-[13px] !bg-slate-100">Cancel</button>
+                    <button type="submit" class="btn-primary flex-1 !h-10 !text-[13px]">Adjust Points</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function filterByMonth(month) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('month', month);
+    window.location.href = url.toString();
+}
+
+function filterByOutlet(outlet) {
+    const url = new URL(window.location.href);
+    if (outlet) {
+        url.searchParams.set('outlet', outlet);
+    } else {
+        url.searchParams.delete('outlet');
+    }
+    window.location.href = url.toString();
+}
+
+function openAdjustModal(employeeId, employeeName) {
+    document.getElementById('adjustEmployeeId').value = employeeId;
+    document.getElementById('adjustEmployeeName').textContent = employeeName;
+    document.getElementById('adjustModal').classList.remove('hidden');
+}
+
+function closeAdjustModal() {
+    document.getElementById('adjustModal').classList.add('hidden');
+}
+</script>
+{% endblock %}

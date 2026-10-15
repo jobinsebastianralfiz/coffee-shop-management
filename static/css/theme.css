@@ -1,0 +1,491 @@
+/* Kaffero theme — soft rounded frame on a cool grey ground, pill navigation,
+   translucent cards, dark accent cards and yellow highlights.
+   Rules are prefixed with .kf (set on <body>) so they outrank single Tailwind utilities,
+   which the Tailwind CDN injects after this file. */
+
+:root {
+    color-scheme: light;
+    --ground: #D9DCE3;
+    --frame-a: #F3F3F1;
+    --frame-b: #F8E7A6;
+    --card: rgba(255, 255, 255, 0.62);
+    --card-solid: #FFFFFF;
+    --ink: #1E1E1E;
+    --ink-2: #5E5E62;
+    --line: rgba(30, 30, 30, 0.10);
+    --yellow: #F5C842;
+    --yellow-soft: #FBE7A1;
+    --dark: #2A2A2C;
+    --dark-2: #3A3A3D;
+    --on-dark: #F4F4F4;
+    --on-dark-2: #A9A9AE;
+    --grey-pill: #8E8E93;
+    --f-display: 'Outfit', 'Helvetica Neue', Arial, sans-serif;
+
+    /* Legacy variables still referenced by some templates */
+    --color-primary: #2A2A2C;
+    --color-secondary: #1E1E1E;
+    --color-accent: #F5C842;
+    --login-gradient-start: #3A3A3D;
+    --login-gradient-end: #1F1F21;
+}
+
+.kf {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-display);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+}
+.kf :focus-visible { outline: 2px solid var(--dark); outline-offset: 2px; }
+[x-cloak] { display: none !important; }
+.kf.kf-frame-bg { background-attachment: fixed; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(30, 30, 30, 0.18); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(30, 30, 30, 0.3); }
+
+/* ---------- Frame & surfaces ---------- */
+.kf-frame-bg {
+    background:
+        radial-gradient(120% 90% at 100% 100%, var(--frame-b) 0%, rgba(248, 231, 166, 0.35) 45%, transparent 70%),
+        radial-gradient(70% 60% at 100% 0%, rgba(248, 231, 166, 0.55), transparent 60%),
+        var(--frame-a);
+}
+.kf-frame {
+    border-radius: 36px;
+    box-shadow: 0 30px 80px rgba(30, 30, 40, 0.18);
+}
+.kf-card {
+    background: var(--card);
+    border-radius: 28px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.kf-dcard {
+    background: var(--dark);
+    color: var(--on-dark);
+    border-radius: 28px;
+}
+.kf-glow-dark { background: linear-gradient(160deg, #3A3A3D 0%, #1F1F21 100%); color: var(--on-dark); }
+
+/* ---------- App shell ---------- */
+.kf-shell { height: 100vh; height: 100dvh; padding: 10px; }
+@media (min-width: 1024px) { .kf-shell { padding: 14px clamp(12px, 1.6vw, 22px); } }
+.kf-shell > .kf-frame { height: 100%; }
+
+.kf .kf-logo {
+    border: 1.5px solid rgba(30, 30, 30, 0.35);
+    border-radius: 999px;
+    padding: 6px 16px 6px 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.kf .kf-logo-mark {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--dark); color: var(--yellow);
+    display: grid; place-items: center; flex: none; overflow: hidden;
+}
+.kf .kf-logo-mark img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+
+/* Sidebar: translucent rail of pill links; current page is the dark pill */
+.kf .sidebar-container {
+    background: rgba(255, 255, 255, 0.45);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 28px;
+    box-shadow: none;
+}
+.kf aside.sidebar-container.fixed { background: var(--frame-a); border-radius: 0 28px 28px 0; }
+.kf .sidebar-container p.uppercase { color: var(--ink-2); font-weight: 400; letter-spacing: 0.08em; font-size: 11px; }
+.kf .sidebar-link {
+    color: var(--ink-2);
+    border-radius: 999px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    font-size: 14px;
+    transition: background-color .15s, color .15s;
+}
+.kf .sidebar-link .font-medium { font-weight: 400; }
+.kf .sidebar-link:hover { color: var(--ink); background: rgba(255, 255, 255, 0.7); }
+.kf .sidebar-link.active { background: var(--dark); color: var(--on-dark); box-shadow: none; }
+.kf .sidebar-link.active svg { color: var(--yellow); }
+.kf nav.space-y-2 > a:not([hidden]) ~ a:not([hidden]) { margin-top: 4px; }
+.kf .sidebar-container nav > p.uppercase { margin-top: 16px; margin-bottom: 6px; }
+.kf .sidebar-container nav > p.uppercase:first-child { margin-top: 4px; }
+
+/* Top bar — the phone menu button never shows next to the desktop sidebar */
+@media (min-width: 1024px) { .kf header .kf-menu-mobile { display: none !important; } }
+@media (max-width: 1023.98px) { .kf header .kf-menu-desktop { display: none !important; } }
+
+.kf .kf-top { display: flex; align-items: center; gap: 12px; }
+.kf .kf-title { font-weight: 300; font-size: clamp(22px, 2vw, 30px); letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); }
+.kf .kf-icon-btn {
+    border: 0; background: rgba(255, 255, 255, 0.7); border-radius: 50%;
+    width: 40px; height: 40px; place-items: center; position: relative; color: var(--ink);
+    flex: none;
+}
+.kf .kf-icon-btn:hover { background: #fff; }
+.kf .kf-chip {
+    border: 0; background: rgba(255, 255, 255, 0.7); border-radius: 999px;
+    height: 42px; padding: 0 6px 0 6px; display: flex; align-items: center; gap: 10px; font-size: 13px;
+}
+.kf .kf-chip:hover { background: #fff; }
+.kf .kf-search {
+    display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.7);
+    border-radius: 999px; height: 42px; padding: 0 16px; min-width: 0;
+}
+.kf .kf-search input { border: 0 !important; background: transparent !important; outline: none; box-shadow: none !important; height: auto !important; padding: 0 !important; width: 220px; }
+.kf .kf-av {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--dark); color: var(--yellow);
+    display: grid; place-items: center; font-size: 12px; font-weight: 500; flex: none;
+}
+.kf .kf-badge {
+    position: absolute; top: 4px; right: 3px; min-width: 18px; height: 18px; padding: 0 5px;
+    border-radius: 999px; background: var(--yellow); color: var(--ink); border: 2px solid #fff;
+    font-size: 10px; font-weight: 600; display: grid; place-items: center; line-height: 1;
+}
+
+/* Dropdown panels */
+.kf .kf-pop {
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius: 24px;
+    box-shadow: 0 24px 60px rgba(30, 30, 40, 0.22);
+    border: 0;
+}
+
+/* ---------- Typography ---------- */
+.kf .font-semibold { font-weight: 500; }
+.kf .font-bold { font-weight: 500; }
+.kf .font-extrabold, .kf .font-black { font-weight: 600; }
+.kf :is(.text-2xl, .text-3xl, .text-4xl, .text-5xl, .text-6xl):is(.font-bold, .font-semibold, .font-extrabold) {
+    font-weight: 400;
+    letter-spacing: -0.02em;
+}
+.kf :where(main, .kf-main) h1:is(.text-2xl, .text-3xl, .text-4xl) { font-weight: 300; }
+.kf .tabular, .kf td { font-variant-numeric: tabular-nums; }
+
+/* ---------- Compact rhythm ----------
+   Pages were built with roomy p-6/p-8 and gap-6/gap-8; the theme runs tighter
+   (20px card padding, 16px gaps), so the content area is normalised here. */
+.kf :where(main, .kf-main) .p-6 { padding: 18px; }
+.kf :where(main, .kf-main) .p-8 { padding: 22px; }
+.kf :where(main, .kf-main) .px-6 { padding-left: 18px; padding-right: 18px; }
+.kf :where(main, .kf-main) .py-5 { padding-top: 14px; padding-bottom: 14px; }
+.kf :where(main, .kf-main) .py-6 { padding-top: 16px; padding-bottom: 16px; }
+.kf :where(main, .kf-main) :is(.gap-6, .gap-8) { gap: 16px; }
+.kf :where(main, .kf-main) .gap-5 { gap: 14px; }
+.kf :where(main, .kf-main) :is(.space-y-6, .space-y-8) > :not([hidden]) ~ :not([hidden]) { margin-top: 16px; }
+.kf :where(main, .kf-main) :is(.mb-8) { margin-bottom: 20px; }
+.kf :where(main, .kf-main) :is(.mb-6) { margin-bottom: 16px; }
+.kf :where(main, .kf-main) :is(.mt-8) { margin-top: 20px; }
+.kf :where(main, .kf-main) .mt-6 { margin-top: 16px; }
+@media (min-width: 1024px) {
+    .kf :where(main, .kf-main) :is(.lg\:p-8, .lg\:p-10) { padding: 24px; }
+    .kf :where(main, .kf-main) :is(.lg\:gap-6, .lg\:gap-8) { gap: 16px; }
+}
+
+/* ---------- Cards ---------- */
+.kf :where(main, .kf-main) :is(div, section, article, form, li, aside).bg-white:is(.rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl),
+.kf :where(main, .kf-main) .premium-card,
+.kf :where(main, .kf-main) .card {
+    background-color: var(--card);
+    border-color: transparent;
+    box-shadow: none;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+.kf :where(main, .kf-main) :is(div, section, article, form, aside).bg-white:is(.rounded-2xl, .rounded-3xl),
+.kf :where(main, .kf-main) .premium-card { border-radius: 28px; }
+/* Cards inside cards read as solid white rows, like the reference's list items */
+.kf :where(main, .kf-main) :is(.bg-white, .premium-card) :is(div, a, li).bg-white:is(.rounded-lg, .rounded-xl, .rounded-2xl) {
+    background-color: var(--card-solid);
+    backdrop-filter: none;
+}
+.kf :where(main, .kf-main) .bg-slate-50:is(.rounded-lg, .rounded-xl, .rounded-2xl) { background-color: rgba(255, 255, 255, 0.55); border-color: transparent; }
+.kf :where(main, .kf-main) .bg-white:is(.rounded-lg, .rounded-xl, .rounded-2xl) .bg-slate-50:is(.rounded-lg, .rounded-xl, .rounded-2xl) { background-color: #F3F3F1; }
+
+.kf .premium-card { transition: transform .25s ease, box-shadow .25s ease; }
+.kf .premium-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px -18px rgba(30, 30, 40, 0.25); }
+
+/* Modals, drawers and anything fixed stay solid so they read over a backdrop */
+.kf .fixed :is(div, form, section).bg-white.bg-white,
+.kf .fixed.bg-white.bg-white,
+.kf .absolute.bg-white.shadow-2xl {
+    background-color: #fff;
+    backdrop-filter: none;
+}
+.kf .fixed :is(div, form, section).bg-white.bg-white:is(.rounded-2xl, .rounded-3xl) { border-radius: 28px; }
+
+/* Card headers often have a hairline bottom border */
+.kf :where(main, .kf-main) .border-b.border-slate-100, .kf :where(main, .kf-main) .border-b.border-slate-200 { border-color: var(--line); }
+.kf :where(main, .kf-main) .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.kf :where(main, .kf-main) .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--line); }
+
+/* Quick action tiles */
+.kf .quick-action-card {
+    display: flex; align-items: center; gap: 1rem; padding: 1.1rem 1.25rem;
+    background: var(--card); border-radius: 22px; border: 0; text-decoration: none;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    transition: transform .25s ease, background-color .2s;
+}
+.kf .quick-action-card:hover { transform: translateY(-3px); background: #fff; }
+.kf .quick-action-card .icon-box {
+    width: 3.25rem; height: 3.25rem; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.kf .quick-action-card .arrow { opacity: 0; transform: translateX(-6px); transition: all .25s ease; }
+.kf .quick-action-card:hover .arrow { opacity: 1; transform: translateX(0); }
+
+/* Generic helpers kept from the old theme */
+.kf .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.kf .brand-gradient { background: var(--dark); color: var(--yellow); }
+.kf .login-gradient { background: linear-gradient(160deg, #3A3A3D 0%, #1F1F21 100%); }
+@keyframes kfFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.kf .fade-in { animation: kfFadeIn .3s ease-out; }
+@keyframes kfShimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.kf .shimmer { background: linear-gradient(90deg, #EBEBE8 25%, #F3F3F1 50%, #EBEBE8 75%); background-size: 200% 100%; animation: kfShimmer 1.5s infinite; }
+
+/* Gradient fills from the old indigo palette collapse to the theme's dark card */
+.kf .bg-gradient-to-r.from-indigo-500, .kf .bg-gradient-to-br.from-indigo-500,
+.kf .bg-gradient-to-r.from-indigo-600, .kf .bg-gradient-to-br.from-indigo-600,
+.kf .bg-gradient-to-r.from-purple-500, .kf .bg-gradient-to-br.from-purple-500 {
+    background-image: linear-gradient(160deg, #3A3A3D 0%, #1F1F21 100%);
+}
+
+/* ---------- Buttons ---------- */
+.kf .btn-primary, .kf .btn-secondary, .kf .btn-danger, .kf .btn-yellow {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 44px; padding: 0 20px; font-size: 14px; font-weight: 400;
+    border-radius: 999px; border: 0; cursor: pointer; white-space: nowrap;
+    box-shadow: none; transition: background-color .15s, transform .15s;
+}
+.kf .btn-primary { background: var(--dark); color: var(--on-dark); }
+.kf .btn-primary:hover { background: #3A3A3D; }
+.kf .btn-secondary { background: rgba(255, 255, 255, 0.75); color: var(--ink); border: 0; }
+.kf .btn-secondary:hover { background: #fff; }
+.kf .btn-danger { background: #DC4A3D; color: #fff; }
+.kf .btn-danger:hover { background: #C63E32; }
+.kf .btn-yellow { background: var(--yellow); color: var(--ink); }
+.kf .btn-yellow:hover { background: #F2BE24; }
+.kf :is(.btn-primary, .btn-secondary, .btn-danger, .btn-yellow):active { transform: scale(0.98); }
+
+/* Ordinary utility-built buttons become pills (only the compact, single-line ones) */
+.kf :where(main, .kf-main) :is(button, a, input[type="submit"]):is([class~="py-1"], [class~="py-1.5"], [class~="py-2"], [class~="py-2.5"], [class~="py-3"]):is(.rounded, .rounded-md, .rounded-lg, .rounded-xl):not(.w-full):not(.block):not(.sidebar-link),
+.kf .fixed :is(button, a):is([class~="py-2"], [class~="py-2.5"], [class~="py-3"]):is(.rounded-lg, .rounded-xl) {
+    border-radius: 999px;
+}
+.kf :where(main, .kf-main) :is(button, a).w-full:is([class~="py-2"], [class~="py-2.5"], [class~="py-3"], [class~="py-3.5"], [class~="py-4"]):is(.rounded-lg, .rounded-xl),
+.kf .fixed :is(button).w-full:is([class~="py-2.5"], [class~="py-3"], [class~="py-3.5"]):is(.rounded-lg, .rounded-xl) {
+    border-radius: 999px;
+}
+/* Square icon buttons become round */
+.kf :where(main, .kf-main) :is(button, a):is(.w-8, .w-9, .w-10, .w-11, .w-12):is(.h-8, .h-9, .h-10, .h-11, .h-12):is(.rounded-lg, .rounded-xl) { border-radius: 50%; }
+.kf :where(main, .kf-main) :is(button, a).p-2:is(.rounded-lg, .rounded-xl), .kf :where(main, .kf-main) :is(button, a).p-2\.5:is(.rounded-lg, .rounded-xl) { border-radius: 50%; }
+
+/* Yellow as a text colour is too pale on the light frame: use a readable gold */
+.kf :is(.text-amber-400, .text-amber-500, .text-yellow-400, .text-yellow-500) { color: #B8901A; }
+.kf :is(.bg-amber-400, .bg-amber-500, .bg-yellow-400, .bg-yellow-500, .bg-gradient-to-br, .bg-gradient-to-r) :is(.text-amber-500, .text-amber-600) { color: var(--ink); }
+
+/* Text on the theme yellow must be ink, not white */
+.kf :is(.bg-amber-400, .bg-amber-500, .bg-yellow-400, .bg-yellow-500).text-white { color: var(--ink); }
+.kf :is(.bg-amber-400, .bg-amber-500, .bg-yellow-500).text-white svg { color: var(--ink); }
+
+/* DaisyUI pieces still in use */
+.kf .btn { border-radius: 999px; font-weight: 400; text-transform: none; }
+.kf .badge { border-radius: 999px; font-weight: 400; }
+.kf .badge-primary { background: var(--dark); color: var(--on-dark); border: 0; }
+.kf .badge-ghost { background: #fff; border: 0; }
+
+/* ---------- Form fields ---------- */
+.kf :where(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]), select, textarea) {
+    border-color: var(--line);
+    border-radius: 14px;
+    background-color: var(--card-solid);
+    color: var(--ink);
+    font-family: inherit;
+}
+.kf :where(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]), select, textarea):focus {
+    border-color: rgba(30, 30, 30, 0.45);
+    box-shadow: 0 0 0 3px rgba(245, 200, 66, 0.35);
+    outline: none;
+}
+.kf :is(input, textarea)::placeholder { color: #A9A9AE; }
+.kf input:is([type="checkbox"], [type="radio"]) { accent-color: var(--dark); }
+.kf input[type="range"] { accent-color: var(--dark); }
+.kf label.block.text-sm, .kf label.text-sm.font-medium { color: var(--ink-2); font-weight: 400; }
+.kf .premium-search { background: rgba(255, 255, 255, 0.7); border: 0; }
+.kf .input-bordered { border-color: var(--line); }
+
+/* ---------- Tables ---------- */
+.kf :where(main, .kf-main) table { border-collapse: separate; border-spacing: 0; }
+.kf :where(main, .kf-main) table thead, .kf :where(main, .kf-main) table thead tr, .kf :where(main, .kf-main) table thead th { background: transparent; }
+.kf :where(main, .kf-main) table thead th {
+    color: var(--ink-2);
+    font-weight: 400;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--line);
+}
+.kf :where(main, .kf-main) table tbody td { border-color: var(--line); }
+.kf :where(main, .kf-main) table tbody tr { transition: background-color .12s; }
+.kf :where(main, .kf-main) table tbody tr:hover { background: rgba(255, 255, 255, 0.55); }
+.kf :where(main, .kf-main) .overflow-x-auto { scrollbar-width: thin; }
+
+/* ---------- Status pills ---------- */
+.kf :where(main, .kf-main) span.rounded-full:is([class*="px-2"], [class*="px-3"]):is(.text-xs, .text-sm) { font-weight: 400; }
+
+/* ---------- Toasts ---------- */
+.kf .toast-item {
+    background: var(--dark) !important;
+    color: var(--on-dark) !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    box-shadow: 0 18px 40px rgba(30, 30, 40, 0.3) !important;
+}
+.kf .toast-item svg { color: var(--yellow) !important; }
+
+/* ---------- Dashboard pieces (welcome row, stat numbers, list rows) ---------- */
+.kf .kf-hello { font-weight: 300; font-size: clamp(26px, 2.6vw, 38px); letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); text-wrap: balance; }
+.kf .kf-h { font-size: 17px; font-weight: 400; letter-spacing: -0.01em; color: var(--ink); }
+.kf .kf-stat { display: flex; align-items: flex-end; gap: 10px; }
+.kf .kf-stat b {
+    font-weight: 300; font-size: clamp(34px, 3.4vw, 50px); letter-spacing: -0.03em;
+    line-height: 0.9; font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.kf .kf-stat span { font-size: 12px; line-height: 1.25; color: var(--ink-2); padding-bottom: 3px; }
+.kf .kf-live {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+    background: rgba(255, 255, 255, 0.12); color: var(--on-dark); padding: 5px 11px; border-radius: 999px;
+}
+.kf .kf-live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--yellow); }
+.kf .kf-arrow {
+    width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none;
+    background: rgba(255, 255, 255, 0.12); color: var(--on-dark); transition: background-color .15s;
+}
+.kf .kf-arrow:hover { background: var(--yellow); color: var(--ink); }
+.kf .kf-arrow-light { background: var(--card-solid); color: var(--ink); }
+.kf .kf-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.kf .kf-rows li > :is(a, div) {
+    display: flex; align-items: center; gap: 12px; padding: 7px 10px 7px 7px;
+    border-radius: 999px; background: rgba(255, 255, 255, 0.65); color: var(--ink);
+    transition: background-color .15s;
+}
+.kf .kf-rows li > a:hover { background: #fff; }
+.kf .kf-rows b { display: block; font-weight: 400; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kf .kf-rows small { display: block; font-size: 11px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kf .kf-ic {
+    width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none;
+    background: var(--dark); color: var(--yellow);
+}
+.kf .kf-rank {
+    width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none;
+    background: #F2F2F0; font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.kf .kf-rank.is-top { background: var(--yellow); }
+
+/* ---------- Page building blocks (use these on every page) ---------- */
+/* Page header row: short description + actions; the big title lives in the top bar */
+.kf .kf-pagehead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.kf .kf-pagehead p { font-size: 14px; color: var(--ink-2); margin: 0; }
+.kf .kf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Compact stat tile: icon circle + value + label */
+.kf .kf-tile {
+    background: var(--card); border-radius: 22px; padding: 14px 16px;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    display: flex; align-items: center; gap: 12px; min-width: 0;
+}
+.kf .kf-tile .v { display: block; font-size: 24px; font-weight: 300; letter-spacing: -0.02em; line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kf .kf-tile .l { display: block; font-size: 12px; color: var(--ink-2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kf .kf-tile.is-dark { background: var(--dark); color: var(--on-dark); }
+.kf .kf-tile.is-dark .v { color: var(--on-dark); }
+.kf .kf-tile.is-dark .l { color: var(--on-dark-2); }
+.kf .kf-tile.is-yellow { background: var(--yellow); }
+.kf .kf-tile.is-yellow .l { color: #5A4A12; }
+
+/* Icon circle variants (base .kf-ic = dark circle, yellow icon) */
+.kf .kf-ic.is-sm { width: 30px; height: 30px; }
+.kf .kf-ic.is-lg { width: 44px; height: 44px; }
+.kf .kf-ic.is-yellow { background: var(--yellow); color: var(--ink); }
+.kf .kf-ic.is-light { background: #fff; color: var(--ink); }
+.kf .kf-ic.is-soft { background: #F2F2F0; color: var(--ink); }
+.kf .kf-ic.is-green { background: #D1FAE5; color: #047857; }
+.kf .kf-ic.is-red { background: #FEE2E2; color: #B91C1C; }
+
+/* Status / label tags */
+.kf .kf-tag { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; font-size: 12px; line-height: 1.5; white-space: nowrap; font-weight: 400; }
+.kf .kf-tag.y { background: var(--yellow); color: var(--ink); }
+.kf .kf-tag.ys { background: var(--yellow-soft); color: #5A4A12; }
+.kf .kf-tag.d { background: var(--dark); color: var(--on-dark); }
+.kf .kf-tag.w { background: #fff; color: var(--ink); }
+.kf .kf-tag.s { background: #EBEBE8; color: var(--ink-2); }
+.kf .kf-tag.o { border: 1px solid rgba(30, 30, 30, 0.3); color: var(--ink-2); }
+.kf .kf-tag.g { background: #D1FAE5; color: #047857; }
+.kf .kf-tag.r { background: #FEE2E2; color: #B91C1C; }
+.kf .kf-tag.h { background: repeating-linear-gradient(-45deg, rgba(30, 30, 30, 0.12) 0 1.5px, transparent 1.5px 7px); color: var(--ink-2); }
+.kf .kf-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+
+/* Segmented filters / tabs: pill track, current = dark pill */
+.kf .kf-seg { display: inline-flex; flex-wrap: wrap; gap: 4px; background: rgba(255, 255, 255, 0.55); border-radius: 999px; padding: 4px; max-width: 100%; overflow-x: auto; }
+.kf .kf-seg > :is(a, button) { border: 0; background: transparent; border-radius: 999px; padding: 7px 14px; font-size: 13px; white-space: nowrap; color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }
+.kf .kf-seg > :is(a, button):hover { background: rgba(255, 255, 255, 0.8); }
+.kf .kf-seg > :is(a, button):is(.active, .is-active, [aria-current="page"], [aria-pressed="true"]) { background: var(--dark); color: var(--on-dark); }
+.kf .kf-seg > .hidden { display: none; }
+
+/* Section card header + compact empty state */
+.kf .kf-cardhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.kf .kf-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; padding: 28px 16px; color: var(--ink-2); font-size: 14px; }
+.kf .kf-empty .kf-ic { margin-bottom: 4px; }
+.kf .kf-empty b { font-weight: 400; color: var(--ink); font-size: 15px; }
+
+/* Form field label */
+.kf .kf-label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 6px; }
+.kf .kf-input { height: 42px; width: 100%; border-radius: 14px; border: 1px solid var(--line); background: #fff; padding: 0 14px; font-size: 14px; color: var(--ink); }
+.kf textarea.kf-input { height: auto; padding: 10px 14px; }
+
+/* ---------- Kitchen display order card (also built by static/js/kitchen-websocket.js) ---------- */
+.kf .kf-kcard { background: var(--card); border-radius: 22px; padding: 14px; display: flex; flex-direction: column; gap: 10px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.kf .kf-kcard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.kf .kf-kcard-head b { display: block; font-weight: 400; font-size: 20px; letter-spacing: -0.01em; line-height: 1.1; }
+.kf .kf-kcard-head small { display: block; font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.kf .kf-kcard-items { list-style: none; margin: 0; padding: 4px 12px; background: #fff; border-radius: 16px; }
+.kf .kf-kcard-items li { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.kf .kf-kcard-items li:last-child { border-bottom: 0; }
+.kf .kf-kcard-items .q { min-width: 26px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.kf .kf-kcard-items small { color: var(--ink-2); font-size: 12px; }
+.kf .kf-kcard-items em { display: block; font-style: normal; font-size: 12px; color: #C2410C; margin-top: 2px; }
+.kf .kf-kcard-note { background: var(--yellow-soft); color: #5A4A12; border-radius: 14px; padding: 8px 12px; font-size: 13px; }
+.kf .kf-kcard-actions { display: flex; gap: 8px; }
+.kf .kf-kcard-actions > * { flex: 1; }
+.kf .kf-kcard-actions :is(.btn-primary, .btn-secondary, .btn-yellow) { height: 40px; width: 100%; padding: 0 14px; font-size: 13px; }
+.kf .kf-kcard-actions .is-narrow { flex: 0 0 auto; width: auto; }
+
+/* Secondary pills sit on translucent cards; inside solid white modals they need a visible fill */
+.kf .fixed .btn-secondary { background: #F2F2F0; }
+.kf .fixed .btn-secondary:hover { background: #E8E8E5; }
+/* Compact pill select (outlet filters etc.) */
+.kf select.kf-pill-select { height: 36px; border-radius: 999px; padding: 0 32px 0 14px; font-size: 13px; background-color: rgba(255, 255, 255, 0.75); border: 0; }
+
+/* ---------- Mobile apps (waiter PWA, customer ordering) ---------- */
+.kf .kf-dock {
+    background: var(--dark);
+    color: var(--on-dark-2);
+    border-radius: 999px;
+    box-shadow: 0 18px 40px rgba(30, 30, 40, 0.28);
+}
+.kf .kf-dock a { color: var(--on-dark-2); border-radius: 999px; }
+.kf .kf-dock a:hover { color: var(--on-dark); }
+.kf .kf-dock a.is-active { color: var(--ink); background: var(--yellow); }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 680px) {
+    .kf-frame { border-radius: 26px; }
+    .kf .kf-title { font-size: 24px; }
+}
+@media (prefers-reduced-motion: reduce) { .kf * { transition: none !important; animation: none !important; } }

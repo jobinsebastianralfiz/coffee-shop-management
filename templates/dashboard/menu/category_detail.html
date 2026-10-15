@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ category.name }} - Category{% endblock %}
+
+{% block page_title %}{{ category.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-4" x-data="{ editing: false }">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="{% url 'dashboard:menu' %}" class="kf-arrow kf-arrow-light" aria-label="Back to menu">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <p class="truncate">Menu category{% if category.outlet %} · {{ category.outlet.name }}{% endif %}</p>
+        </div>
+        <div class="kf-actions">
+            {% if category.is_active %}
+            <span class="kf-tag g"><span class="kf-dot"></span>Active</span>
+            {% else %}
+            <span class="kf-tag h">Inactive</span>
+            {% endif %}
+            {% if user.role == 'super_admin' or user.role == 'outlet_manager' %}
+            <button type="button" @click="editing = !editing" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                </svg>
+                <span x-text="editing ? 'Close' : 'Edit'">Edit</span>
+            </button>
+            {% endif %}
+            {% if user.role == 'super_admin' and not items %}
+            <form action="{% url 'dashboard:category_delete' category.pk %}" method="POST" onsubmit="return confirm('Delete this category?')">
+                {% csrf_token %}
+                <button type="submit" class="btn-danger !h-9 !px-4 !text-[13px]">Delete</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Overview -->
+    <div class="kf-card p-4 sm:p-5">
+        <div class="flex flex-col sm:flex-row gap-4">
+            <div class="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
+                {% if category.image %}
+                <img src="{{ category.image.url }}" alt="{{ category.name }}" class="w-full h-full rounded-2xl object-cover">
+                {% else %}
+                <div class="w-full h-full rounded-2xl bg-[#F2F2F0] flex items-center justify-center">
+                    <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                </div>
+                {% endif %}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm text-slate-600">{{ category.description|default:"No description" }}</p>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mt-3">
+                    <div>
+                        <p class="text-xs text-slate-600">Items</p>
+                        <p class="text-slate-900 tabular">{{ items|length }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-600">Display order</p>
+                        <p class="text-slate-900 tabular">{{ category.display_order }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-600">Available</p>
+                        <p class="text-slate-900 tabular">{% if category.available_from or category.available_until %}{{ category.available_from|time:"H:i"|default:"Open" }} – {{ category.available_until|time:"H:i"|default:"Close" }}{% else %}All day{% endif %}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-600">Outlet</p>
+                        <p class="text-slate-900 truncate">{{ category.outlet.name|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if user.role == 'super_admin' or user.role == 'outlet_manager' %}
+    <!-- Inline edit -->
+    <div class="kf-card p-5" x-show="editing" x-cloak x-transition>
+        <h3 class="kf-h mb-3">Edit Category</h3>
+        <form action="{% url 'dashboard:category_edit' category.pk %}" method="POST" enctype="multipart/form-data" class="space-y-3">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="kf-label" for="catName">Category Name *</label>
+                    <input type="text" name="name" id="catName" value="{{ category.name }}" required class="kf-input">
+                </div>
+                <div>
+                    <label class="kf-label" for="catOrder">Display Order</label>
+                    <input type="number" name="display_order" id="catOrder" min="0" value="{{ category.display_order }}" class="kf-input">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="kf-label" for="catDesc">Description</label>
+                    <textarea name="description" id="catDesc" rows="2" class="kf-input">{{ category.description }}</textarea>
+                </div>
+                <div>
+                    <label class="kf-label" for="catImage">New Image (Optional)</label>
+                    <input type="file" name="image" id="catImage" accept="image/*" class="block w-full text-sm text-slate-700 file:mr-3 file:h-9 file:px-4 file:rounded-full file:border-0 file:text-[13px] file:bg-white file:text-slate-800">
+                </div>
+                <div class="flex items-center gap-2 sm:pt-6">
+                    <input type="checkbox" name="is_active" id="catActive" {% if category.is_active %}checked{% endif %} class="w-5 h-5">
+                    <label for="catActive" class="text-sm text-slate-800">Active</label>
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-2">
+                <button type="button" @click="editing = false" class="btn-secondary !h-9 !px-4 !text-[13px]">Cancel</button>
+                <button type="submit" class="btn-primary !h-9 !px-4 !text-[13px]">Save Changes</button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Items -->
+    <div class="kf-card overflow-hidden">
+        <div class="kf-cardhead px-5 pt-5 pb-3">
+            <div>
+                <h3 class="kf-h">Items</h3>
+                <p class="text-xs text-slate-600 mt-0.5">{{ items|length }} item{{ items|length|pluralize }} in this category</p>
+            </div>
+        </div>
+        {% if items %}
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Item</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Type</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Prep</th>
+                        <th class="px-4 py-2.5 text-right text-xs font-normal text-slate-600 whitespace-nowrap">Price</th>
+                        <th class="px-4 py-2.5 text-left text-xs font-normal text-slate-600 whitespace-nowrap">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/60">
+                    {% for item in items %}
+                    <tr class="hover:bg-white/50">
+                        <td class="px-4 py-2.5">
+                            <a href="{% url 'dashboard:menu_item_detail' item.pk %}" class="flex items-center gap-3 min-w-0 group">
+                                {% if item.image %}
+                                <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-9 h-9 rounded-xl object-cover flex-none">
+                                {% else %}
+                                <span class="w-9 h-9 rounded-xl bg-[#F2F2F0] flex-none"></span>
+                                {% endif %}
+                                <span class="text-sm text-slate-900 group-hover:underline underline-offset-2 truncate max-w-[220px]">{{ item.name }}</span>
+                            </a>
+                        </td>
+                        <td class="px-4 py-2.5 text-[13px] whitespace-nowrap {% if item.food_type == 'non_veg' %}text-red-700{% else %}text-green-700{% endif %}">{{ item.get_food_type_display }}</td>
+                        <td class="px-4 py-2.5 text-[13px] text-slate-600 tabular whitespace-nowrap">{{ item.preparation_time }} min</td>
+                        <td class="px-4 py-2.5 text-right text-slate-900 tabular whitespace-nowrap">{{ currency_symbol }}{{ item.base_price }}</td>
+                        <td class="px-4 py-2.5 whitespace-nowrap">
+                            {% if item.is_available %}<span class="kf-tag g">Available</span>{% else %}<span class="kf-tag r">Unavailable</span>{% endif %}
+                            {% if item.is_featured %}<span class="kf-tag ys">Featured</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="kf-empty">
+            <span class="kf-ic is-soft is-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h10"></path>
+                </svg>
+            </span>
+            <b>No items in this category</b>
+            <span>Add items from the menu page</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

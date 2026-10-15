@@ -97,6 +97,15 @@ class OutletAdmin(admin.ModelAdmin):
                 ),
             },
         ),
+        (
+            "QR order protection",
+            {
+                "fields": ("qr_guard", "qr_radius_m"),
+                "description": "Stops orders from a photo of the table QR taken home. Set the outlet's "
+                "latitude and longitude under Location; guests within the allowed distance are confirmed "
+                "automatically, others use the table code or a staff member confirms them.",
+            },
+        ),
     )
 
 

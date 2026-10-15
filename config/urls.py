@@ -29,11 +29,20 @@ urlpatterns = [
     # Customer QR Ordering
     path("order/", include("apps.ordering.urls")),
 
+    # Guest pay-at-table links and the Razorpay webhook
+    path("", include("apps.payments.urls")),
+
     # Waiter PWA
     path("waiter/", include("apps.waiter.urls")),
 
+    # Kitchen stations setup (routing, print agent, print queue)
+    path("kitchen-stations/", include("apps.kitchen.urls")),
+
     # Printing
     path("printing/", include("apps.printing.urls")),
+
+    # Retail & Wholesale
+    path("retail/", include("apps.retail.urls")),
 
     # Reports
     path("reports/", include("apps.reports.urls")),

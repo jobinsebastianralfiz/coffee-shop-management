@@ -24,7 +24,7 @@ def generate_table_qr_code(table, base_url=None):
     """
     if base_url is None:
         # Use the site URL from settings or default
-        base_url = getattr(settings, 'SITE_URL', 'http://localhost:8000')
+        base_url = (getattr(settings, 'PUBLIC_BASE_URL', '') or getattr(settings, 'SITE_URL', 'http://localhost:8000')).rstrip('/')
 
     # The URL that customers will scan to order
     order_url = f"{base_url}/order/t/{table.uuid}/"

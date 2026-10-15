@@ -22,6 +22,14 @@ class Category(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     image = models.ImageField(upload_to="categories/", null=True, blank=True)
+    kitchen_station = models.ForeignKey(
+        "kitchen.KitchenStation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="categories",
+        help_text="Kitchen station that prepares this category's items",
+    )
     display_order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
@@ -72,6 +80,15 @@ class MenuItem(models.Model):
     calories = models.PositiveIntegerField(null=True, blank=True)
 
     # Availability & display
+    kitchen_station = models.ForeignKey(
+        "kitchen.KitchenStation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="menu_items",
+        help_text="Overrides the category's kitchen station for this item",
+    )
+
     is_available = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
     is_popular = models.BooleanField(default=False)

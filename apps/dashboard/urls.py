@@ -5,6 +5,7 @@ URL configuration for the dashboard app.
 from django.urls import path
 
 from . import views
+from apps.dashboard import billing, qr_cards, qr_guests
 
 app_name = "dashboard"
 
@@ -33,6 +34,26 @@ urlpatterns = [
     path("menu/item/<int:pk>/delete/", views.menu_item_delete, name="menu_item_delete"),
     path("menu/item/<int:pk>/toggle-availability/", views.menu_item_toggle_availability, name="menu_item_toggle_availability"),
 
+    # Menu Item Variants
+    path("menu/item/<int:pk>/variants/add/", views.menu_item_variant_add, name="menu_item_variant_add"),
+    path("menu/item/<int:pk>/variants/<int:variant_pk>/edit/", views.menu_item_variant_edit, name="menu_item_variant_edit"),
+    path("menu/item/<int:pk>/variants/<int:variant_pk>/delete/", views.menu_item_variant_delete, name="menu_item_variant_delete"),
+
+    # Menu Item Add-on Groups linking
+    path("menu/item/<int:pk>/link-addons/", views.menu_item_link_addon, name="menu_item_link_addon"),
+    path("menu/item/<int:pk>/unlink-addon/<int:group_pk>/", views.menu_item_unlink_addon, name="menu_item_unlink_addon"),
+
+    # Add-On Groups Management
+    path("menu/addon-groups/", views.addon_groups, name="addon_groups"),
+    path("menu/addon-groups/create/", views.addon_group_create, name="addon_group_create"),
+    path("menu/addon-groups/<int:pk>/edit/", views.addon_group_edit, name="addon_group_edit"),
+    path("menu/addon-groups/<int:pk>/delete/", views.addon_group_delete, name="addon_group_delete"),
+
+    # Add-Ons Management
+    path("menu/addon-groups/<int:group_pk>/addons/create/", views.addon_create, name="addon_create"),
+    path("menu/addons/<int:pk>/edit/", views.addon_edit, name="addon_edit"),
+    path("menu/addons/<int:pk>/delete/", views.addon_delete, name="addon_delete"),
+
     # Table Management
     path("tables/", views.table_list, name="tables"),
     path("tables/<int:pk>/", views.table_detail, name="table_detail"),
@@ -42,6 +63,11 @@ urlpatterns = [
     path("tables/<int:pk>/delete/", views.table_delete, name="table_delete"),
     path("tables/<int:pk>/status/", views.table_update_status, name="table_update_status"),
     path("tables/<int:pk>/regenerate-qr/", views.table_regenerate_qr, name="table_regenerate_qr"),
+    path("tables/merge/", views.table_merge, name="table_merge"),
+    path("tables/qr-cards/", qr_cards.table_qr_cards, name="table_qr_cards"),
+    path("outlets/<int:pk>/qr-ordering/", views.qr_ordering_toggle, name="qr_ordering_toggle"),
+    path("tables/<int:pk>/qr.svg", qr_cards.table_qr_svg, name="table_qr_svg"),
+    path("tables/<int:pk>/unmerge/", views.table_unmerge, name="table_unmerge"),
 
     # Floor Management
     path("floors/create/", views.floor_create, name="floor_create"),
@@ -58,6 +84,7 @@ urlpatterns = [
 
     # Kitchen Display
     path("kitchen/", views.kitchen_display, name="kitchen"),
+    path("kitchen/action/", views.kitchen_action, name="kitchen_action"),
 
     # Orders / POS
     path("orders/", views.order_list, name="orders"),
@@ -67,6 +94,20 @@ urlpatterns = [
     path("orders/<int:pk>/update-status/", views.order_update_status, name="order_update_status"),
     path("orders/<int:pk>/add-item/", views.order_add_item, name="order_add_item"),
     path("orders/<int:pk>/remove-item/<int:item_pk>/", views.order_remove_item, name="order_remove_item"),
+    path("orders/<int:pk>/parcel/", views.order_parcel, name="order_parcel"),
+    path("orders/<int:pk>/add-retail/", billing.order_add_retail_item, name="order_add_retail_item"),
+    path("billing/", billing.billing_counter, name="billing_counter"),
+    path("guest-requests/", qr_guests.guest_requests, name="guest_requests"),
+    path("guest-requests/<int:pk>/accept/", qr_guests.guest_request_accept, name="guest_request_accept"),
+    path("guest-requests/<int:pk>/reject/", qr_guests.guest_request_reject, name="guest_request_reject"),
+    path("guest-requests/<int:pk>/call-done/", qr_guests.guest_call_done, name="guest_call_done"),
+    path("tables/<int:pk>/new-code/", qr_guests.table_new_code, name="table_new_code"),
+    path("billing/tips/", billing.billing_tips, name="billing_tips"),
+    path("billing/collections/", billing.daily_collections, name="daily_collections"),
+    path("billing/collections/pdf/", billing.daily_collections_pdf, name="daily_collections_pdf"),
+    path("billing/display/", billing.customer_display, name="customer_display"),
+    path("billing/display/state/", billing.customer_display_state, name="customer_display_state"),
+    path("billing/display/clear/", billing.customer_display_clear, name="customer_display_clear"),
     path("orders/<int:pk>/update-qty/<int:item_pk>/", views.order_update_item_qty, name="order_update_item_qty"),
     path("orders/<int:pk>/payment/", views.order_payment, name="order_payment"),
     path("orders/<int:pk>/cancel/", views.order_cancel, name="order_cancel"),
@@ -164,4 +205,9 @@ urlpatterns = [
     path("notifications/send/", views.notification_send, name="notification_send"),
     path("api/notifications/count/", views.api_notification_count, name="api_notification_count"),
     path("api/notifications/recent/", views.api_notifications_recent, name="api_notifications_recent"),
+
+    # Employee Points / Incentives
+    path("points/", views.points_leaderboard, name="points_leaderboard"),
+    path("points/history/", views.points_history, name="points_history"),
+    path("points/adjust/", views.points_adjust, name="points_adjust"),
 ]

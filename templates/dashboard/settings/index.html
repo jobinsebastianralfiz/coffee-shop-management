@@ -2,55 +2,52 @@
 
 {% block title %}Settings{% endblock %}
 
+{% block page_title %}Settings{% endblock %}
+
 {% block content %}
-<div class="max-w-5xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-4">
     <!-- Header -->
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900">Settings</h1>
-            <p class="text-slate-500 mt-1">
-                {% if not can_edit %}
-                View-only mode - Contact super admin to make changes
-                {% else %}
-                Configure your {{ business_name }} system
-                {% endif %}
-            </p>
-        </div>
-        {% if outlets and user.role == 'super_admin' %}
-        <div class="flex items-center gap-3">
-            <select onchange="filterByOutlet(this.value)" class="px-4 py-2 border border-slate-200 rounded-xl bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+    <div class="kf-pagehead">
+        <p>
+            {% if not can_edit %}
+            View-only mode - Contact super admin to make changes
+            {% else %}
+            Configure your {{ business_name }} system
+            {% endif %}
+        </p>
+        <div class="kf-actions">
+            {% if outlets and user.role == 'super_admin' %}
+            <select onchange="filterByOutlet(this.value)" class="kf-input !h-9 !w-auto max-w-[240px] !rounded-full !text-[13px]">
                 <option value="">Global Settings</option>
                 {% for outlet in outlets %}
                 <option value="{{ outlet.id }}" {% if selected_outlet == outlet.id|stringformat:"s" %}selected{% endif %}>{{ outlet.name }}</option>
                 {% endfor %}
             </select>
+            {% endif %}
+            {% if current_outlet and user.role == 'outlet_manager' %}
+            <span class="kf-tag ys !py-1.5 !px-3.5 !text-[13px]">
+                {{ current_outlet.name }}
+            </span>
+            {% endif %}
         </div>
-        {% endif %}
-        {% if current_outlet and user.role == 'outlet_manager' %}
-        <div class="px-4 py-2 bg-indigo-100 text-indigo-800 rounded-xl font-medium">
-            {{ current_outlet.name }}
-        </div>
-        {% endif %}
     </div>
 
     <!-- Settings Tabs -->
     <div x-data="{ activeTab: '{% if current_outlet %}outlet{% else %}branding{% endif %}' }">
-        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-2 flex flex-wrap gap-2 mb-6">
+        <div class="kf-seg mb-4">
             {% if current_outlet or user.role == 'super_admin' %}
-            <button class="px-4 py-2.5 rounded-xl font-medium transition-all" :class="activeTab === 'outlet' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'" @click="activeTab = 'outlet'">
-                <span class="flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                    </svg>
-                    Outlet Settings
-                </span>
+            <button type="button" :class="activeTab === 'outlet' ? 'active' : ''" @click="activeTab = 'outlet'">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+                Outlet Settings
             </button>
             {% endif %}
-            <button class="px-4 py-2.5 rounded-xl font-medium transition-all" :class="activeTab === 'branding' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'" @click="activeTab = 'branding'">Branding</button>
-            <button class="px-4 py-2.5 rounded-xl font-medium transition-all" :class="activeTab === 'business' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'" @click="activeTab = 'business'">Business</button>
-            <button class="px-4 py-2.5 rounded-xl font-medium transition-all" :class="activeTab === 'tax' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'" @click="activeTab = 'tax'">Tax & Billing</button>
-            <button class="px-4 py-2.5 rounded-xl font-medium transition-all" :class="activeTab === 'orders' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'" @click="activeTab = 'orders'">Orders</button>
-            <a href="{% url 'dashboard:payment_settings' %}" class="px-4 py-2.5 rounded-xl font-medium transition-all text-slate-600 hover:bg-slate-100 flex items-center gap-2">
+            <button type="button" :class="activeTab === 'branding' ? 'active' : ''" @click="activeTab = 'branding'">Branding</button>
+            <button type="button" :class="activeTab === 'business' ? 'active' : ''" @click="activeTab = 'business'">Business</button>
+            <button type="button" :class="activeTab === 'tax' ? 'active' : ''" @click="activeTab = 'tax'">Tax & Billing</button>
+            <button type="button" :class="activeTab === 'orders' ? 'active' : ''" @click="activeTab = 'orders'">Orders</button>
+            <a href="{% url 'dashboard:payment_settings' %}">
                 <span>Payment Gateway</span>
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
@@ -59,7 +56,7 @@
         </div>
 
         <!-- Outlet Settings -->
-        <div x-show="activeTab === 'outlet'" x-transition class="space-y-6">
+        <div x-show="activeTab === 'outlet'" x-transition class="space-y-4">
             {% if current_outlet %}
             <form method="post">
                 {% csrf_token %}
@@ -67,14 +64,14 @@
                 <input type="hidden" name="outlet_id" value="{{ current_outlet.id }}">
 
                 <!-- Outlet Info Card -->
-                <div class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 mb-6 text-white">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-xl font-bold">{{ current_outlet.name }}</h2>
-                            <p class="text-indigo-100 mt-1">Code: {{ current_outlet.code }} | {{ current_outlet.city }}, {{ current_outlet.state }}</p>
+                <div class="kf-dcard kf-glow-dark p-5 mb-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <h3 class="text-[20px] font-light text-white leading-tight truncate">{{ current_outlet.name }}</h3>
+                            <p class="text-xs text-slate-400 mt-1">Code: {{ current_outlet.code }} | {{ current_outlet.city }}, {{ current_outlet.state }}</p>
                         </div>
-                        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="kf-ic is-yellow">
+                            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                             </svg>
                         </div>
@@ -82,66 +79,66 @@
                 </div>
 
                 <!-- Tax Configuration -->
-                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
-                    <div class="p-6 border-b border-slate-100">
-                        <h2 class="text-lg font-semibold text-slate-900">Tax Configuration</h2>
-                        <p class="text-slate-500 text-sm mt-1">Configure tax rates for this outlet</p>
+                <div class="kf-card p-5 mb-4">
+                    <div class="mb-4">
+                        <h3 class="kf-h">Tax Configuration</h3>
+                        <p class="text-xs text-slate-600 mt-0.5">Configure tax rates for this outlet</p>
                     </div>
-                    <div class="p-6 space-y-6">
+                    <div class="space-y-3">
                         <label class="flex items-center gap-3 cursor-pointer">
                             <input type="checkbox" name="tax_enabled" {% if current_outlet.tax_enabled %}checked{% endif %}
-                                class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                                class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                             <span class="text-sm text-slate-700">Enable tax calculation</span>
                         </label>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="grid sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">CGST Rate (%)</label>
-                                <input type="number" name="cgst_rate" step="0.01" value="{{ current_outlet.cgst_rate }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                                <label class="kf-label">CGST Rate (%)</label>
+                                <input type="number" name="cgst_rate" step="0.01" value="{{ current_outlet.cgst_rate }}" class="kf-input">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">SGST Rate (%)</label>
-                                <input type="number" name="sgst_rate" step="0.01" value="{{ current_outlet.sgst_rate }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                                <label class="kf-label">SGST Rate (%)</label>
+                                <input type="number" name="sgst_rate" step="0.01" value="{{ current_outlet.sgst_rate }}" class="kf-input">
                             </div>
                         </div>
                         <label class="flex items-center gap-3 cursor-pointer">
                             <input type="checkbox" name="service_charge_enabled" {% if current_outlet.service_charge_enabled %}checked{% endif %}
-                                class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                                class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                             <span class="text-sm text-slate-700">Enable service charge</span>
                         </label>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Service Charge Rate (%)</label>
-                            <input type="number" name="service_charge_rate" step="0.01" value="{{ current_outlet.service_charge_rate }}" class="w-full max-w-xs px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            <label class="kf-label">Service Charge Rate (%)</label>
+                            <input type="number" name="service_charge_rate" step="0.01" value="{{ current_outlet.service_charge_rate }}" class="kf-input sm:!max-w-xs">
                         </div>
                         <label class="flex items-center gap-3 cursor-pointer">
                             <input type="checkbox" name="tax_inclusive_pricing" {% if current_outlet.tax_inclusive_pricing %}checked{% endif %}
-                                class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                                class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                             <span class="text-sm text-slate-700">Tax Inclusive Pricing (menu prices include tax)</span>
                         </label>
                     </div>
                 </div>
 
                 <!-- Order Settings -->
-                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
-                    <div class="p-6 border-b border-slate-100">
-                        <h2 class="text-lg font-semibold text-slate-900">Order Settings</h2>
-                        <p class="text-slate-500 text-sm mt-1">Configure order behavior for this outlet</p>
+                <div class="kf-card p-5 mb-4">
+                    <div class="mb-4">
+                        <h3 class="kf-h">Order Settings</h3>
+                        <p class="text-xs text-slate-600 mt-0.5">Configure order behavior for this outlet</p>
                     </div>
-                    <div class="p-6 space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="grid sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Order Number Prefix</label>
-                                <input type="text" name="order_prefix" value="{{ current_outlet.order_prefix }}" maxlength="10" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                                <label class="kf-label">Order Number Prefix</label>
+                                <input type="text" name="order_prefix" value="{{ current_outlet.order_prefix }}" maxlength="10" class="kf-input">
                                 <p class="text-xs text-slate-500 mt-1">e.g., ORD, {{ current_outlet.code }}-</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Default Preparation Time (minutes)</label>
-                                <input type="number" name="default_prep_time" value="{{ current_outlet.default_prep_time }}" min="1" max="120" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                                <label class="kf-label">Default Preparation Time (minutes)</label>
+                                <input type="number" name="default_prep_time" value="{{ current_outlet.default_prep_time }}" min="1" max="120" class="kf-input">
                             </div>
                         </div>
-                        <div class="space-y-4">
+                        <div class="space-y-3">
                             <label class="flex items-center gap-3 cursor-pointer">
                                 <input type="checkbox" name="auto_accept_orders" {% if current_outlet.auto_accept_orders %}checked{% endif %}
-                                    class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                                    class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                                 <div>
                                     <span class="text-sm text-slate-700">Auto-accept Orders</span>
                                     <p class="text-xs text-slate-500">Skip manual confirmation step for incoming orders</p>
@@ -149,26 +146,64 @@
                             </label>
                             <label class="flex items-center gap-3 cursor-pointer">
                                 <input type="checkbox" name="allow_qr_ordering" {% if current_outlet.allow_qr_ordering %}checked{% endif %}
-                                    class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                                    class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                                 <div>
                                     <span class="text-sm text-slate-700">Allow QR Code Ordering</span>
                                     <p class="text-xs text-slate-500">Customers can scan table QR codes to place orders</p>
                                 </div>
                             </label>
                         </div>
+
+                        <!-- QR order protection -->
+                        <div class="rounded-2xl bg-white/70 p-4 space-y-3" x-data="{ busy: false, err: '' }">
+                            <div>
+                                <p class="text-sm text-slate-900">QR order protection</p>
+                                <p class="text-xs text-slate-500">Stops orders from a photo of the table QR taken home. A guest's first order goes to the kitchen only once their phone is confirmed at the table.</p>
+                            </div>
+                            <label class="block">
+                                <span class="kf-label">How guests are confirmed</span>
+                                <select name="qr_guard" class="kf-input">
+                                    {% for value, label in qr_guard_choices %}
+                                    <option value="{{ value }}" {% if current_outlet.qr_guard == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <div class="grid sm:grid-cols-3 gap-3">
+                                <label class="block">
+                                    <span class="kf-label">Outlet latitude</span>
+                                    <input type="text" inputmode="decimal" name="latitude" x-ref="lat" value="{{ current_outlet.latitude|default_if_none:'' }}" class="kf-input tabular" placeholder="e.g. 9.931233">
+                                </label>
+                                <label class="block">
+                                    <span class="kf-label">Outlet longitude</span>
+                                    <input type="text" inputmode="decimal" name="longitude" x-ref="lng" value="{{ current_outlet.longitude|default_if_none:'' }}" class="kf-input tabular" placeholder="e.g. 76.267304">
+                                </label>
+                                <label class="block">
+                                    <span class="kf-label">Allowed distance (m)</span>
+                                    <input type="number" name="qr_radius_m" value="{{ current_outlet.qr_radius_m }}" min="30" max="2000" class="kf-input tabular">
+                                </label>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <button type="button" class="btn-secondary !h-9 !px-4 !text-[13px]" :disabled="busy"
+                                        @click="busy = true; err = ''; navigator.geolocation ? navigator.geolocation.getCurrentPosition(p => { $refs.lat.value = p.coords.latitude.toFixed(6); $refs.lng.value = p.coords.longitude.toFixed(6); busy = false; }, () => { busy = false; err = 'Location permission was not given.'; }, { enableHighAccuracy: true, timeout: 10000 }) : (busy = false, err = 'This browser has no location.')">
+                                    <span x-text="busy ? 'Finding location…' : 'Use this device\'s location'"></span>
+                                </button>
+                                <p class="text-xs text-slate-500">Do this while standing in the outlet, then save. Without a location, guests use the table code or staff confirm them.</p>
+                                <p x-show="err" x-cloak x-text="err" class="text-xs text-red-600"></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Currency Settings -->
-                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
-                    <div class="p-6 border-b border-slate-100">
-                        <h2 class="text-lg font-semibold text-slate-900">Currency Settings</h2>
+                <div class="kf-card p-5 mb-4">
+                    <div class="mb-4">
+                        <h3 class="kf-h">Currency Settings</h3>
                     </div>
-                    <div class="p-6">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <div class="grid sm:grid-cols-3 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Currency Code</label>
-                                <select name="currency_code" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                                <label class="kf-label">Currency Code</label>
+                                <select name="currency_code" class="kf-input">
                                     <option value="INR" {% if current_outlet.currency_code == 'INR' %}selected{% endif %}>INR - Indian Rupee</option>
                                     <option value="USD" {% if current_outlet.currency_code == 'USD' %}selected{% endif %}>USD - US Dollar</option>
                                     <option value="EUR" {% if current_outlet.currency_code == 'EUR' %}selected{% endif %}>EUR - Euro</option>
@@ -179,12 +214,12 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Currency Symbol</label>
-                                <input type="text" name="currency_symbol" value="{{ current_outlet.currency_symbol }}" maxlength="5" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                                <label class="kf-label">Currency Symbol</label>
+                                <input type="text" name="currency_symbol" value="{{ current_outlet.currency_symbol }}" maxlength="5" class="kf-input">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Symbol Position</label>
-                                <select name="currency_position" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                                <label class="kf-label">Symbol Position</label>
+                                <select name="currency_position" class="kf-input">
                                     <option value="before" {% if current_outlet.currency_position == 'before' %}selected{% endif %}>Before (e.g., $100)</option>
                                     <option value="after" {% if current_outlet.currency_position == 'after' %}selected{% endif %}>After (e.g., 100€)</option>
                                 </select>
@@ -194,66 +229,67 @@
                 </div>
 
                 <!-- Receipt Branding -->
-                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
-                    <div class="p-6 border-b border-slate-100">
-                        <h2 class="text-lg font-semibold text-slate-900">Receipt Branding</h2>
+                <div class="kf-card p-5 mb-4">
+                    <div class="mb-4">
+                        <h3 class="kf-h">Receipt Branding</h3>
                     </div>
-                    <div class="p-6 space-y-4">
+                    <div class="space-y-3">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Receipt Header</label>
-                            <textarea name="receipt_header" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="Text shown at top of receipts">{{ current_outlet.receipt_header }}</textarea>
+                            <label class="kf-label">Receipt Header</label>
+                            <textarea name="receipt_header" rows="2" class="kf-input" placeholder="Text shown at top of receipts">{{ current_outlet.receipt_header }}</textarea>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Receipt Footer</label>
-                            <textarea name="receipt_footer" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="Text shown at bottom of receipts">{{ current_outlet.receipt_footer }}</textarea>
+                            <label class="kf-label">Receipt Footer</label>
+                            <textarea name="receipt_footer" rows="2" class="kf-input" placeholder="Text shown at bottom of receipts">{{ current_outlet.receipt_footer }}</textarea>
                         </div>
                     </div>
                 </div>
 
-                <button type="submit" class="w-full px-6 py-3 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Save Outlet Settings
-                </button>
+                <div class="flex justify-end">
+                    <button type="submit" class="btn-primary !h-10 !px-5 !text-[13px]">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Save Outlet Settings
+                    </button>
+                </div>
             </form>
             {% else %}
             <!-- No outlet selected - show outlet list for super admin -->
-            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
-                <div class="p-6 border-b border-slate-100">
-                    <h2 class="text-lg font-semibold text-slate-900">Select an Outlet</h2>
-                    <p class="text-slate-500 text-sm mt-1">Choose an outlet to configure its settings</p>
+            <div class="kf-card p-5">
+                <div class="mb-4">
+                    <h3 class="kf-h">Select an Outlet</h3>
+                    <p class="text-xs text-slate-600 mt-0.5">Choose an outlet to configure its settings</p>
                 </div>
-                <div class="p-6">
+                <div>
                     {% if outlets %}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <ul class="kf-rows">
                         {% for outlet in outlets %}
-                        <a href="?outlet={{ outlet.id }}" class="p-4 border border-slate-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all group">
-                            <div class="flex items-center gap-4">
-                                <div class="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center group-hover:bg-indigo-200">
-                                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        <li>
+                            <a href="?outlet={{ outlet.id }}">
+                                <span class="kf-ic">
+                                    <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                                     </svg>
-                                </div>
-                                <div>
-                                    <h3 class="font-semibold text-slate-900">{{ outlet.name }}</h3>
-                                    <p class="text-sm text-slate-500">{{ outlet.code }} | {{ outlet.city }}</p>
-                                </div>
-                                <svg class="w-5 h-5 text-slate-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                </span>
+                                <span class="flex-1 min-w-0"><b>{{ outlet.name }}</b><small>{{ outlet.code }} | {{ outlet.city }}</small></span>
+                                <svg class="w-4 h-4 text-slate-500 flex-none mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                                 </svg>
-                            </div>
-                        </a>
+                            </a>
+                        </li>
                         {% endfor %}
-                    </div>
+                    </ul>
                     {% else %}
-                    <div class="text-center py-8">
-                        <svg class="w-16 h-16 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                        </svg>
-                        <p class="text-slate-500 mb-4">No outlets created yet</p>
-                        <a href="{% url 'dashboard:outlet_create' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                    <div class="kf-empty">
+                        <span class="kf-ic is-soft is-lg">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                            </svg>
+                        </span>
+                        <b>No outlets created yet</b>
+                        <a href="{% url 'dashboard:outlet_create' %}" class="btn-primary !h-9 !px-4 !text-[13px] mt-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                             </svg>
                             Create First Outlet
@@ -266,77 +302,77 @@
         </div>
 
         <!-- Branding Settings -->
-        <div x-show="activeTab === 'branding'" x-transition class="space-y-6">
+        <div x-show="activeTab === 'branding'" x-transition class="space-y-4">
             <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 <input type="hidden" name="setting_type" value="branding">
 
                 <!-- Logo & Identity -->
-                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
-                    <div class="p-6 border-b border-slate-100">
-                        <h2 class="text-lg font-semibold text-slate-900">Logo & Identity</h2>
+                <div class="kf-card p-5 mb-4">
+                    <div class="mb-4">
+                        <h3 class="kf-h">Logo & Identity</h3>
                     </div>
-                    <div class="p-6 space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="grid sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Business Name</label>
-                                <input type="text" name="business_name" value="{{ business.business_name }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" required>
+                                <label class="kf-label">Business Name</label>
+                                <input type="text" name="business_name" value="{{ business.business_name }}" class="kf-input" required>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Tagline</label>
-                                <input type="text" name="tagline" value="{{ business.tagline }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="e.g. Management System">
+                                <label class="kf-label">Tagline</label>
+                                <input type="text" name="tagline" value="{{ business.tagline }}" class="kf-input" placeholder="e.g. Management System">
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="grid sm:grid-cols-3 gap-3">
                             <!-- Logo Upload -->
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Logo (Light Background)</label>
-                                <div class="flex items-center gap-4">
+                                <label class="kf-label">Logo (Light Background)</label>
+                                <div class="flex items-center gap-3">
                                     {% if business.logo %}
-                                    <img src="{{ business.logo.url }}" alt="Logo" class="w-16 h-16 rounded-xl object-contain bg-slate-100 p-2">
+                                    <img src="{{ business.logo.url }}" alt="Logo" class="w-12 h-12 flex-none rounded-2xl object-contain bg-slate-100 p-2">
                                     {% else %}
-                                    <div class="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center">
-                                        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div class="w-12 h-12 flex-none rounded-2xl bg-slate-100 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                         </svg>
                                     </div>
                                     {% endif %}
-                                    <input type="file" name="logo" class="flex-1 text-sm border border-slate-200 rounded-xl file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700" accept="image/*">
+                                    <input type="file" name="logo" class="flex-1 min-w-0 text-[13px] text-slate-600 file:mr-2 file:h-9 file:px-3.5 file:rounded-full file:border-0 file:bg-white file:text-slate-800 file:text-[13px] file:cursor-pointer" accept="image/*">
                                 </div>
                             </div>
 
                             <!-- Logo Dark Upload -->
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Logo (Dark Background)</label>
-                                <div class="flex items-center gap-4">
+                                <label class="kf-label">Logo (Dark Background)</label>
+                                <div class="flex items-center gap-3">
                                     {% if business.logo_dark %}
-                                    <img src="{{ business.logo_dark.url }}" alt="Logo Dark" class="w-16 h-16 rounded-xl object-contain bg-slate-800 p-2">
+                                    <img src="{{ business.logo_dark.url }}" alt="Logo Dark" class="w-12 h-12 flex-none rounded-2xl object-contain bg-slate-800 p-2">
                                     {% else %}
-                                    <div class="w-16 h-16 rounded-xl bg-slate-800 flex items-center justify-center">
-                                        <svg class="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div class="w-12 h-12 flex-none rounded-2xl bg-slate-800 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                         </svg>
                                     </div>
                                     {% endif %}
-                                    <input type="file" name="logo_dark" class="flex-1 text-sm border border-slate-200 rounded-xl file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700" accept="image/*">
+                                    <input type="file" name="logo_dark" class="flex-1 min-w-0 text-[13px] text-slate-600 file:mr-2 file:h-9 file:px-3.5 file:rounded-full file:border-0 file:bg-white file:text-slate-800 file:text-[13px] file:cursor-pointer" accept="image/*">
                                 </div>
                             </div>
 
                             <!-- Favicon Upload -->
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Favicon</label>
-                                <div class="flex items-center gap-4">
+                                <label class="kf-label">Favicon</label>
+                                <div class="flex items-center gap-3">
                                     {% if business.favicon %}
-                                    <img src="{{ business.favicon.url }}" alt="Favicon" class="w-16 h-16 rounded-xl object-contain bg-slate-100 p-2">
+                                    <img src="{{ business.favicon.url }}" alt="Favicon" class="w-12 h-12 flex-none rounded-2xl object-contain bg-slate-100 p-2">
                                     {% else %}
-                                    <div class="w-16 h-16 rounded-xl bg-slate-100 flex items-center justify-center">
-                                        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div class="w-12 h-12 flex-none rounded-2xl bg-slate-100 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                                         </svg>
                                     </div>
                                     {% endif %}
-                                    <input type="file" name="favicon" class="flex-1 text-sm border border-slate-200 rounded-xl file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700" accept="image/*">
+                                    <input type="file" name="favicon" class="flex-1 min-w-0 text-[13px] text-slate-600 file:mr-2 file:h-9 file:px-3.5 file:rounded-full file:border-0 file:bg-white file:text-slate-800 file:text-[13px] file:cursor-pointer" accept="image/*">
                                 </div>
                             </div>
                         </div>
@@ -344,70 +380,72 @@
                 </div>
 
                 <!-- Theme Colors -->
-                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
-                    <div class="p-6 border-b border-slate-100">
-                        <h2 class="text-lg font-semibold text-slate-900">Theme Colors</h2>
-                        <p class="text-slate-500 text-sm mt-1">Customize your brand colors</p>
+                <div class="kf-card p-5 mb-4">
+                    <div class="mb-4">
+                        <h3 class="kf-h">Theme Colors</h3>
+                        <p class="text-xs text-slate-600 mt-0.5">Customize your brand colors</p>
+                        <p class="text-xs text-slate-500 mt-1">The app now uses the built-in theme; these colours are kept for reference.</p>
                     </div>
-                    <div class="p-6">
-                        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+                    <div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Primary Color</label>
-                                <div class="flex items-center gap-3">
-                                    <input type="color" name="primary_color" value="{{ business.primary_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
-                                    <input type="text" value="{{ business.primary_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                <label class="kf-label">Primary Color</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" name="primary_color" value="{{ business.primary_color }}" class="w-10 h-10 flex-none rounded-full cursor-pointer border border-slate-200 bg-white p-0.5">
+                                    <input type="text" value="{{ business.primary_color }}" class="kf-input flex-1 min-w-0 !h-10 font-mono !text-[13px] !bg-slate-50" readonly>
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Secondary Color</label>
-                                <div class="flex items-center gap-3">
-                                    <input type="color" name="secondary_color" value="{{ business.secondary_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
-                                    <input type="text" value="{{ business.secondary_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                <label class="kf-label">Secondary Color</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" name="secondary_color" value="{{ business.secondary_color }}" class="w-10 h-10 flex-none rounded-full cursor-pointer border border-slate-200 bg-white p-0.5">
+                                    <input type="text" value="{{ business.secondary_color }}" class="kf-input flex-1 min-w-0 !h-10 font-mono !text-[13px] !bg-slate-50" readonly>
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Accent Color</label>
-                                <div class="flex items-center gap-3">
-                                    <input type="color" name="accent_color" value="{{ business.accent_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
-                                    <input type="text" value="{{ business.accent_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                <label class="kf-label">Accent Color</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" name="accent_color" value="{{ business.accent_color }}" class="w-10 h-10 flex-none rounded-full cursor-pointer border border-slate-200 bg-white p-0.5">
+                                    <input type="text" value="{{ business.accent_color }}" class="kf-input flex-1 min-w-0 !h-10 font-mono !text-[13px] !bg-slate-50" readonly>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Preview -->
-                        <div class="mt-6 p-4 rounded-xl border-2 border-dashed border-slate-200">
-                            <p class="text-sm text-slate-500 mb-3">Preview:</p>
-                            <div class="h-16 rounded-lg" style="background: linear-gradient(135deg, {{ business.primary_color }} 0%, {{ business.secondary_color }} 50%, {{ business.accent_color }} 100%);"></div>
+                        <div class="mt-4 p-3 rounded-2xl border border-dashed border-slate-300">
+                            <p class="text-xs text-slate-600 mb-2">Preview:</p>
+                            <div class="h-12 rounded-xl" style="background: linear-gradient(135deg, {{ business.primary_color }} 0%, {{ business.secondary_color }} 50%, {{ business.accent_color }} 100%);"></div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Sidebar Colors -->
-                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
-                    <div class="p-6 border-b border-slate-100">
-                        <h2 class="text-lg font-semibold text-slate-900">Sidebar Customization</h2>
+                <div class="kf-card p-5 mb-4">
+                    <div class="mb-4">
+                        <h3 class="kf-h">Sidebar Customization</h3>
+                        <p class="text-xs text-slate-500 mt-1">The app now uses the built-in theme; these colours are kept for reference.</p>
                     </div>
-                    <div class="p-6">
-                        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+                    <div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Sidebar Background</label>
-                                <div class="flex items-center gap-3">
-                                    <input type="color" name="sidebar_color" value="{{ business.sidebar_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
-                                    <input type="text" value="{{ business.sidebar_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                <label class="kf-label">Sidebar Background</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" name="sidebar_color" value="{{ business.sidebar_color }}" class="w-10 h-10 flex-none rounded-full cursor-pointer border border-slate-200 bg-white p-0.5">
+                                    <input type="text" value="{{ business.sidebar_color }}" class="kf-input flex-1 min-w-0 !h-10 font-mono !text-[13px] !bg-slate-50" readonly>
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Sidebar Text</label>
-                                <div class="flex items-center gap-3">
-                                    <input type="color" name="sidebar_text_color" value="{{ business.sidebar_text_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
-                                    <input type="text" value="{{ business.sidebar_text_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                <label class="kf-label">Sidebar Text</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" name="sidebar_text_color" value="{{ business.sidebar_text_color }}" class="w-10 h-10 flex-none rounded-full cursor-pointer border border-slate-200 bg-white p-0.5">
+                                    <input type="text" value="{{ business.sidebar_text_color }}" class="kf-input flex-1 min-w-0 !h-10 font-mono !text-[13px] !bg-slate-50" readonly>
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Active Menu Item</label>
-                                <div class="flex items-center gap-3">
-                                    <input type="color" name="sidebar_active_color" value="{{ business.sidebar_active_color }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
-                                    <input type="text" value="{{ business.sidebar_active_color }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                <label class="kf-label">Active Menu Item</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" name="sidebar_active_color" value="{{ business.sidebar_active_color }}" class="w-10 h-10 flex-none rounded-full cursor-pointer border border-slate-200 bg-white p-0.5">
+                                    <input type="text" value="{{ business.sidebar_active_color }}" class="kf-input flex-1 min-w-0 !h-10 font-mono !text-[13px] !bg-slate-50" readonly>
                                 </div>
                             </div>
                         </div>
@@ -415,42 +453,43 @@
                 </div>
 
                 <!-- Login Page -->
-                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
-                    <div class="p-6 border-b border-slate-100">
-                        <h2 class="text-lg font-semibold text-slate-900">Login Page</h2>
+                <div class="kf-card p-5 mb-4">
+                    <div class="mb-4">
+                        <h3 class="kf-h">Login Page</h3>
+                        <p class="text-xs text-slate-500 mt-1">The app now uses the built-in theme; these colours are kept for reference.</p>
                     </div>
-                    <div class="p-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <div class="grid sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Gradient Start Color</label>
-                                <div class="flex items-center gap-3">
-                                    <input type="color" name="login_gradient_start" value="{{ business.login_bg_gradient_start }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
-                                    <input type="text" value="{{ business.login_bg_gradient_start }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                <label class="kf-label">Gradient Start Color</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" name="login_gradient_start" value="{{ business.login_bg_gradient_start }}" class="w-10 h-10 flex-none rounded-full cursor-pointer border border-slate-200 bg-white p-0.5">
+                                    <input type="text" value="{{ business.login_bg_gradient_start }}" class="kf-input flex-1 min-w-0 !h-10 font-mono !text-[13px] !bg-slate-50" readonly>
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Gradient End Color</label>
-                                <div class="flex items-center gap-3">
-                                    <input type="color" name="login_gradient_end" value="{{ business.login_bg_gradient_end }}" class="w-12 h-12 rounded-lg cursor-pointer border-2 border-slate-200">
-                                    <input type="text" value="{{ business.login_bg_gradient_end }}" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-50" readonly>
+                                <label class="kf-label">Gradient End Color</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="color" name="login_gradient_end" value="{{ business.login_bg_gradient_end }}" class="w-10 h-10 flex-none rounded-full cursor-pointer border border-slate-200 bg-white p-0.5">
+                                    <input type="text" value="{{ business.login_bg_gradient_end }}" class="kf-input flex-1 min-w-0 !h-10 font-mono !text-[13px] !bg-slate-50" readonly>
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Welcome Message</label>
-                                <input type="text" name="login_welcome_text" value="{{ business.login_welcome_text }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                                <label class="kf-label">Welcome Message</label>
+                                <input type="text" name="login_welcome_text" value="{{ business.login_welcome_text }}" class="kf-input">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2">Subtitle</label>
-                                <input type="text" name="login_subtitle" value="{{ business.login_subtitle }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                                <label class="kf-label">Subtitle</label>
+                                <input type="text" name="login_subtitle" value="{{ business.login_subtitle }}" class="kf-input">
                             </div>
                         </div>
 
                         <!-- Preview -->
-                        <div class="mt-6 p-4 rounded-xl border-2 border-dashed border-slate-200">
-                            <p class="text-sm text-slate-500 mb-3">Login Page Preview:</p>
-                            <div class="h-32 rounded-lg flex items-center justify-center text-white" style="background: linear-gradient(135deg, {{ business.login_bg_gradient_start }} 0%, {{ business.secondary_color }} 50%, {{ business.login_bg_gradient_end }} 100%);">
+                        <div class="mt-4 p-3 rounded-2xl border border-dashed border-slate-300">
+                            <p class="text-xs text-slate-600 mb-2">Login Page Preview:</p>
+                            <div class="h-24 rounded-xl flex items-center justify-center text-white" style="background: linear-gradient(135deg, {{ business.login_bg_gradient_start }} 0%, {{ business.secondary_color }} 50%, {{ business.login_bg_gradient_end }} 100%);">
                                 <div class="text-center">
-                                    <p class="text-xl font-bold">{{ business.login_welcome_text }}</p>
+                                    <p class="text-lg font-light">{{ business.login_welcome_text }}</p>
                                     <p class="text-white/80 text-sm">{{ business.login_subtitle }}</p>
                                 </div>
                             </div>
@@ -459,12 +498,12 @@
                 </div>
 
                 <!-- Theme Mode -->
-                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm mb-6">
-                    <div class="p-6 border-b border-slate-100">
-                        <h2 class="text-lg font-semibold text-slate-900">Default Theme Mode</h2>
+                <div class="kf-card p-5 mb-4">
+                    <div class="mb-4">
+                        <h3 class="kf-h">Default Theme Mode</h3>
                     </div>
-                    <div class="p-6">
-                        <select name="default_theme" class="w-full max-w-xs px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                    <div>
+                        <select name="default_theme" class="kf-input sm:!max-w-xs">
                             <option value="light" {% if business.default_theme == 'light' %}selected{% endif %}>Light Mode</option>
                             <option value="dark" {% if business.default_theme == 'dark' %}selected{% endif %}>Dark Mode</option>
                             <option value="system" {% if business.default_theme == 'system' %}selected{% endif %}>System Default</option>
@@ -472,57 +511,59 @@
                     </div>
                 </div>
 
-                <button type="submit" class="w-full px-6 py-3 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800 flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Save Branding Settings
-                </button>
+                <div class="flex justify-end">
+                    <button type="submit" class="btn-primary !h-10 !px-5 !text-[13px]">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Save Branding Settings
+                    </button>
+                </div>
             </form>
         </div>
 
         <!-- Business Settings -->
         <div x-show="activeTab === 'business'" x-transition>
-            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
-                <div class="p-6 border-b border-slate-100">
-                    <h2 class="text-lg font-semibold text-slate-900">Business Information</h2>
+            <div class="kf-card p-5">
+                <div class="mb-4">
+                    <h3 class="kf-h">Business Information</h3>
                 </div>
-                <form method="post" class="p-6 space-y-6">
+                <form method="post" class="space-y-4">
                     {% csrf_token %}
                     <input type="hidden" name="setting_type" value="business">
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Phone</label>
-                            <input type="tel" name="phone" value="{{ business.phone }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="+91 98765 43210">
+                            <label class="kf-label">Phone</label>
+                            <input type="tel" name="phone" value="{{ business.phone }}" class="kf-input" placeholder="+91 98765 43210">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Email</label>
-                            <input type="email" name="email" value="{{ business.email }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="contact@example.com">
+                            <label class="kf-label">Email</label>
+                            <input type="email" name="email" value="{{ business.email }}" class="kf-input" placeholder="contact@example.com">
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">Address</label>
-                        <textarea name="address" rows="2" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="Full address...">{{ business.address }}</textarea>
+                        <label class="kf-label">Address</label>
+                        <textarea name="address" rows="2" class="kf-input" placeholder="Full address...">{{ business.address }}</textarea>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">Website</label>
-                        <input type="url" name="website" value="{{ business.website }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="https://example.com">
+                        <label class="kf-label">Website</label>
+                        <input type="url" name="website" value="{{ business.website }}" class="kf-input" placeholder="https://example.com">
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">GST Number</label>
-                            <input type="text" name="gst_number" value="{{ business.gst_number }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" placeholder="22AAAAA0000A1Z5">
+                            <label class="kf-label">GST Number</label>
+                            <input type="text" name="gst_number" value="{{ business.gst_number }}" class="kf-input" placeholder="22AAAAA0000A1Z5">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">FSSAI Number</label>
-                            <input type="text" name="fssai_number" value="{{ business.fssai_number }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            <label class="kf-label">FSSAI Number</label>
+                            <input type="text" name="fssai_number" value="{{ business.fssai_number }}" class="kf-input">
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Currency</label>
-                            <select name="currency" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            <label class="kf-label">Currency</label>
+                            <select name="currency" class="kf-input">
                                 <option value="INR" {% if business.currency == 'INR' %}selected{% endif %}>INR - Indian Rupee</option>
                                 <option value="USD" {% if business.currency == 'USD' %}selected{% endif %}>USD - US Dollar</option>
                                 <option value="EUR" {% if business.currency == 'EUR' %}selected{% endif %}>EUR - Euro</option>
@@ -530,98 +571,104 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Currency Symbol</label>
-                            <input type="text" name="currency_symbol" value="{{ business.currency_symbol }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900" maxlength="5">
+                            <label class="kf-label">Currency Symbol</label>
+                            <input type="text" name="currency_symbol" value="{{ business.currency_symbol }}" class="kf-input" maxlength="5">
                         </div>
                     </div>
-                    <button type="submit" class="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">Save Business Settings</button>
+                    <div class="flex justify-end">
+                        <button type="submit" class="btn-primary !h-10 !px-5 !text-[13px]">Save Business Settings</button>
+                    </div>
                 </form>
             </div>
         </div>
 
         <!-- Tax Settings -->
         <div x-show="activeTab === 'tax'" x-transition>
-            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
-                <div class="p-6 border-b border-slate-100">
-                    <h2 class="text-lg font-semibold text-slate-900">Tax & Billing Settings</h2>
+            <div class="kf-card p-5">
+                <div class="mb-4">
+                    <h3 class="kf-h">Tax & Billing Settings</h3>
                 </div>
-                <form method="post" class="p-6 space-y-6">
+                <form method="post" class="space-y-4">
                     {% csrf_token %}
                     <input type="hidden" name="setting_type" value="tax">
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">CGST Rate (%)</label>
-                            <input type="number" name="cgst_rate" step="0.01" value="{{ tax.cgst_rate }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            <label class="kf-label">CGST Rate (%)</label>
+                            <input type="number" name="cgst_rate" step="0.01" value="{{ tax.cgst_rate }}" class="kf-input">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">SGST Rate (%)</label>
-                            <input type="number" name="sgst_rate" step="0.01" value="{{ tax.sgst_rate }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            <label class="kf-label">SGST Rate (%)</label>
+                            <input type="number" name="sgst_rate" step="0.01" value="{{ tax.sgst_rate }}" class="kf-input">
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">Service Charge Rate (%)</label>
-                        <input type="number" name="service_charge_rate" step="0.01" value="{{ tax.service_charge_rate }}" class="w-full max-w-xs px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                        <label class="kf-label">Service Charge Rate (%)</label>
+                        <input type="number" name="service_charge_rate" step="0.01" value="{{ tax.service_charge_rate }}" class="kf-input sm:!max-w-xs">
                     </div>
-                    <div class="space-y-4">
+                    <div class="space-y-3">
                         <label class="flex items-center gap-3 cursor-pointer">
-                            <input type="checkbox" name="service_charge_enabled" {% if tax.service_charge_enabled %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                            <input type="checkbox" name="service_charge_enabled" {% if tax.service_charge_enabled %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                             <span class="text-sm text-slate-700">Enable Service Charge</span>
                         </label>
                         <label class="flex items-center gap-3 cursor-pointer">
-                            <input type="checkbox" name="tax_inclusive_pricing" {% if tax.tax_inclusive_pricing %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                            <input type="checkbox" name="tax_inclusive_pricing" {% if tax.tax_inclusive_pricing %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                             <span class="text-sm text-slate-700">Tax Inclusive Pricing (prices include tax)</span>
                         </label>
                     </div>
-                    <button type="submit" class="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">Save Tax Settings</button>
+                    <div class="flex justify-end">
+                        <button type="submit" class="btn-primary !h-10 !px-5 !text-[13px]">Save Tax Settings</button>
+                    </div>
                 </form>
             </div>
         </div>
 
         <!-- Order Settings -->
         <div x-show="activeTab === 'orders'" x-transition>
-            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm">
-                <div class="p-6 border-b border-slate-100">
-                    <h2 class="text-lg font-semibold text-slate-900">Order Settings</h2>
+            <div class="kf-card p-5">
+                <div class="mb-4">
+                    <h3 class="kf-h">Order Settings</h3>
                 </div>
-                <form method="post" class="p-6 space-y-6">
+                <form method="post" class="space-y-4">
                     {% csrf_token %}
                     <input type="hidden" name="setting_type" value="orders">
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Order Number Prefix</label>
-                            <input type="text" name="order_number_prefix" value="{{ order_settings.order_number_prefix }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            <label class="kf-label">Order Number Prefix</label>
+                            <input type="text" name="order_number_prefix" value="{{ order_settings.order_number_prefix }}" class="kf-input">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Default Preparation Time (minutes)</label>
-                            <input type="number" name="default_preparation_time" value="{{ order_settings.default_preparation_time }}" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900">
+                            <label class="kf-label">Default Preparation Time (minutes)</label>
+                            <input type="number" name="default_preparation_time" value="{{ order_settings.default_preparation_time }}" class="kf-input">
                         </div>
                     </div>
-                    <div class="space-y-4">
+                    <div class="space-y-3">
                         <label class="flex items-center gap-3 cursor-pointer">
-                            <input type="checkbox" name="allow_qr_ordering" {% if order_settings.allow_qr_ordering %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                            <input type="checkbox" name="allow_qr_ordering" {% if order_settings.allow_qr_ordering %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                             <div>
                                 <span class="text-sm text-slate-700">Allow QR Code Ordering</span>
                                 <p class="text-xs text-slate-500">Customers can scan table QR codes to place orders</p>
                             </div>
                         </label>
                         <label class="flex items-center gap-3 cursor-pointer">
-                            <input type="checkbox" name="require_customer_info_qr" {% if order_settings.require_customer_info_qr %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                            <input type="checkbox" name="require_customer_info_qr" {% if order_settings.require_customer_info_qr %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                             <div>
                                 <span class="text-sm text-slate-700">Require Customer Info for QR Orders</span>
                                 <p class="text-xs text-slate-500">Ask for name and phone number before placing order</p>
                             </div>
                         </label>
                         <label class="flex items-center gap-3 cursor-pointer">
-                            <input type="checkbox" name="auto_accept_orders" {% if order_settings.auto_accept_orders %}checked{% endif %} class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
+                            <input type="checkbox" name="auto_accept_orders" {% if order_settings.auto_accept_orders %}checked{% endif %} class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
                             <div>
                                 <span class="text-sm text-slate-700">Auto-accept Orders</span>
                                 <p class="text-xs text-slate-500">Skip manual confirmation step</p>
                             </div>
                         </label>
                     </div>
-                    <button type="submit" class="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-medium hover:bg-slate-800">Save Order Settings</button>
+                    <div class="flex justify-end">
+                        <button type="submit" class="btn-primary !h-10 !px-5 !text-[13px]">Save Order Settings</button>
+                    </div>
                 </form>
             </div>
         </div>

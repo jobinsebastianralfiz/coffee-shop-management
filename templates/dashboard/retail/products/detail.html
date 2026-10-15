@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ product.name }}{% endblock %}
+{% block page_title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="fade-in space-y-4">
+    <!-- Header -->
+    <div class="kf-pagehead">
+        <a href="{% url 'retail:products' %}" class="text-sm text-slate-600 hover:text-slate-900 inline-flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Back to Products
+        </a>
+        <div class="kf-actions">
+            <a href="{% url 'retail:barcode_generate' product.pk %}" class="btn-secondary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                </svg>
+                Generate Barcode
+            </a>
+            <a href="{% url 'retail:product_edit' product.pk %}" class="btn-primary !h-9 !px-4 !text-[13px]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+                Edit
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Main Info -->
+        <div class="lg:col-span-2 space-y-4 min-w-0">
+            <!-- Basic Info Card -->
+            <div class="kf-card p-5">
+                <div class="flex flex-col sm:flex-row items-start gap-4">
+                    {% if product.image %}
+                    <img src="{{ product.image.url }}" alt="{{ product.name }}" class="w-24 h-24 rounded-2xl object-cover flex-none">
+                    {% else %}
+                    <div class="w-24 h-24 rounded-2xl bg-white/70 flex items-center justify-center flex-none">
+                        <svg class="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                    </div>
+                    {% endif %}
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            {% if product.is_active %}
+                            <span class="kf-tag g">Active</span>
+                            {% else %}
+                            <span class="kf-tag h">Inactive</span>
+                            {% endif %}
+                        </div>
+                        <p class="text-sm text-slate-600 mb-3">{{ product.description|default:"No description" }}</p>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                            <div>
+                                <p class="text-xs text-slate-600">SKU</p>
+                                <p class="text-slate-900">{{ product.sku|default:"-" }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-600">Category</p>
+                                <p class="text-slate-900">{{ product.category.name|default:"Uncategorized" }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-600">Unit</p>
+                                <p class="text-slate-900">{{ product.get_unit_display }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-600">Tax</p>
+                                <p class="text-slate-900">{{ product.get_tax_type_display }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pricing Card -->
+            <div class="kf-card p-5">
+                <div class="kf-cardhead mb-3">
+                    <h3 class="kf-h">Pricing</h3>
+                    <span class="kf-tag ys">Profit Margin {{ product.profit_margin|floatformat:1 }}%</span>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div class="px-3.5 py-3 bg-white/70 rounded-2xl">
+                        <p class="text-xs text-slate-600">Cost Price</p>
+                        <p class="text-xl font-light text-slate-900 tabular mt-0.5">{{ currency_symbol }}{{ product.cost_price }}</p>
+                    </div>
+                    <div class="px-3.5 py-3 bg-white/70 rounded-2xl">
+                        <p class="text-xs text-slate-600">MRP</p>
+                        <p class="text-xl font-light text-slate-900 tabular mt-0.5">{{ currency_symbol }}{{ product.mrp }}</p>
+                    </div>
+                    <div class="px-3.5 py-3 bg-slate-800 rounded-2xl">
+                        <p class="text-xs text-slate-400">Selling Price</p>
+                        <p class="text-xl font-light text-amber-300 tabular mt-0.5">{{ currency_symbol }}{{ product.selling_price }}</p>
+                    </div>
+                    <div class="px-3.5 py-3 bg-white/70 rounded-2xl">
+                        <p class="text-xs text-slate-600">Wholesale Price</p>
+                        <p class="text-xl font-light text-slate-900 tabular mt-0.5">{{ currency_symbol }}{{ product.wholesale_price }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Stock Movements -->
+            <div class="kf-card p-5">
+                <div class="kf-cardhead mb-3">
+                    <h3 class="kf-h">Stock Movements</h3>
+                    <a href="{% url 'retail:stock_movements' %}?product={{ product.pk }}" class="kf-arrow kf-arrow-light" aria-label="View all stock movements" title="View All">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 17L17 7M9 7h8v8"></path></svg>
+                    </a>
+                </div>
+                {% if movements %}
+                <ul class="kf-rows">
+                    {% for movement in movements %}
+                    <li>
+                        <div class="!pl-2">
+                            <span class="kf-tag {% if movement.movement_type == 'purchase' %}g{% elif movement.movement_type == 'sale' %}d{% elif movement.movement_type == 'damage' %}r{% else %}s{% endif %}">{{ movement.get_movement_type_display }}</span>
+                            <span class="flex-1 min-w-0 text-xs text-slate-600 truncate">{{ movement.created_at|timesince }} ago</span>
+                            <span class="text-sm tabular whitespace-nowrap {% if movement.quantity > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">{% if movement.quantity > 0 %}+{% endif %}{{ movement.quantity }}</span>
+                            <span class="text-xs text-slate-500 tabular whitespace-nowrap">{{ movement.stock_before }} → {{ movement.stock_after }}</span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="kf-empty">
+                    <span class="kf-ic is-soft is-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg></span>
+                    <b>No stock movements yet</b>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-4 min-w-0">
+            <!-- Stock Status -->
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-3">Stock Status</h3>
+                {% if product.track_inventory %}
+                <div class="flex items-end justify-between gap-3">
+                    <div>
+                        <p class="text-4xl font-light tabular leading-none {% if product.current_stock <= 0 %}text-red-600{% else %}text-slate-900{% endif %}">{{ product.current_stock }}</p>
+                        <p class="text-xs text-slate-600 mt-1.5">{{ product.get_unit_display }} · Minimum: {{ product.minimum_stock }} {{ product.get_unit_display }}</p>
+                    </div>
+                    <span class="kf-tag {% if product.current_stock <= 0 %}r{% elif product.current_stock <= product.minimum_stock %}ys{% else %}g{% endif %}">
+                        {% if product.current_stock <= 0 %}Out of Stock
+                        {% elif product.current_stock <= product.minimum_stock %}Low Stock
+                        {% else %}In Stock{% endif %}
+                    </span>
+                </div>
+                <a href="{% url 'retail:stock_adjust' %}?product={{ product.pk }}" class="btn-secondary w-full !h-10 !text-[13px] mt-4">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Adjust Stock
+                </a>
+                {% else %}
+                <p class="text-sm text-slate-600 py-2">Inventory tracking disabled</p>
+                {% endif %}
+            </div>
+
+            <!-- Barcodes -->
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-3">Barcodes</h3>
+                {% if barcodes %}
+                <div class="space-y-2">
+                    {% for barcode in barcodes %}
+                    <div class="p-3 bg-white rounded-2xl">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-slate-600">{{ barcode.get_barcode_type_display }}</span>
+                            {% if barcode.is_primary %}
+                            <span class="kf-tag d">Primary</span>
+                            {% endif %}
+                        </div>
+                        {% if barcode.barcode_image %}
+                        <img src="{{ barcode.barcode_image.url }}" alt="{{ barcode.barcode_value }}" class="w-full h-auto">
+                        {% endif %}
+                        <p class="text-center font-mono text-sm text-slate-700 mt-1">{{ barcode.barcode_value }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="kf-empty !py-4">
+                    <b>No barcodes generated</b>
+                    <a href="{% url 'retail:barcode_generate' product.pk %}" class="btn-primary !h-9 !px-4 !text-[13px] mt-2">Generate Barcode</a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Links -->
+            {% if product.linked_menu_item or product.supplier %}
+            <div class="kf-card p-5">
+                <h3 class="kf-h mb-3">Links</h3>
+                {% if product.linked_menu_item %}
+                <div class="mb-3">
+                    <p class="text-xs text-slate-600">Linked Menu Item</p>
+                    <p class="text-sm text-slate-900">{{ product.linked_menu_item.name }}</p>
+                </div>
+                {% endif %}
+                {% if product.supplier %}
+                <div>
+                    <p class="text-xs text-slate-600">Supplier</p>
+                    <p class="text-sm text-slate-900">{{ product.supplier.name }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Receipt {{ payment.receipt_number }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Outfit', system-ui, sans-serif;
+            font-size: 13px;
+            line-height: 1.45;
+            color: #111;
+            background: #fff;
+            max-width: 148mm;
+            margin: 0 auto;
+            padding: 12mm 10mm;
+        }
+        .num { font-variant-numeric: tabular-nums; }
+        .muted { color: #555; }
+        .head { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #111; }
+        .head img { max-height: 52px; max-width: 120px; object-fit: contain; margin-bottom: 6px; }
+        .head h1 { font-size: 20px; font-weight: 600; }
+        .head p { font-size: 11px; color: #444; }
+        .title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 14px 0 10px; }
+        .title h2 { font-size: 16px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+        .amount { border: 2px solid #111; border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; margin: 12px 0; }
+        .amount .v { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+        table.rows { width: 100%; border-collapse: collapse; }
+        table.rows td { padding: 6px 0; border-bottom: 1px dashed #ccc; vertical-align: top; }
+        table.rows td:first-child { color: #555; width: 40%; }
+        table.rows td:last-child { text-align: right; }
+        .box { border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; margin-top: 12px; }
+        .box h3 { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: #555; margin-bottom: 4px; }
+        .sign { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-top: 36px; }
+        .sign .line { border-top: 1px solid #111; padding-top: 4px; min-width: 170px; text-align: center; font-size: 12px; }
+        .foot { margin-top: 16px; text-align: center; font-size: 10px; color: #666; }
+        .print-btn {
+            position: fixed; top: 20px; right: 20px;
+            padding: 10px 20px; background: #2A2A2C; color: #fff;
+            border: none; border-radius: 999px; cursor: pointer;
+            font-family: inherit; font-size: 14px;
+        }
+        .print-btn:hover { background: #000; }
+        @media print {
+            body { padding: 0; }
+            .print-btn { display: none; }
+            @page { size: A5; margin: 10mm; }
+        }
+        @media (max-width: 640px) {
+            body { padding: 70px 16px 16px; }
+        }
+    </style>
+</head>
+<body>
+    <button class="print-btn" onclick="window.print()">Print Receipt</button>
+
+    {% with customer=payment.customer %}
+    <div class="head">
+        {% if business_logo %}<img src="{{ business_logo }}" alt="{{ business_name }}">{% endif %}
+        <h1>{{ business_name }}</h1>
+        {% if business.address %}<p>{{ business.address|linebreaksbr }}</p>{% endif %}
+        <p>
+            {% if business.phone %}Tel: {{ business.phone }}{% endif %}
+            {% if business.phone and business.email %} · {% endif %}
+            {% if business.email %}{{ business.email }}{% endif %}
+        </p>
+        {% if business.gst_number %}<p>GSTIN: {{ business.gst_number }}</p>{% endif %}
+    </div>
+
+    <div class="title">
+        <h2>Payment Receipt</h2>
+        <span><strong>{{ payment.receipt_number }}</strong></span>
+    </div>
+
+    <div class="amount">
+        <span>Amount Received</span>
+        <span class="v num">{{ currency_symbol }}{{ payment.amount|floatformat:2 }}</span>
+    </div>
+
+    <table class="rows">
+        <tr><td>Date</td><td>{{ payment.payment_date|date:"d/m/Y" }}</td></tr>
+        <tr><td>Payment Method</td><td>{{ payment.get_payment_method_display }}</td></tr>
+        {% if payment.reference_number %}<tr><td>Reference No.</td><td>{{ payment.reference_number }}</td></tr>{% endif %}
+        {% if payment.bank_name %}<tr><td>Bank</td><td>{{ payment.bank_name }}</td></tr>{% endif %}
+        <tr><td>Applied To</td><td>{% if payment.invoice %}Invoice {{ payment.invoice.invoice_number }}{% else %}Customer account{% endif %}</td></tr>
+        {% if payment.invoice %}
+        <tr><td>Invoice Amount</td><td class="num">{{ currency_symbol }}{{ payment.invoice.amount|floatformat:2 }}</td></tr>
+        <tr><td>Invoice Balance Due</td><td class="num">{{ currency_symbol }}{{ payment.invoice.balance_due|floatformat:2 }}</td></tr>
+        {% endif %}
+        <tr><td>Account Balance</td><td class="num">{{ currency_symbol }}{{ customer.current_balance|floatformat:2 }}</td></tr>
+        {% if payment.received_by %}<tr><td>Received By</td><td>{{ payment.received_by.get_full_name|default:payment.received_by.username }}</td></tr>{% endif %}
+    </table>
+
+    <div class="box">
+        <h3>Received From</h3>
+        <p><strong>{{ customer.business_name }}</strong> ({{ customer.customer_code }})</p>
+        <p>{{ customer.name }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</p>
+        <p class="muted">{{ customer.full_address }}</p>
+        {% if customer.gst_number %}<p>GSTIN: {{ customer.gst_number }}</p>{% endif %}
+    </div>
+
+    {% if payment.notes %}
+    <div class="box">
+        <h3>Notes</h3>
+        <p style="white-space: pre-line;">{{ payment.notes }}</p>
+    </div>
+    {% endif %}
+
+    <div class="sign">
+        <p class="muted" style="font-size: 11px;">Issued {{ payment.created_at|date:"d/m/Y H:i" }}</p>
+        <div class="line">For {{ business_name }}<br><span class="muted">Authorised Signatory</span></div>
+    </div>
+
+    <div class="foot">
+        <p>This is a computer generated receipt.</p>
+        {% if business.website %}<p>{{ business.website }}</p>{% endif %}
+    </div>
+    {% endwith %}
+</body>
+</html>

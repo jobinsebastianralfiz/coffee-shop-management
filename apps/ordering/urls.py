@@ -9,8 +9,16 @@ from . import views
 app_name = "ordering"
 
 urlpatterns = [
-    # Seat selection (QR code landing page)
-    path("t/<uuid:table_uuid>/", views.select_seat, name="select_seat"),
+    # QR code landing page
+    path("t/<uuid:table_uuid>/", views.landing, name="landing"),
+
+    # Seat selection
+    path("t/<uuid:table_uuid>/seat/", views.select_seat, name="select_seat"),
+
+    # Table presence check (see apps.ordering.guard)
+    path("t/<uuid:table_uuid>/guest/status/", views.guest_status, name="guest_status"),
+    path("t/<uuid:table_uuid>/guest/locate/", views.guest_locate, name="guest_locate"),
+    path("t/<uuid:table_uuid>/guest/code/", views.guest_code, name="guest_code"),
 
     # Main menu
     path("t/<uuid:table_uuid>/menu/", views.table_menu, name="menu"),
